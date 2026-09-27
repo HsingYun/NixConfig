@@ -1,0 +1,19 @@
+# Nix build outputs and direnv cache
+/result
+/result-*
+/.direnv/
+
+# Local environment files
+.env
+.env.*
+!.env.example
+
+# Editor temporary files
+*.swp
+*.swo
+*~
+
+# OS metadata
+.DS_Store
+Thumbs.db
+Desktop.ini

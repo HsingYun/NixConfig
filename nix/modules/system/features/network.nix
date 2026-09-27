@@ -1,0 +1,5 @@
+{ ... }:
+
+{
+  imports = [ ../shared/network.nix ];
+}

@@ -1,0 +1,5 @@
+{ ... }:
+
+{
+  imports = [ ../shared/desktop.nix ];
+}
