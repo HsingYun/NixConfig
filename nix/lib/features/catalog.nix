@@ -155,6 +155,15 @@ in
   };
 
   integrations = {
+    launcher = {
+      platforms = [ "nixos" ];
+      owners = [
+        "gnome"
+        "niri"
+        "dms"
+      ];
+      homeModules = [ ../../modules/integrations/launcher.nix ];
+    };
     gpg-smartcard = {
       platforms = nixos;
       owners = [

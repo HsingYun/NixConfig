@@ -19,6 +19,11 @@
       inputs.nixpkgs.follows = "nixpkgs";
     };
 
+    dms = {
+      url = "github:AvengeMedia/DankMaterialShell/master";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
+
     nix-darwin = {
       url = "github:nix-darwin/nix-darwin/master";
       inputs.nixpkgs.follows = "nixpkgs";
@@ -32,6 +37,9 @@
 
       user = {
         username = "hsingyun";
+        avatar = ./nix/assets/avatar.png;
+        wallpaper = ./nix/assets/desktop.png;
+        lockWallpaper = ./nix/assets/background.png;
         git = {
           name = "HsingYun";
           email = "iakext@gmail.com";

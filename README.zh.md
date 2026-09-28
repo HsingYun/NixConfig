@@ -57,6 +57,8 @@ features = {
 
 各功能独立提供所需工具，允许共享软件包。例如，`devel` 提供 Git 命令，`git` 配置用户身份与别名。
 
+DMS 使用上游 Home Manager 选项 `programs.dank-material-shell.settings` 和 `.session`。非空值以声明式方式管理对应 JSON 文件（只读）；将对应选项设为 `lib.mkForce { }`，可交由 DMS 管理该文件。应用列表通过 `desktop.launcher.hiddenEntries` 配置隐藏名单，仅处理实际存在的桌面入口。
+
 原生 NixOS 默认启用 `network`，使用 systemd-networkd 与 systemd-resolved；桌面功能共享该能力，默认使用 NetworkManager 与 systemd-resolved。在 `system.nix` 中设置 `networking.networkmanager.enable`，可独立选择 NetworkManager（`true`）或 networkd（`false`）。WSL、macOS 和独立 Home Manager 保留所属平台的网络管理方式。
 
 新增机器时，将 [nix/templates/](nix/templates/) 中对应平台的目录复制到 `hosts/<机器名>/`，补齐配置与 stateVersion，再注册到 `hosts/default.nix`。原生 NixOS 还需配置硬件与引导程序。

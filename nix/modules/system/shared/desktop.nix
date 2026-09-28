@@ -21,6 +21,13 @@
   services.udisks2.enable = lib.mkDefault true;
   services.gvfs.enable = lib.mkDefault true;
 
+  services.printing.enable = lib.mkDefault true;
+  services.avahi = {
+    enable = lib.mkDefault true;
+    nssmdns4 = lib.mkDefault true;
+  };
+  services.fwupd.enable = lib.mkDefault true;
+
   fonts.packages = with pkgs; [
     noto-fonts
     noto-fonts-cjk-sans

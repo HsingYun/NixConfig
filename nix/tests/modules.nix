@@ -191,6 +191,8 @@ let
     assert cfg.i18n.defaultLocale == "en_US.UTF-8";
     assert home.home.language.base == (if chinese then "zh_CN.UTF-8" else null);
     assert !chinese || home.i18n.inputMethod.type == "fcitx5";
+    assert !(home.home.sessionVariables ? GTK_IM_MODULE);
+    assert !(home.systemd.user.sessionVariables ? GTK_IM_MODULE);
     assert
       !(chinese && gnome)
       || builtins.elem "kimpanel@kde.org" (
@@ -257,6 +259,52 @@ let
     case.name;
   allOff = lib.genAttrs (builtins.attrNames (import ../lib/features/catalog.nix).features) (_: false);
   externalCases = [
+    {
+      name = "dms-mergeable-configuration";
+      features = allOff // {
+        dms = true;
+      };
+      homeConfig.programs.dank-material-shell = {
+        settings = {
+          lockScreenWallpaperPath = "/test/lock.png";
+          fontFamily = "Test Sans";
+        };
+        session = {
+          wallpaperPath = "/test/desktop.png";
+          isLightMode = true;
+        };
+      };
+      verify =
+        cfg:
+        let
+          dms = cfg.home-manager.users.test.programs.dank-material-shell;
+        in
+        dms.settings.fontFamily == "Test Sans"
+        && dms.settings.lockScreenWallpaperPath == "/test/lock.png"
+        && dms.session.wallpaperPath == "/test/desktop.png"
+        && dms.session.isLightMode
+        && !dms.systemd.enable
+        && cfg.programs.dms-shell.systemd.enable;
+    }
+    {
+      name = "dms-runtime-owned-configuration";
+      features = allOff // {
+        dms = true;
+      };
+      homeConfig = { lib, ... }: {
+        programs.dank-material-shell = {
+          settings = lib.mkForce { };
+          session = lib.mkForce { };
+        };
+      };
+      verify =
+        cfg:
+        let
+          home = cfg.home-manager.users.test;
+        in
+        !(home.xdg.configFile ? "DankMaterialShell/settings.json")
+        && !(home.xdg.stateFile ? "DankMaterialShell/session.json");
+    }
     {
       name = "external-plymouth";
       features = allOff;

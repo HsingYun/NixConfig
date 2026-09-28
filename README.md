@@ -57,6 +57,8 @@ Feature defaults and platform support are defined in the [feature catalog](nix/l
 
 Features provide their own required tools and may share packages. For example, `devel` includes Git; `git` adds the user identity and aliases.
 
+DMS uses the upstream Home Manager options `programs.dank-material-shell.settings` and `.session`. Nonempty values manage the corresponding JSON file declaratively (read-only); use `lib.mkForce { }` for either option to let DMS manage that file instead. Launcher exclusions are configured through `desktop.launcher.hiddenEntries`; only existing desktop entries are hidden.
+
 Native NixOS enables `network` by default: systemd-networkd with systemd-resolved. Desktop features share this capability and default to NetworkManager with systemd-resolved. Set `networking.networkmanager.enable` in `system.nix` to select NetworkManager (`true`) or networkd (`false`) independently of the desktop. WSL, macOS, and standalone Home Manager retain their platform's network management.
 
 To add a host, copy the matching directory from [nix/templates/](nix/templates/) into `hosts/<name>/`, complete its configuration and state versions, then register it in `hosts/default.nix`. Native NixOS also requires a hardware configuration and boot loader.

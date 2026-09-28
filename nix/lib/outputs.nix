@@ -26,6 +26,7 @@ in
       pkgs = inputs.nixpkgs.legacyPackages.x86_64-linux;
     in
     {
+      desktop-boundaries = import ../tests/desktop.nix { inherit inputs pkgs; };
       feature-devel = import ../tests/devel.nix { inherit pkgs; };
       feature-rules = pkgs.writeText "feature-rules.json" (
         builtins.toJSON (import ../tests/features.nix { inherit lib; })

@@ -18,9 +18,29 @@ let
     && builtins.match ".*[^[:space:]].*" value != null
     && !lib.hasInfix "\n" value
     && !lib.hasInfix "\r" value;
-  checked = checkFields source [ "username" "git" ] user;
+  imageFields = [
+    "avatar"
+    "wallpaper"
+    "lockWallpaper"
+  ];
+  checked = checkFields source (
+    [
+      "username"
+      "git"
+    ]
+    ++ imageFields
+  ) user;
   git = checkFields "${source}.git" [ "name" "email" ] (checked.git or { });
 in
+assert lib.all (
+  field:
+  let
+    value = checked.${field} or null;
+  in
+  lib.assertMsg (
+    value == null || (builtins.isPath value && builtins.pathExists value)
+  ) "Host ${name}: ${source}.${field} must be an existing image path or null."
+) imageFields;
 assert lib.assertMsg
   (
     !(checked ? username)
