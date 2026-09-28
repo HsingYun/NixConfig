@@ -1,19 +1,9 @@
-{
-  lib,
-  pkgs,
-  user,
-  ...
-}:
+{ lib, pkgs, ... }:
 
 {
-  imports = [ ../shared/user-profile.nix ];
+  imports = [ ../shared/nixos.nix ];
 
   boot.kernelPackages = lib.mkDefault pkgs.linuxPackages_latest;
 
-  i18n.defaultLocale = lib.mkDefault "en_US.UTF-8";
-
-  users.users.${user.username} = {
-    isNormalUser = true;
-    extraGroups = [ "wheel" ];
-  };
+  environment.systemPackages = [ pkgs.efibootmgr ];
 }
