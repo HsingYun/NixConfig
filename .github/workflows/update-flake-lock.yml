@@ -1,0 +1,64 @@
+name: Update flake.lock
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: update-flake-lock
+  cancel-in-progress: false
+
+jobs:
+  update:
+    if: github.repository == 'HsingYun/NixConfig'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    permissions:
+      contents: write
+      pull-requests: write
+      actions: write
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+          persist-credentials: false
+      - uses: cachix/install-nix-action@13d8dd58da0234aa297dedd986986ccb8e7f3e24 # v31
+      - name: Update all flake inputs
+        run: nix flake update
+      - name: Evaluate all hosts and checks
+        run: nix flake check --no-build --all-systems
+      - name: Create or update pull request
+        id: pr
+        uses: peter-evans/create-pull-request@5f6978faf089d4d20b00c7766989d076bb2fc7f1 # v8.1.1
+        with:
+          add-paths: flake.lock
+          branch: codex/update-flake-lock
+          base: ${{ github.event.repository.default_branch }}
+          delete-branch: true
+          author: HsingYun <iakext@gmail.com>
+          committer: HsingYun <iakext@gmail.com>
+          commit-message: 'chore(deps): update flake.lock'
+          title: 'chore(deps): update flake.lock'
+          body: |
+            Update all flake inputs to the latest revisions allowed by `flake.nix`.
+
+            All hosts and checks passed evaluation with the updated lock file.
+            The updater separately dispatches the `Check` workflow on this branch
+            to build native checks on Linux and Apple Silicon macOS.
+            Wait for both native checks to pass before merging.
+
+            Workflow: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+
+            After merging, apply the updated configuration on each target machine.
+            Homebrew and pacman/AUR packages are not versioned by this lock file.
+      - name: Run native checks on the update branch
+        if: steps.pr.outputs.pull-request-number && steps.pr.outputs.pull-request-operation != 'closed'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          UPDATE_BRANCH: ${{ steps.pr.outputs.pull-request-branch }}
+          PR_URL: ${{ steps.pr.outputs.pull-request-url }}
+        run: |
+          gh workflow run check.yml --repo "$GITHUB_REPOSITORY" --ref "$UPDATE_BRANCH"
+          printf 'Pull request: %s\n\nNative checks dispatched; wait for the Check workflow before merging.\n' "$PR_URL" >> "$GITHUB_STEP_SUMMARY"
