@@ -139,7 +139,9 @@ in
     };
     smartcard = {
       default = true;
-      platforms = nixos;
+      platforms = nixos ++ [ "darwin" ];
+      homeModules = [ ../../modules/home/features/smartcard.nix ];
+      systemPlatforms = nixos;
       systemModules = [ ../../modules/system/features/smartcard.nix ];
     };
     nixLd = {

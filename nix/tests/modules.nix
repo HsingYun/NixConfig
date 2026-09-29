@@ -578,4 +578,5 @@ in
   independentFeatures = import ./feature-independence.nix { inherit lib build; };
   ghostty = import ./ghostty.nix { inherit lib mkHost; };
   networking = import ./network.nix { inherit lib build; };
+  smartcard = import ./smartcard.nix { inherit lib mkHost; };
 }

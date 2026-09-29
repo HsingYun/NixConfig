@@ -117,6 +117,8 @@ Overriding LLVM preserves this rule and selects `out` and `dev` from the replace
 
 On NixOS, the shell feature also connects `programs.zsh.package` and the managed user's login shell to the selected Zsh package. A conflicting system-level package assignment is rejected while the system Zsh module is enabled. nix-darwin's upstream Zsh module has a different interface and does not expose this NixOS package option.
 
+On every supported platform, the shell feature loads `$HOME/.config/zsh/local.zsh` at shell startup if it is readable, after the normal Zsh initialization (`initContent` order 1500). Keep private aliases, environment variables, and machine-specific initialization in this local file. Home Manager does not create, copy, or manage it, and its contents are not included in the repository or the Nix store. Missing files are skipped. Avoid repeating the Oh My Zsh initialization already managed by the feature.
+
 ## Runtime paths and priorities
 
 Managed Nix executables take precedence over native provider paths, protecting selected Nix commands from stale native installations. Native feature paths precede independent native extras.
@@ -218,6 +220,19 @@ For example, coreutils uses `libexec/gnubin` for ordinary command names such as 
 NixOS installs it into the system environment. Standalone Linux uses the selected backend: pacman installs the native package, while Nix installs it into the user environment. Base tools do not request it implicitly. NixOS-Pad enables it based on its existing EFI configuration; PC and Arch leave it disabled until selected by their hosts.
 
 `screenRotate` requires an active GNOME desktop. Dependencies are checked against actual module activation, allowing a dependency supplied through host configuration as well as through a feature.
+
+## Smart cards
+
+`features.smartcard` is enabled by default on NixOS, NixOS-WSL, and Darwin. It integrates the platform's smart-card transport without enabling GPG on its own; `gpg` and `gpgSshSupport` remain separate features.
+
+- On NixOS and WSL, it enables `services.pcscd`. The GPG integration uses PC/SC whenever that service and the Home Manager GPG module are enabled, including when another system module provides the service.
+- On Darwin, macOS owns the native smart-card service. When the feature and the Home Manager GPG module are enabled, it sets `disable-ccid` in `scdaemon.conf` to select PC/SC. GnuPG already defaults to Apple's PC/SC framework, so no explicit driver path or additional daemon is installed. Local scdaemon overrides remain possible.
+
+Disabling the feature on Darwin removes this repository's scdaemon setting; it does not disable macOS smart-card support. This feature does not configure macOS login or FileVault authentication, pair a card with an account, or provision keys. WSL still requires the device to be made available to the guest.
+
+After activation, connect the device and check it with `gpg --card-status`. If an existing scdaemon process still uses the old settings, run `gpgconf --kill scdaemon` before checking again. Configuration tests cover feature toggles, externally enabled GPG, disabled GPG modules, and local overrides; actual card access requires validation with the user's hardware.
+
+References: [Apple smart-card integration](https://support.apple.com/guide/deployment/intro-to-smart-card-integration-depd0b888248/1/web/1.0), [GnuPG scdaemon options](https://www.gnupg.org/documentation/manuals/gnupg/Scdaemon-Options.html).
 
 ## Disabling features
 

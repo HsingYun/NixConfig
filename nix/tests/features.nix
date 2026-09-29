@@ -43,6 +43,7 @@ let
     smartcard = [
       "nixos"
       "nixos-wsl"
+      "darwin"
     ];
     nixLd = [
       "nixos"
