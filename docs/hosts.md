@@ -71,7 +71,11 @@ in
   platform = "arch";
   system = "x86_64-linux";
   packageManager = "pacman";
-  features = profiles.linuxDesktop;
+  features = profiles.linuxDesktop // {
+    desktop = profiles.linuxDesktop.desktop // {
+      gnome.enable = false;
+    };
+  };
   preferences = {
     desktop = "niri";
     loginManager = "greetd";
@@ -80,8 +84,10 @@ in
 }
 ```
 
-The desktop preset provides both Niri/DMS and GNOME. To choose GNOME at boot,
-set `desktop = "gnome"` and `loginManager = "gdm"`. One login manager owns the
+This host selects Niri/DMS and explicitly disables GNOME from the shared preset.
+To add GNOME, change the feature override to `gnome.enable = true`. To choose it
+at boot, also set `desktop = "gnome"` and `loginManager = "gdm"` in preferences.
+Preferences do not enable or disable features. One login manager owns the
 boot alias; applying a change does not stop the current desktop session.
 
 Install Nix and Home Manager prerequisites on Arch first. The native adapter

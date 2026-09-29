@@ -24,13 +24,13 @@
 
 | 主机 | 默认体验 |
 | --- | --- |
-| ArchLinux | Niri + DMS + greetd，也安装 GNOME；包优先 pacman/AUR |
+| ArchLinux | Niri + DMS + greetd；GNOME 按需启用，包优先 pacman/AUR |
 | NixOS-PC | 同样使用 Niri + DMS + greetd，也安装 GNOME；hardware 仍为占位 |
 | NixOS-Pad | GNOME + GDM，屏幕旋转、屏幕键盘和触屏方向调整 |
 | Darwin | 共享命令行、开发工具、GPG、Ghostty、Chrome、VS Code 和 mpv；保留 macOS 桌面 |
 | NixOS-WSL | 共享命令行、开发和 GPG/智能卡，使用终端 pinentry；不启用桌面和中文输入法 |
 
-PC / Arch 改用 GNOME 时，将 `preferences.desktop = "gnome"; preferences.loginManager = "gdm";` 即可；无需删除 Niri 配置。Pad 如需 Niri，启用 `desktop.niri` / `desktop.dms` 并改变同一组 preferences。
+PC / Arch 改用 GNOME 时，先确保主机的 `features.desktop.gnome.enable = true`（Arch 默认关闭），再设置 `preferences.desktop = "gnome"; preferences.loginManager = "gdm";`。preferences 只选择默认桌面，不负责启停 feature；Niri 配置可以保留。Pad 如需 Niri，启用 `desktop.niri` / `desktop.dms` 并改变同一组 preferences。
 
 ## 使用
 
@@ -148,7 +148,7 @@ features.desktop = {
 
 GNOME 的 Dash to Dock 默认固定在底部并延伸至屏幕边缘，关闭自动隐藏和智能隐藏，启用“收缩 Dash”，登录时不自动显示概览。“显示应用程序”位于最左侧。固定项按文本编辑器、文件管理器、Ghostty 排列；后两项仅在对应功能启用时添加。可通过 `features.desktop.gnome.settings` 覆盖 `org/gnome/shell` 和 `org/gnome/shell/extensions/dash-to-dock` 下的设置。
 
-ArchLinux 主机已启用 GNOME、Niri+DMS、壁纸和应用隐藏。GNOME 按[明确的 Arch 软件包清单](nix/modules/home/features/gnome.nix)安装缺失组件，包括 GDM，但不安装整个 `gnome` 包组；仓库来源遵循本机 pacman 配置。HM 管理 GNOME 扩展 UUID 和 dconf，以原生 `niri validate` 验证配置，并将 Arch 的 DMS 用户服务启用到 Niri 会话。通过系统的 Niri 登录会话或 `niri-session` 启动，用户服务才会随会话启动。
+ArchLinux 主机默认启用 Niri+DMS、壁纸和应用隐藏，关闭 GNOME feature。只有显式启用 GNOME 后，才按[明确的 Arch 软件包清单](nix/modules/home/features/gnome.nix)请求 GNOME Shell、GDM 和 GNOME 扩展等组件，不安装整个 `gnome` 包组；仓库来源遵循本机 pacman 配置。HM 管理桌面配置，以原生 `niri validate` 验证配置，并将 Arch 的 DMS 用户服务启用到 Niri 会话。通过系统的 Niri 登录会话或 `niri-session` 启动，用户服务才会随会话启动。
 
 GNOME 在 Arch 和 NixOS 都安装任务中心 `mission-center`、相机 `snapshot`、`gnome-text-editor` 和“密码与密钥”`seahorse`（NixOS 沿用官方 GNOME 模块）。终端使用独立的 Ghostty feature，不再请求 `gnome-console`；NixOS 排除旧的 GNOME Terminal、gedit、Cheese，隐藏规则也覆盖这些旧入口。
 

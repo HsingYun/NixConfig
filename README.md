@@ -24,13 +24,13 @@ Shared experience is defined in [nix/lib/hosts/profiles.nix](nix/lib/hosts/profi
 
 | Host | Default experience |
 | --- | --- |
-| ArchLinux | Niri + DMS + greetd, with GNOME also installed; pacman/AUR preferred |
+| ArchLinux | Niri + DMS + greetd; GNOME is opt-in, pacman/AUR preferred |
 | NixOS-PC | The same Niri desktop and GNOME alternative; hardware remains a placeholder |
 | NixOS-Pad | GNOME + GDM, screen rotation, on-screen keyboard and touchscreen orientation |
 | Darwin | Shared CLI/development/GPG tools, Ghostty, Chrome, VS Code and mpv; native macOS desktop |
 | NixOS-WSL | Shared CLI/development/GPG/smart-card tools, terminal pinentry; no desktop or Chinese IME |
 
-For GNOME on PC/Arch, select `preferences.desktop = "gnome"; preferences.loginManager = "gdm";`. Niri configuration can remain enabled. To use Niri on Pad, enable `desktop.niri` and `desktop.dms` and change those preferences.
+For GNOME on PC/Arch, first enable `features.desktop.gnome.enable` in the host (off by default on Arch), then select `preferences.desktop = "gnome"; preferences.loginManager = "gdm";`. Preferences select the default desktop; they do not enable or disable features. Niri configuration can remain enabled. To use Niri on Pad, enable `desktop.niri` and `desktop.dms` and change those preferences.
 
 ## Usage
 
@@ -148,7 +148,7 @@ Desktop features default-enable `fileManager`, `keyring`, `launcher`, `wallpaper
 
 GNOME's Dash to Dock defaults to a fixed bottom panel extending to the screen edges, with autohide and intellihide disabled, Shrink Dash enabled, and no overview on login. Show Applications sits at the far left. Favorites are Text Editor, Files, and Ghostty in that order; the latter two appear only when their features are enabled. Override these defaults through `features.desktop.gnome.settings` under `org/gnome/shell` and `org/gnome/shell/extensions/dash-to-dock`.
 
-ArchLinux enables GNOME, Niri+DMS, wallpaper, and launcher exclusions. GNOME installs missing components from the [explicit Arch package selection](nix/modules/home/features/gnome.nix), including GDM, without installing the entire `gnome` group. Package repositories follow the host pacman configuration. HM manages GNOME extension UUIDs and dconf, validates Niri configuration with the native binary, and enables Arch’s DMS user service for Niri sessions. Start Niri through its system login session or `niri-session`.
+ArchLinux defaults to Niri+DMS, wallpaper, and launcher exclusions, with the GNOME feature disabled. Enabling GNOME explicitly requests GNOME Shell, GDM, and GNOME extensions from the [Arch package selection](nix/modules/home/features/gnome.nix), without installing the entire `gnome` group. Package repositories follow the host pacman configuration. HM manages desktop configuration, validates Niri configuration with the native binary, and enables Arch’s DMS user service for Niri sessions. Start Niri through its system login session or `niri-session`.
 
 GNOME provides Mission Center (`mission-center`), Snapshot (`snapshot`), GNOME Text Editor, and Passwords and Keys (`seahorse`) on both Arch and NixOS; NixOS uses its official GNOME module for Seahorse. Ghostty is the separately managed terminal; GNOME Console is no longer requested. NixOS excludes legacy GNOME Terminal, gedit, and Cheese, whose desktop entries are also hidden by default.
 

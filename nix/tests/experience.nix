@@ -89,6 +89,7 @@ let
     pad.home-manager.users.test
     native
   ];
+  gnomeHomes = lib.filter (home: home.features.desktop.gnome.enable) homes;
 in
 assert !(builtins.tryEval (rawMkHost "UnsupportedLinux" { platform = "linux"; }).output).success;
 assert lib.all
@@ -110,13 +111,11 @@ assert pc.home-manager.users.test.xdg.dataFile.applications.recursive;
 assert native.software.platform == "arch";
 assert lib.all (
   home:
-  home.features.desktop.fileManager.enable
-  &&
-    map (v: v.value) home.dconf.settings."org/gnome/shell".favorite-apps.value == [
-      "org.gnome.TextEditor.desktop"
-      "org.gnome.Nautilus.desktop"
-      "com.mitchellh.ghostty.desktop"
-    ]
+  map (v: v.value) home.dconf.settings."org/gnome/shell".favorite-apps.value == [
+    "org.gnome.TextEditor.desktop"
+    "org.gnome.Nautilus.desktop"
+    "com.mitchellh.ghostty.desktop"
+  ]
   && home.dconf.settings."org/gnome/shell/extensions/dash-to-dock".extend-height
   && home.dconf.settings."org/gnome/shell/extensions/dash-to-dock".show-apps-at-top
   && home.dconf.settings."org/gnome/shell/extensions/dash-to-dock".dock-fixed
@@ -124,6 +123,10 @@ assert lib.all (
   && !home.dconf.settings."org/gnome/shell/extensions/dash-to-dock".intellihide
   && home.dconf.settings."org/gnome/shell/extensions/dash-to-dock".custom-theme-shrink
   && home.dconf.settings."org/gnome/shell/extensions/dash-to-dock".disable-overview-on-startup
+) gnomeHomes;
+assert lib.all (
+  home:
+  home.features.desktop.fileManager.enable
   && home.dconf.settings."org/gtk/settings/file-chooser".sort-directories-first
   && home.dconf.settings."org/gtk/settings/file-chooser".show-hidden
   && home.dconf.settings."org/gtk/gtk4/settings/file-chooser".sort-directories-first
@@ -140,7 +143,7 @@ assert !(wsl.home-manager.users.test.software.resolved ? nautilus);
 assert !(mac.home-manager.users.test.software.resolved ? nautilus);
 assert lib.all (
   home: home.dconf.settings."org/gnome/desktop/app-folders".folder-children.value == [ ]
-) homes;
+) gnomeHomes;
 assert lib.all (a: a.assertion) chinese.assertions;
 assert builtins.isString chinese.home.activationPackage.drvPath;
 assert lib.all (name: chinese.software.resolved.${name}.provider == "pacman") [
@@ -205,7 +208,28 @@ assert lib.all (
 ) homes;
 assert
   pc.services.displayManager.defaultSession == "niri" && pc.services.desktopManager.gnome.enable;
-assert native.features.desktop.niri.enable && native.features.desktop.gnome.enable;
+assert native.features.desktop.niri.enable && native.features.desktop.dms.enable;
+assert !native.features.desktop.gnome.enable;
+assert lib.all (name: !(native.software.resolved ? ${name})) [
+  "gnome-shell"
+  "gnome-session"
+  "gdm"
+  "gnome-user-themes"
+  "gnome-dash-to-dock"
+  "gnome-desktop-icons"
+  "gnome-kimpanel"
+];
+assert lib.all (name: native.software.resolved.${name}.provider == "pacman") [
+  "niri"
+  "dms"
+  "greetd"
+  "dms-greeter"
+  "nautilus"
+  "gnome-keyring"
+  "fcitx5"
+];
+assert !(native.dconf.settings ? "org/gnome/desktop/app-folders");
+assert !(native.dconf.settings ? "org/gnome/shell/extensions/dash-to-dock");
 assert
   pad.services.displayManager.defaultSession == "gnome" && pad.services.displayManager.gdm.enable;
 assert pad.home-manager.users.test.features.desktop.screenRotate.enable;
