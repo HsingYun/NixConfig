@@ -37,6 +37,12 @@ assert lib.assertMsg (resolved.errors == [ ]) (lib.concatStringsSep "\n" resolve
 {
   inherit (resolved) enabled selected;
   homeModules = lib.concatMap (entry: entry.homeModules or [ ]) entries ++ [
+    {
+      software.requirements = lib.genAttrs (lib.unique (
+        lib.concatMap (entry: entry.software or [ ]) entries
+      )) (_: { });
+    }
+
     dependencyChecks.homeModule
     (import ../../modules/integrations/user-resources.nix {
       inherit (resolved) enabled;

@@ -1,8 +1,9 @@
 { lib, build }:
 
 let
-  names = builtins.attrNames (import ../lib/features/catalog.nix).features;
-  allOff = lib.genAttrs names (_: false);
+  catalog = (import ../lib/features/catalog.nix).features;
+  names = builtins.attrNames (lib.filterAttrs (_: entry: !(entry ? software)) catalog);
+  allOff = lib.genAttrs (builtins.attrNames catalog) (_: false);
   home = cfg: cfg.home-manager.users.test;
   hasPackage = name: cfg: builtins.elem name (map lib.getName (home cfg).home.packages);
   plainGit =
@@ -106,7 +107,7 @@ let
       cfg.programs.niri.enable
       && desktopServices cfg
       && (home cfg).wayland.windowManager.niri.enable
-      && hasPackage "ghostty" cfg
+      && !(hasPackage "ghostty" cfg)
       && !(home cfg).programs.ghostty.enable
       && !((home cfg).programs.ghostty.settings ? theme)
       && !((home cfg).programs.ghostty.settings ? window-decoration)
@@ -125,6 +126,7 @@ let
     ghostty =
       cfg:
       (home cfg).programs.ghostty.enable
+      && hasPackage "ghostty" cfg
       && (home cfg).fonts.fontconfig.enable
       && (home cfg).programs.ghostty.settings ? theme
       && !((home cfg).programs.ghostty.settings ? window-decoration);

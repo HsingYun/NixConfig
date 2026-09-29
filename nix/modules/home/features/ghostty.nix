@@ -1,13 +1,34 @@
-{ lib, pkgs, ... }:
+{
+  lib,
+  pkgs,
+  software,
+  ...
+}:
 
 let
   inherit (pkgs.stdenv.hostPlatform) isDarwin isLinux;
 in
 {
+  software.bindings.ghostty = {
+    enableOption = [
+      "programs"
+      "ghostty"
+      "enable"
+    ];
+    packageOption = [
+      "programs"
+      "ghostty"
+      "package"
+    ];
+  };
+  software.requirements.ghostty = { };
   programs.ghostty = {
+    package = lib.mkDefault software.ghostty.package;
     enable = lib.mkDefault true;
-    # On macOS the application is supplied by Homebrew.
-    package = lib.mkIf isDarwin (lib.mkDefault null);
+
+    systemd.enable = lib.mkDefault (
+      builtins.elem "systemd-service" software.ghostty.providedCapabilities
+    );
     enableZshIntegration = lib.mkDefault true;
     settings = lib.mapAttrs (_: lib.mkDefault) (
       {
@@ -44,8 +65,6 @@ in
     );
   };
 
-  fonts.fontconfig.enable = lib.mkIf isLinux (lib.mkDefault true);
-  home.packages = lib.optionals isLinux [ pkgs.maple-mono.NF-CN ];
   home.sessionVariables.TERMINAL = lib.mkDefault "ghostty";
   xdg.terminal-exec = lib.mkIf isLinux {
     enable = lib.mkDefault true;

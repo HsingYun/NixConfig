@@ -47,6 +47,7 @@ let
     platforms = platformList;
     systemPlatforms = platformList;
     homeModules = modules;
+    software = uniqueStrings;
     systemModules = modules;
   };
   rootErrors = fields "catalog" [ "features" "choices" "integrations" ] {

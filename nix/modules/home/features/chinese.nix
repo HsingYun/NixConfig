@@ -1,11 +1,19 @@
 {
   config,
   lib,
-  pkgs,
+  software,
   ...
 }:
 
 {
+  software.requirements =
+    lib.genAttrs [ "noto-cjk-sans" "noto-cjk-serif" "noto-emoji" "maple-mono" ] (_: { })
+    // {
+      fcitx5-rime = {
+        capabilities = [ "store-package" ];
+        installNix = false;
+      };
+    };
   home.language = {
     base = lib.mkDefault "zh_CN.UTF-8";
     messages = lib.mkDefault "zh_CN.UTF-8";
@@ -37,9 +45,7 @@
     type = lib.mkDefault "fcitx5";
     fcitx5 = {
       waylandFrontend = lib.mkDefault true;
-      addons = with pkgs; [
-        (fcitx5-rime.override { rimeDataPkgs = [ rime-ice ]; })
-      ];
+      addons = [ software.fcitx5-rime.package ];
       settings.inputMethod = {
         GroupOrder."0" = lib.mkDefault "Default";
         "Groups/0" = {
@@ -59,13 +65,6 @@
       schema_list:
         - schema: rime_ice
   '';
-
-  home.packages = with pkgs; [
-    noto-fonts-cjk-sans
-    noto-fonts-cjk-serif
-    noto-fonts-color-emoji
-    maple-mono.NF-CN
-  ];
 
   fonts.fontconfig = {
     enable = lib.mkDefault true;

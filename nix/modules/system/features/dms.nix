@@ -1,4 +1,6 @@
 {
+  config,
+  software,
   lib,
   pkgs,
   user,
@@ -23,11 +25,18 @@ in
   imports = [ ../shared/desktop.nix ];
   programs.niri.enable = lib.mkDefault true;
   programs.dms-shell = {
+    package = lib.mkDefault software.dms.package;
     enable = lib.mkDefault true;
     systemd.enable = lib.mkDefault true;
     systemd.target = lib.mkDefault "niri.service";
     enableCalendarEvents = lib.mkDefault false;
   };
+  assertions = [
+    {
+      assertion = toString config.programs.dms-shell.package == toString software.dms.package;
+      message = "Software: programs.dms-shell.package must follow software.packageOverrides.dms in the user's Home Manager configuration.";
+    }
+  ];
   security.pam.services.dankshell = { };
 
   # Greeter defaults are available before the user's first login.

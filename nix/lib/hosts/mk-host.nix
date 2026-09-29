@@ -7,6 +7,14 @@
 name:
 {
   platform,
+  packageManager ? (
+    if platform == "darwin" then
+      "homebrew"
+    else if platform == "linux" then
+      null
+    else
+      "nix"
+  ),
   system ? null,
   hostname ? name,
   user ? { },
@@ -78,12 +86,23 @@ let
     user = actualUser;
     homeDirectory = actualHome;
     homeModules =
-      selected.homeModules ++ featureModules.homeModules ++ lib.optional (homeConfig != null) homeConfig;
+      selected.homeModules
+      ++ featureModules.homeModules
+      ++ [
+        {
+          software = { inherit platform packageManager; };
+        }
+      ]
+      ++ lib.optional (homeConfig != null) homeConfig;
   };
 in
 {
   inherit (selected) output;
+  username = actualUser.username;
   configuration =
+    assert lib.assertMsg (
+      packageManager != null
+    ) "Host ${name}: standalone Linux must explicitly select packageManager.";
     assert lib.assertMsg (
       builtins.isString hostname && hostname != ""
     ) "Host ${name}: hostname must be a non-empty string.";

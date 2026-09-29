@@ -1,6 +1,6 @@
 {
   lib,
-  pkgs,
+  software,
   user,
   ...
 }:
@@ -8,7 +8,17 @@
 {
   imports = [ ../shared/desktop.nix ];
 
-  home.packages = [ pkgs.gnome-firmware ];
+  software.requirements =
+    lib.genAttrs
+      [
+        "gnome-firmware"
+        "gnome-user-themes"
+        "gnome-dash-to-dock"
+        "gnome-desktop-icons"
+      ]
+      (_: {
+        capabilities = [ "store-package" ];
+      });
 
   # GNOME's native lock screen uses the desktop background.
   dconf.settings."org/gnome/desktop/background" = lib.mkIf ((user.wallpaper or null) != null) {
@@ -19,14 +29,11 @@
 
   programs.gnome-shell = {
     enable = lib.mkDefault true;
-    extensions = map (package: { inherit package; }) (
-      with pkgs.gnomeExtensions;
-      [
-        user-themes
-        dash-to-dock
-        desktop-icons-ng-ding
-      ]
-    );
+    extensions = map (package: { inherit package; }) ([
+      software.gnome-user-themes.package
+      software.gnome-dash-to-dock.package
+      software.gnome-desktop-icons.package
+    ]);
   };
 
   xdg.userDirs = {

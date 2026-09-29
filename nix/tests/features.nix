@@ -13,6 +13,18 @@ let
   # Independent compatibility specification. Update when adding a feature.
   all = platforms;
   support = {
+    efiTools = [
+      "linux"
+      "nixos"
+    ];
+    chrome = all;
+    vscode = all;
+    codex = all;
+    mapleMono = all;
+    coteditor = [ "darwin" ];
+    iina = [ "darwin" ];
+    edge = [ "darwin" ];
+    screenRotate = [ "nixos" ];
     plymouth = [ "nixos" ];
     network = [ "nixos" ];
     devel = all;
@@ -46,13 +58,41 @@ let
       "nixos-wsl"
     ];
   };
-  combinations = lib.foldl' (
-    rows: key:
-    lib.concatMap (row: [
-      (row // { ${key} = false; })
-      (row // { ${key} = true; })
-    ]) rows
-  ) [ { } ] names;
+  allOff = lib.genAttrs names (_: false);
+  combinationsFor =
+    keys:
+    lib.cartesianProduct (
+      lib.genAttrs keys (_: [
+        false
+        true
+      ])
+    );
+  # Exhaust only related features. Adding an independent feature adds one case
+  # per platform instead of doubling a repository-wide Cartesian product.
+  dependencyPairs = lib.concatMap (
+    name:
+    map (other: [
+      name
+      other
+    ]) (catalog.features.${name}.requires or [ ])
+  ) names;
+  conflictPairs = lib.concatMap (
+    name:
+    map (other: [
+      name
+      other
+    ]) (catalog.features.${name}.conflicts or [ ])
+  ) names;
+  choiceGroups = map (choice: lib.unique (builtins.attrValues choice.providers)) (
+    builtins.attrValues catalog.choices
+  );
+  combinations = lib.unique (
+    [ allOff ]
+    ++ map (name: allOff // { ${name} = true; }) names
+    ++ lib.concatMap (keys: map (row: allOff // row) (combinationsFor keys)) (
+      dependencyPairs ++ conflictPairs ++ choiceGroups
+    )
+  );
   check =
     args:
     resolve (
@@ -95,6 +135,36 @@ let
       }
       combinations
   );
+  # Exercise default selection, explicit disabling, and shared/local precedence
+  # for every feature, including unsupported shared defaults.
+  checkDefaults =
+    platform: name:
+    let
+      supported = builtins.elem platform support.${name};
+      baseline = check { inherit platform; };
+      disabled = check {
+        inherit platform;
+        overrides.${name} = false;
+      };
+      inherited = check {
+        inherit platform;
+        defaults = allOff // {
+          ${name} = true;
+        };
+      };
+      overridden = check {
+        inherit platform;
+        defaults = allOff // {
+          ${name} = true;
+        };
+        overrides.${name} = false;
+      };
+    in
+    assert baseline.enabled.${name} == (supported && (catalog.features.${name}.default or false));
+    assert disabled.errors == [ ] && !disabled.enabled.${name};
+    assert inherited.errors == [ ] && inherited.enabled.${name} == supported;
+    assert overridden.errors == [ ] && overridden.enabled == allOff;
+    true;
   desktopCases = lib.cartesianProduct {
     gnome = [
       false
@@ -210,6 +280,7 @@ let
     };
   };
   conflict =
+    overrides:
     import ../lib/features/resolve.nix
       {
         inherit lib;
@@ -218,7 +289,7 @@ let
       {
         name = "conflict";
         platform = "nixos";
-        overrides.mpv = true;
+        overrides = allOff // overrides;
       };
   cyclicCatalog = catalog // {
     features = catalog.features // {
@@ -243,12 +314,17 @@ in
 assert names == builtins.attrNames support;
 assert lib.all checkDesktop desktopCases;
 assert lib.all (x: x) extra;
-assert conflict.errors != [ ];
+assert lib.all (platform: lib.all (checkDefaults platform) names) platforms;
+assert lib.all (f: ((conflict f).errors == [ ]) == !(f.git && f.mpv)) (combinationsFor [
+  "git"
+  "mpv"
+]);
 assert !cycle.success;
 {
   inherit counts;
   catalogValidation = import ./catalog.nix { inherit lib; };
-  booleanCombinations = builtins.length combinations * builtins.length platforms;
+  targetedCombinations = builtins.length combinations * builtins.length platforms;
+  defaultCases = builtins.length names * builtins.length platforms;
   desktopChoices = builtins.length desktopCases;
   edgeCases = builtins.length extra + 2;
 }

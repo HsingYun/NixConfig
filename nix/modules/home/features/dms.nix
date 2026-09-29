@@ -1,20 +1,33 @@
 {
   inputs,
   lib,
-  pkgs,
   user,
+  software,
   ...
 }:
 
 {
+  software.bindings.dms = {
+    enableOption = [
+      "programs"
+      "dank-material-shell"
+      "enable"
+    ];
+    packageOption = [
+      "programs"
+      "dank-material-shell"
+      "package"
+    ];
+  };
   imports = [
     inputs.dms.homeModules.dank-material-shell
     ../shared/desktop.nix
   ];
 
   programs.dank-material-shell = {
+    package = lib.mkDefault software.dms.package;
     enable = lib.mkDefault true;
-    package = lib.mkDefault pkgs.dms-shell;
+
     enableCalendarEvents = lib.mkDefault false;
     # NixOS owns the service; Home Manager owns declarative configuration.
     systemd.enable = lib.mkDefault false;
@@ -28,5 +41,9 @@
       lockScreenWallpaperPath = lib.mkDefault "${user.lockWallpaper}";
       lockScreenWallpaperFillMode = lib.mkDefault "PreserveAspectCrop";
     };
+  };
+  software.requirements.dms = {
+    capabilities = [ "store-package" ];
+    installNix = false;
   };
 }

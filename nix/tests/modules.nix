@@ -362,7 +362,7 @@ let
         cfg:
         let
           h = cfg.home-manager.users.test;
-          names = map lib.getName h.home.packages;
+          names = map lib.getName (h.home.packages ++ cfg.environment.systemPackages);
         in
         lib.all (name: builtins.elem name names) [
           "git"
@@ -378,6 +378,19 @@ let
           "lldb"
           "cmake"
           "python3"
+          "coreutils"
+          "abseil-cpp"
+          "gcc-wrapper"
+          "gdb"
+          "git-lfs"
+          "go"
+          "nodejs"
+          "openjdk"
+          "protobuf"
+          "rustc"
+          "cargo"
+          "typescript"
+          "inetutils"
         ]
         && !h.programs.git.enable
         && !h.programs.zsh.enable;
@@ -531,7 +544,7 @@ let
       homeConfig = { lib, pkgs, ... }: {
         programs.gpg.enable = lib.mkDefault true;
         services.gpg-agent.enable = lib.mkDefault true;
-        services.gpg-agent.pinentry.package = pkgs.pinentry-tty;
+        software.packageOverrides.pinentry = pkgs.pinentry-tty;
       };
       verify =
         cfg:

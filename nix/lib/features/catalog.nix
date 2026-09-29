@@ -17,6 +17,60 @@ let
 in
 {
   features = {
+    efiTools = {
+      platforms = [
+        "linux"
+        "nixos"
+      ];
+      software = [ "efibootmgr" ];
+      homeModules = [ ../../modules/home/features/efi-tools.nix ];
+    };
+    chrome = {
+      platforms = all;
+      software = [ "chrome" ];
+    };
+    vscode = {
+      platforms = all;
+      software = [ "vscode" ];
+    };
+    codex = {
+      platforms = all;
+      software = [ "codex" ];
+    };
+    coteditor = {
+      platforms = [ "darwin" ];
+      software = [ "coteditor" ];
+    };
+    iina = {
+      platforms = [ "darwin" ];
+      software = [ "iina" ];
+    };
+    edge = {
+      platforms = [ "darwin" ];
+      software = [ "edge" ];
+    };
+    mapleMono = {
+      platforms = all;
+      software = [
+        "maple-mono"
+        "maple-mono-plain"
+      ];
+    };
+    screenRotate = {
+      platforms = [ "nixos" ];
+      software = [ "gnome-screen-rotate" ];
+      requires = [ "gnome" ];
+      activation = {
+        scope = "home";
+        option = [
+          "programs"
+          "gnome-shell"
+          "enable"
+        ];
+      };
+      homeModules = [ ../../modules/home/features/screen-rotate.nix ];
+    };
+
     plymouth = {
       platforms = [ "nixos" ];
       systemModules = [ ../../modules/system/features/plymouth.nix ];
@@ -94,6 +148,15 @@ in
       systemModules = [ ../../modules/system/features/nix-ld.nix ];
     };
     gnome = {
+      activation = {
+        scope = "system";
+        option = [
+          "services"
+          "desktopManager"
+          "gnome"
+          "enable"
+        ];
+      };
       platforms = [ "nixos" ];
       homeModules = [ ../../modules/home/features/gnome.nix ];
       systemModules = [ ../../modules/system/features/gnome.nix ];

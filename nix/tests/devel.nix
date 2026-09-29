@@ -1,9 +1,18 @@
 { pkgs }:
 
 let
+  software = import ../lib/software/resolve.nix { inherit (pkgs) lib; } {
+    catalog = import ../lib/software/catalog.nix { inherit pkgs; };
+    requirements = pkgs.lib.genAttrs (builtins.attrNames
+      (import ../lib/software/profiles.nix { inherit pkgs; }).devel
+    ) (_: { });
+    inherit pkgs;
+    packageManager = "nix";
+    platform = "nixos";
+  };
   profile = pkgs.buildEnv {
     name = "devel-test-profile";
-    paths = (import ../modules/home/features/devel.nix { inherit pkgs; }).home.packages;
+    paths = software.installations.nix.homePackages;
   };
 in
 pkgs.runCommand "devel-toolchain-check" { nativeBuildInputs = [ profile ]; } ''
@@ -13,11 +22,14 @@ pkgs.runCommand "devel-toolchain-check" { nativeBuildInputs = [ profile ]; } ''
   for tool in git rg fd jq tree curl wget \
     clang clang++ clangd clang-format clang-tidy llvm-ar llvm-config ld.lld lldb \
     cmake ninja meson make autoconf automake libtool m4 pkg-config \
-    strings nm readelf objdump objcopy addr2line size strip ar file patch diff python3; do
+    strings nm readelf objdump objcopy addr2line size strip ar file patch diff python3 \
+    gcc g++ gdb git-lfs go node npm java javac protoc rustc cargo tsc telnet; do
     test -x ${profile}/bin/"$tool"
     command -v "$tool"
   done
   test "$(clang -dumpversion)" = "$(llvm-config --version)"
+  cc --version | grep -i clang
+  c++ --version | grep -i clang
   clang-format --version
   clang-tidy --version
   ld.lld --version
@@ -51,6 +63,10 @@ pkgs.runCommand "devel-toolchain-check" { nativeBuildInputs = [ profile ]; } ''
     -DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPILER=clang++
   cmake --build build
   ctest --test-dir build --output-on-failure
+  gcc main.c -o check_gcc_c
+  g++ -std=c++20 main.cpp -o check_gcc_cpp
+  ./check_gcc_c
+  ./check_gcc_cpp
   strings build/check_c | grep -F 'C toolchain OK'
   nm build/check_cpp | grep -w main
   file build/check_cpp | grep -F ELF

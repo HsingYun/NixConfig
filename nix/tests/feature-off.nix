@@ -1,8 +1,9 @@
 { lib, build }:
 
 let
-  names = builtins.attrNames (import ../lib/features/catalog.nix).features;
-  allOn = lib.genAttrs names (_: true);
+  catalog = (import ../lib/features/catalog.nix).features;
+  names = builtins.attrNames (lib.filterAttrs (_: entry: !(entry ? software)) catalog);
+  allOn = lib.genAttrs (builtins.attrNames catalog) (_: false) // lib.genAttrs names (_: true);
   home = cfg: cfg.home-manager.users.test;
   hasPackage = name: cfg: builtins.elem name (map lib.getName (home cfg).home.packages);
   hasKimpanel = cfg: lib.any (p: lib.hasInfix "kimpanel" (lib.getName p)) (home cfg).home.packages;
@@ -215,7 +216,7 @@ let
         homeConfig =
           { lib, pkgs, ... }:
           lib.optionalAttrs (name == "gpg") {
-            services.gpg-agent.pinentry.package = pkgs.pinentry-tty;
+            software.packageOverrides.pinentry = pkgs.pinentry-tty;
           };
       };
       assertions = cfg.assertions ++ (home cfg).assertions;

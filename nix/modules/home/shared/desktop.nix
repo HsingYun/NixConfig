@@ -1,7 +1,11 @@
-{ lib, pkgs, ... }:
+{ lib, software, ... }:
 
 {
-  imports = [ ./launcher.nix ];
+  imports = [
+    ./launcher.nix
+    ../software
+  ];
+  software.requirements.tela.capabilities = [ "store-package" ];
 
   desktop.launcher.hiddenEntries = lib.mkDefault [
     "htop.desktop"
@@ -12,7 +16,7 @@
   gtk = {
     enable = lib.mkDefault true;
     iconTheme = {
-      package = lib.mkDefault pkgs.tela-icon-theme;
+      package = lib.mkDefault software.tela.package;
       name = lib.mkDefault "Tela";
     };
   };

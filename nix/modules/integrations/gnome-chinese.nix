@@ -1,11 +1,12 @@
 {
   config,
   lib,
-  pkgs,
   osConfig,
+  software,
   ...
 }:
 {
+  imports = [ ../home/software ];
   config =
     lib.mkIf
       (
@@ -21,9 +22,9 @@
             *:GNOME:*) export GTK_IM_MODULE="''${GTK_IM_MODULE-fcitx}" ;;
           esac
         '';
-        home.packages = [ pkgs.gnomeExtensions.kimpanel ];
+        software.requirements.gnome-kimpanel.capabilities = [ "store-package" ];
         dconf.settings = {
-          "org/gnome/shell".enabled-extensions = [ pkgs.gnomeExtensions.kimpanel.extensionUuid ];
+          "org/gnome/shell".enabled-extensions = [ software.gnome-kimpanel.package.extensionUuid ];
           "org/gnome/settings-daemon/plugins/xsettings".overrides = [
             (lib.hm.gvariant.mkDictionaryEntry [
               "Gtk/IMModule"

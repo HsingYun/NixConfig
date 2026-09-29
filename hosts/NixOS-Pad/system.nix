@@ -6,6 +6,7 @@
   boot.loader = {
     systemd-boot = {
       enable = true;
+      consoleMode = "max";
       xbootldrMountPoint = "/boot";
       configurationLimit = 10;
     };

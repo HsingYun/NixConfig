@@ -1,17 +1,6 @@
-{ lib, pkgs, ... }:
+{ lib, ... }:
 
 {
-  home.packages = with pkgs; [
-    google-chrome
-    vscode
-    codex
-  ];
-
-  # Allow sensor-driven rotation outside GNOME's touch mode, including the lock screen.
-  programs.gnome-shell.extensions = [
-    { package = pkgs.gnomeExtensions.screen-rotate; }
-  ];
-
   dconf.settings."org/gnome/settings-daemon/peripherals/touchscreen".orientation-lock =
     lib.mkDefault false;
 

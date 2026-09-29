@@ -1,7 +1,27 @@
-{ lib, user, ... }:
+{
+  lib,
+  user,
+  software,
+  ...
+}:
 
 {
+  software.bindings.git = {
+    enableOption = [
+      "programs"
+      "git"
+      "enable"
+    ];
+    packageOption = [
+      "programs"
+      "git"
+      "package"
+    ];
+  };
+  software.requirements.git = { };
   programs.git = {
+    package = lib.mkDefault software.git.package;
+
     enable = lib.mkDefault true;
     settings = {
       user = {

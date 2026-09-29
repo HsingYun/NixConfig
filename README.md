@@ -6,7 +6,7 @@ Declarative system and user configurations for NixOS, WSL, macOS, and Linux. Hos
 
 - NixOS desktops: GNOME or Niri with DankMaterialShell.
 - Application profiles: Git, Zsh, GPG, Ghostty, and mpv.
-- Development tools (`devel`): Clang/LLVM, LLDB, CMake, Ninja, Meson, Autotools, binary inspection tools, and Python 3.
+- Development tools (`devel`): Clang/LLVM, GCC, GDB/LLDB, build tools, Python, Go, Node.js/TypeScript, OpenJDK, Rust/Cargo, plus Git LFS, Protobuf, Abseil, coreutils, and Telnet.
 - Chinese environment: Simplified Chinese locale, CJK fonts, Maple Mono, and Fcitx5 with Rime Ice.
 
 ## Platforms
@@ -50,16 +50,44 @@ features = {
   niri = true;
   dms = true;
   chinese = true;
+  ghostty = true;
 };
 ```
 
 Feature defaults and platform support are defined in the [feature catalog](nix/lib/features/catalog.nix). Declare only changes to the defaults. Disabling a feature removes this repository's customization without blocking other modules or deleting application data.
 
-Features provide their own required tools and may share packages. For example, `devel` includes Git; `git` adds the user identity and aliases.
+Software installation is coordinated by one software layer. Hosts select `packageManager` and `features`; host-specific extras belong in `packageManager.externalPkg` using that manager’s native package names:
 
-The `vim` feature is enabled by default on every supported platform. It manages `~/.vimrc` from [nix/assets/vimrc](nix/assets/vimrc), works with the existing Vim installation, and retains vim-plug for plugin installation and updates. Set `features.vim = false` to opt out. Back up an existing unmanaged `~/.vimrc` before the first activation.
+```nix
+packageManager = {
+  type = "homebrew";
+  externalPkg.brews = [ "aria2" ];
+};
+features = {
+  ghostty = true;
+  vim = true;
+  chrome = true;
+};
+```
 
-The Darwin host installs Vim through Homebrew and prioritizes its executable over macOS's bundled Vim. Linux hosts continue to receive Vim from the Nix base packages; the `vim` feature manages the same configuration for both.
+NixOS/WSL default to Nix. Darwin prefers Homebrew, falling back to Nix when an implementation is unavailable or cannot meet a feature's capabilities. Standalone Linux requires an explicit package manager; Arch uses `pacman`, including AUR packages installed through yay. Unimplemented managers such as `apt` are rejected explicitly. Resolution uses the software catalog, not the machine's current installation state.
+
+Features declare both configuration and software requirements. Shared dependencies are merged: Ghostty requests Maple Mono, which can remain installed for the Chinese feature after Ghostty is disabled. Niri launches a terminal through `xdg-terminal-exec` without choosing Ghostty implicitly.
+
+Extras matching active software requirements follow that software's selected provider and wrapper. Selected Nix commands take precedence over stale native installations. Set `software.packageOverrides.<software-id>` in the Home Manager configuration to replace a feature's Nix package consistently across its installation plan and module configuration. Arch, PC and Pad also declare equivalent extra tools using their manager's package names, excluding macOS-only packages.
+
+The default-enabled `vim` feature installs Vim through the selected provider and manages `~/.vimrc` from [nix/assets/vimrc](nix/assets/vimrc). Plugins remain managed by vim-plug. Back up an existing unmanaged `~/.vimrc` before activation. PC and Pad use Nix applications; Darwin prefers Homebrew, with provider-specific PATH handling generated centrally.
+
+Disabling a feature removes its software requests while retaining shared requirements. Homebrew keeps `cleanup = "none"`, so removing a manifest entry does not uninstall existing software. Integrations requiring a Nix package path, including Zsh, GPG agent and mpv plugins, declare that capability explicitly. Resolution reports explain fallbacks.
+
+Inspect a host's software sources:
+
+```sh
+nix eval --json .#lib.softwarePlans.Darwin
+nix eval --json .#lib.softwareManifests.Darwin
+```
+
+See the [software architecture](docs/software.md) for catalog, capability and backend-extension contracts.
 
 DMS uses the upstream Home Manager options `programs.dank-material-shell.settings` and `.session`. Nonempty values manage the corresponding JSON file declaratively (read-only); use `lib.mkForce { }` for either option to let DMS manage that file instead. Launcher exclusions are configured through `desktop.launcher.hiddenEntries`; only existing desktop entries are hidden.
 
@@ -74,17 +102,36 @@ flake.nix      Dependencies and shared user settings
 hosts/         Machine configurations
 nix/
   modules/     System, user, and feature modules
-  packages/    Shared package selections
   templates/   Host templates by platform
-  lib/         Configuration assembly
+  lib/         Configuration assembly and software resolution
   tests/       Configuration checks
 ```
 
 ## Validation
 
+First evaluate every platform, including the complete system or Home Manager activation output of each registered host:
+
 ```sh
-nix flake check --all-systems
+nix flake check --no-build --all-systems
 ```
+
+Then build and run checks for the current platform:
+
+```sh
+nix flake check --print-build-logs
+```
+
+CI runs native checks on x86_64 Linux and Apple Silicon macOS. The `host-*` checks evaluate complete host outputs and their assertions without building or activating the entire machine. Feature tests exercise independent toggles individually and retain local combinations for dependencies, conflicts, and desktop choices.
+
+Before deployment, build the actual output on its matching platform, for example:
+
+```sh
+nix build .#darwinConfigurations.Darwin.system --no-link
+nix build .#homeConfigurations.ArchLinux.activationPackage --no-link
+nix build .#nixosConfigurations.NixOS-Pad.config.system.build.toplevel --no-link
+```
+
+Cross-platform builds require a matching remote builder. These commands do not switch the current system.
 
 ## License
 

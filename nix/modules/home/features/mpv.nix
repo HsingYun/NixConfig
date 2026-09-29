@@ -1,16 +1,48 @@
-{ lib, pkgs, ... }:
+{ lib, software, ... }:
 
 {
+  software.bindings.mpv = {
+    enableOption = [
+      "programs"
+      "mpv"
+      "enable"
+    ];
+    packageOption = [
+      "programs"
+      "mpv"
+      "package"
+    ];
+    runtimePackageOption = [
+      "programs"
+      "mpv"
+      "finalPackage"
+    ];
+  };
+  software.requirements = {
+    # Home Manager wraps mpv with the selected scripts and requires a Nix package.
+    mpv = {
+      capabilities = [ "store-package" ];
+      installNix = false;
+    };
+    mpv-modernx = {
+      capabilities = [ "store-package" ];
+      installNix = false;
+    };
+    mpv-thumbfast = {
+      capabilities = [ "store-package" ];
+      installNix = false;
+    };
+    source-han-sans = { };
+  };
   programs.mpv = {
+    package = lib.mkDefault software.mpv.package;
+
     enable = lib.mkDefault true;
     defaultProfiles = lib.mkDefault [ "high-quality" ];
-    scripts = lib.mkDefault (
-      with pkgs.mpvScripts;
-      [
-        modernx
-        thumbfast
-      ]
-    );
+    scripts = lib.mkDefault ([
+      software.mpv-modernx.package
+      software.mpv-thumbfast.package
+    ]);
     config = lib.mapAttrs (_: lib.mkDefault) {
       hwdec = "auto";
       hwdec-codecs = "all";
@@ -32,6 +64,4 @@
     };
   };
 
-  fonts.fontconfig.enable = lib.mkDefault true;
-  home.packages = [ pkgs.source-han-sans ];
 }

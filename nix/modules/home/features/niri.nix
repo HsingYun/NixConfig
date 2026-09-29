@@ -1,18 +1,14 @@
 {
   lib,
   osConfig,
-  pkgs,
+  software,
   ...
 }:
 
 {
   imports = [ ../shared/desktop.nix ];
 
-  home.packages = with pkgs; [
-    ghostty
-    nautilus
-    wl-clipboard
-  ];
+  software.requirements = lib.genAttrs [ "nautilus" "wl-clipboard" "xdg-terminal-exec" ] (_: { });
   xdg.userDirs = {
     enable = lib.mkDefault true;
     createDirectories = lib.mkDefault true;
@@ -64,9 +60,9 @@
       binds = lib.mapAttrs (_: lib.mkDefault) {
         "Mod+Return" = {
           _props.hotkey-overlay-title = "Terminal";
-          spawn = [ (lib.getExe pkgs.xdg-terminal-exec) ];
+          spawn = [ (software.xdg-terminal-exec.command "xdg-terminal-exec") ];
         };
-        "Mod+E".spawn = [ (lib.getExe pkgs.nautilus) ];
+        "Mod+E".spawn = [ (software.nautilus.command "nautilus") ];
 
         "Mod+Q".close-window = { };
         "Mod+O".toggle-overview = { };
