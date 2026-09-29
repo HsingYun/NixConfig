@@ -121,7 +121,7 @@ in
       systemModules = [ ../../modules/system/features/dms.nix ];
     };
     ghostty = {
-      platforms = linux;
+      platforms = all;
       homeModules = [ ../../modules/home/features/ghostty.nix ];
     };
     mpv = {

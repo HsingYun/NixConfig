@@ -143,12 +143,15 @@ let
         && (home cfg).wayland.windowManager.niri.enable;
     };
     ghostty = {
-      on = cfg: (home cfg).programs.ghostty.settings ? theme;
+      on =
+        cfg:
+        (home cfg).programs.ghostty.settings ? theme
+        && !((home cfg).programs.ghostty.settings ? window-decoration);
       off =
         cfg:
         !((home cfg).programs.ghostty.settings ? theme)
-        && !((home cfg).home.sessionVariables ? TERMINAL)
-        && !(hasPackage "nerd-fonts-jetbrains-mono" cfg);
+        && !((home cfg).programs.ghostty.settings ? window-decoration)
+        && !((home cfg).home.sessionVariables ? TERMINAL);
     };
     mpv = {
       on = cfg: (home cfg).programs.mpv.config ? hwdec;
@@ -168,7 +171,7 @@ let
         && !(home cfg).i18n.inputMethod.enable
         && (home cfg).i18n.inputMethod.fcitx5.addons == [ ]
         && !(builtins.elem "zh_CN.UTF-8/UTF-8" cfg.i18n.extraLocales)
-        && !(hasPackage "MapleMono-NF-CN" cfg);
+        && !(hasPackage "noto-fonts-cjk-sans" cfg);
     };
     xdg = {
       on = cfg: (home cfg).xdg.localBinInPath && (home cfg).xdg.userDirs.enable;

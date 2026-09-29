@@ -38,11 +38,7 @@ let
     gnome = [ "nixos" ];
     niri = [ "nixos" ];
     dms = [ "nixos" ];
-    ghostty = [
-      "linux"
-      "nixos"
-      "nixos-wsl"
-    ];
+    ghostty = all;
     chinese = [
       "linux"
       "nixos"

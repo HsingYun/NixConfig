@@ -563,5 +563,6 @@ in
   externalCapabilities = map verifyExternal externalCases;
   disabledFeatures = import ./feature-off.nix { inherit lib build; };
   independentFeatures = import ./feature-independence.nix { inherit lib build; };
+  ghostty = import ./ghostty.nix { inherit lib mkHost; };
   networking = import ./network.nix { inherit lib build; };
 }

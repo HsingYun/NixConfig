@@ -104,6 +104,7 @@ let
       && hasPackage "ghostty" cfg
       && !(home cfg).programs.ghostty.enable
       && !((home cfg).programs.ghostty.settings ? theme)
+      && !((home cfg).programs.ghostty.settings ? window-decoration)
       && (home cfg).xdg.userDirs.enable
       && (home cfg).xdg.terminal-exec.enable
       && !(home cfg).xdg.localBinInPath
@@ -120,7 +121,8 @@ let
       cfg:
       (home cfg).programs.ghostty.enable
       && (home cfg).fonts.fontconfig.enable
-      && (home cfg).programs.ghostty.settings ? theme;
+      && (home cfg).programs.ghostty.settings ? theme
+      && !((home cfg).programs.ghostty.settings ? window-decoration);
     mpv =
       cfg:
       (home cfg).programs.mpv.enable
