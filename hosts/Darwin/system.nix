@@ -14,11 +14,6 @@
       FXDefaultSearchScope = "SCcf";
       NewWindowTarget = "Home";
     };
-    dock = {
-      tilesize = 64;
-      magnification = false;
-      show-recents = false;
-      wvous-br-corner = 14;
-    };
+    dock.show-recents = false;
   };
 }
