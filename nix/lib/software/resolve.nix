@@ -14,6 +14,7 @@ let
   providers = import ./providers.nix { inherit lib nativePrefix pkgs; };
   preferred = manager.type;
   backend = providers.${preferred};
+  managerBinPaths = backend.managerBinPaths or [ ];
   externalErrors =
     if !builtins.isAttrs manager.externalPkg then
       [ "expected an attribute set" ]
@@ -237,7 +238,8 @@ let
         lib.concatMap (entry: entry.binPaths) (builtins.attrValues resolved)
       );
       externalBinPaths = lib.unique (lib.concatMap (entry: entry.binPaths) externalEntries);
-      binPaths = lib.unique (lib.concatMap (entry: entry.binPaths) values);
+      inherit managerBinPaths;
+      binPaths = lib.unique (lib.concatMap (entry: entry.binPaths) values ++ managerBinPaths);
     };
 
 in

@@ -350,6 +350,28 @@ assert
   home.software.resolved.python.command "python3" == "/opt/homebrew/opt/python@3.14/bin/python3";
 assert builtins.elem "/opt/homebrew/opt/coreutils/libexec/gnubin" home.home.sessionPath;
 assert builtins.elem "/opt/homebrew/opt/python@3.14/libexec/bin" home.home.sessionPath;
+assert
+  lib.drop ((builtins.length home.home.sessionPath) - 2) home.home.sessionPath == [
+    "/opt/homebrew/bin"
+    "/opt/homebrew/sbin"
+  ];
+assert lib.hasInfix ":/opt/homebrew/bin:/opt/homebrew/sbin:" withApps.environment.systemPath;
+assert
+  removed.binPaths == [
+    "/opt/homebrew/bin"
+    "/opt/homebrew/sbin"
+  ];
+assert builtins.elem "/opt/homebrew/bin" remaining.binPaths;
+assert
+  (plan {
+    nativePrefix = "/usr/local";
+    requirements = { };
+  }).binPaths == [
+    "/usr/local/bin"
+    "/usr/local/sbin"
+  ];
+assert nix.managerBinPaths == [ ];
+assert pacman.managerBinPaths == [ ];
 assert lib.all (name: builtins.elem name brews) [
   "abseil"
   "node"

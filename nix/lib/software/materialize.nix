@@ -85,7 +85,10 @@ selection
   inherit resolved;
   # Protect selected Nix commands even when an old native installation remains.
   binPaths = lib.unique (
-    runtimeBinPaths ++ installationPlan.selectedBinPaths ++ installationPlan.externalBinPaths
+    runtimeBinPaths
+    ++ installationPlan.selectedBinPaths
+    ++ installationPlan.externalBinPaths
+    ++ installationPlan.managerBinPaths
   );
   installations = installationPlan.installations // {
     nix = nixInstallation;

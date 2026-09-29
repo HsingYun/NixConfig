@@ -76,6 +76,11 @@ in
     };
   };
   homebrew = {
+    # Keep the manager and linked cask commands available without shellenv.
+    managerBinPaths = [
+      "${nativePrefix}/bin"
+      "${nativePrefix}/sbin"
+    ];
     samePackage = a: b: a.name == b.name && a.type == b.type;
     externalGroups = {
       brews = "brew";
