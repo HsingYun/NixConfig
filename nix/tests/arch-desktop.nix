@@ -12,6 +12,7 @@ let
         "keyring"
         "printing"
         "firmware"
+        "fileManager"
       ];
       inherit featureConfig preferences;
       homeConfig = {
@@ -53,6 +54,10 @@ let
     desktop = desktop // {
       wallpaper.enable = false;
       launcher.enable = false;
+      fileManager.enable = false;
+      gnome = desktop.gnome // {
+        flatAppGrid = false;
+      };
     };
   } { };
   broken = make { inherit desktop; } { wayland.windowManager.niri.enable = false; };
@@ -93,6 +98,7 @@ let
     "papers"
     "snapshot"
     "sushi"
+    "seahorse"
     "xdg-desktop-portal-gnome"
   ];
   niri = cfg.wayland.windowManager.niri;
@@ -173,6 +179,17 @@ assert !(cfg.xdg.configFile ? "systemd/user/graphical-session.target.wants/dms.s
 assert lib.hasInfix "ConditionEnvironment=XDG_CURRENT_DESKTOP=niri"
   cfg.xdg.configFile."systemd/user/dms.service.d/nixconfig.conf".text;
 assert cfg.features.desktop.keyring.enable;
+assert cfg.features.desktop.fileManager.enable;
+assert niri.settings.binds."Mod+E".spawn == [ "/usr/bin/nautilus" ];
+assert cfg.dconf.settings."org/gnome/desktop/app-folders".folder-children.value == [ ];
+assert !(niriOnly.dconf.settings ? "org/gnome/desktop/app-folders");
+assert !(disabled.dconf.settings ? "org/gnome/desktop/app-folders");
+assert !(disabled.dconf.settings ? "org/gnome/nautilus/preferences");
+assert !(disabled.software.resolved ? nautilus);
+assert !(disabled.wayland.windowManager.niri.settings.binds ? "Mod+E");
+assert
+  map (v: v.value) disabled.dconf.settings."org/gnome/shell".favorite-apps.value
+  == [ "org.gnome.TextEditor.desktop" ];
 assert cfg.desktop.launcher.hiddenEntries == desktop.launcher.hiddenEntries;
 assert
   cfg.desktop.launcher.nativeRoots == [

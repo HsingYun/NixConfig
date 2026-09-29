@@ -86,6 +86,10 @@ let
       "arch"
       "nixos"
     ];
+    fileManager = [
+      "arch"
+      "nixos"
+    ];
     firmware = [
       "arch"
       "nixos"

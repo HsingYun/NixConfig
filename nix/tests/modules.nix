@@ -194,6 +194,9 @@ let
     assert cfg.services.displayManager.gdm.enable == (case.loginManager == "gdm");
     assert cfg.services.greetd.enable == (case.loginManager == "greetd");
     assert
+      !cfg.services.greetd.enable
+      || cfg.security.pam.services.greetd.enableGnomeKeyring == home.features.desktop.keyring.enable;
+    assert
       cfg.services.displayManager.dms-greeter.enable
       == (case.loginManager == "greetd" && case.desktop == "niri" && (case.features.dms or false));
     assert cfg.services.pcscd.enable == smartcard;

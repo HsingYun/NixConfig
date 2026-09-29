@@ -26,6 +26,13 @@ let
     desktop.gnome.enable = true;
     chinese.enable = true;
   } { };
+  customFileManager = arch {
+    desktop.fileManager = {
+      enable = true;
+      showHiddenFiles = false;
+      showDeletePermanently = false;
+    };
+  } { };
   allDesktop =
     desktop: dms:
     build {
@@ -101,6 +108,39 @@ assert lib.all
   ];
 assert pc.home-manager.users.test.xdg.dataFile.applications.recursive;
 assert native.software.platform == "arch";
+assert lib.all (
+  home:
+  home.features.desktop.fileManager.enable
+  &&
+    map (v: v.value) home.dconf.settings."org/gnome/shell".favorite-apps.value == [
+      "org.gnome.TextEditor.desktop"
+      "org.gnome.Nautilus.desktop"
+      "com.mitchellh.ghostty.desktop"
+    ]
+  && home.dconf.settings."org/gnome/shell/extensions/dash-to-dock".extend-height
+  && home.dconf.settings."org/gnome/shell/extensions/dash-to-dock".show-apps-at-top
+  && home.dconf.settings."org/gnome/shell/extensions/dash-to-dock".dock-fixed
+  && !home.dconf.settings."org/gnome/shell/extensions/dash-to-dock".autohide
+  && !home.dconf.settings."org/gnome/shell/extensions/dash-to-dock".intellihide
+  && home.dconf.settings."org/gnome/shell/extensions/dash-to-dock".custom-theme-shrink
+  && home.dconf.settings."org/gnome/shell/extensions/dash-to-dock".disable-overview-on-startup
+  && home.dconf.settings."org/gtk/settings/file-chooser".sort-directories-first
+  && home.dconf.settings."org/gtk/settings/file-chooser".show-hidden
+  && home.dconf.settings."org/gtk/gtk4/settings/file-chooser".sort-directories-first
+  && home.dconf.settings."org/gtk/gtk4/settings/file-chooser".show-hidden
+  && home.dconf.settings."org/gnome/nautilus/preferences".show-create-link
+  && home.dconf.settings."org/gnome/nautilus/preferences".show-delete-permanently
+  && home.xdg.mimeApps.defaultApplications."inode/directory" == [ "org.gnome.Nautilus.desktop" ]
+) homes;
+assert !(customFileManager.dconf.settings."org/gtk/gtk4/settings/file-chooser".show-hidden);
+assert !(customFileManager.dconf.settings."org/gnome/nautilus/preferences".show-delete-permanently);
+assert customFileManager.dconf.settings."org/gnome/nautilus/preferences".show-create-link;
+assert !(customFileManager.dconf.settings ? "org/gnome/desktop/app-folders");
+assert !(wsl.home-manager.users.test.software.resolved ? nautilus);
+assert !(mac.home-manager.users.test.software.resolved ? nautilus);
+assert lib.all (
+  home: home.dconf.settings."org/gnome/desktop/app-folders".folder-children.value == [ ]
+) homes;
 assert lib.all (a: a.assertion) chinese.assertions;
 assert builtins.isString chinese.home.activationPackage.drvPath;
 assert lib.all (name: chinese.software.resolved.${name}.provider == "pacman") [
@@ -137,7 +177,8 @@ assert (allDesktop "niri" true).services.displayManager.dms-greeter.enable;
 assert !(allDesktop "niri" true).security.pam.services.greetd.enableGnomeKeyring;
 assert !(allDesktop "niri" false).security.pam.services.greetd.enableGnomeKeyring;
 assert pc.security.pam.services.greetd.enableGnomeKeyring;
-assert pad.security.pam.services.gdm-password.enableGnomeKeyring;
+assert pad.security.pam.services.login.enableGnomeKeyring;
+assert pad.security.pam.services.gdm-password.rules.auth.login.modulePath == "login";
 assert !(pad.security.pam.services ? greetd);
 assert lib.all (home: home.home.activation ? initializeVscode) homes;
 assert lib.hasInfix "/Library/Application Support/Code/User/settings.json"

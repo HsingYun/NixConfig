@@ -13,7 +13,6 @@ in
 
   software.requirements = lib.genAttrs (
     [
-      "nautilus"
       "wl-clipboard"
       "xdg-terminal-exec"
     ]
@@ -101,49 +100,53 @@ in
           clip-to-geometry = lib.mkDefault true;
         };
 
-        binds = lib.mapAttrs (_: lib.mkDefault) {
-          "Mod+Return" = {
-            _props.hotkey-overlay-title = "Terminal";
-            spawn = [ (software.xdg-terminal-exec.command "xdg-terminal-exec") ];
-          };
-          "Mod+E".spawn = [ (software.nautilus.command "nautilus") ];
+        binds = lib.mapAttrs (_: lib.mkDefault) (
+          {
+            "Mod+Return" = {
+              _props.hotkey-overlay-title = "Terminal";
+              spawn = [ (software.xdg-terminal-exec.command "xdg-terminal-exec") ];
+            };
 
-          "Mod+Q".close-window = { };
-          "Mod+O".toggle-overview = { };
-          "Mod+Shift+Slash".show-hotkey-overlay = { };
-          "Mod+Shift+E".quit = { };
+            "Mod+Q".close-window = { };
+            "Mod+O".toggle-overview = { };
+            "Mod+Shift+Slash".show-hotkey-overlay = { };
+            "Mod+Shift+E".quit = { };
 
-          "Mod+Left".focus-column-left = { };
-          "Mod+Right".focus-column-right = { };
-          "Mod+Up".focus-window-up = { };
-          "Mod+Down".focus-window-down = { };
-          "Mod+H".focus-column-left = { };
-          "Mod+L".focus-column-right = { };
-          "Mod+K".focus-window-up = { };
-          "Mod+J".focus-window-down = { };
+            "Mod+Left".focus-column-left = { };
+            "Mod+Right".focus-column-right = { };
+            "Mod+Up".focus-window-up = { };
+            "Mod+Down".focus-window-down = { };
+            "Mod+H".focus-column-left = { };
+            "Mod+L".focus-column-right = { };
+            "Mod+K".focus-window-up = { };
+            "Mod+J".focus-window-down = { };
 
-          "Mod+Ctrl+Left".move-column-left = { };
-          "Mod+Ctrl+Right".move-column-right = { };
-          "Mod+Ctrl+Up".move-window-up = { };
-          "Mod+Ctrl+Down".move-window-down = { };
-          "Mod+Page_Up".focus-workspace-up = { };
-          "Mod+Page_Down".focus-workspace-down = { };
-          "Mod+Ctrl+Page_Up".move-column-to-workspace-up = { };
-          "Mod+Ctrl+Page_Down".move-column-to-workspace-down = { };
+            "Mod+Ctrl+Left".move-column-left = { };
+            "Mod+Ctrl+Right".move-column-right = { };
+            "Mod+Ctrl+Up".move-window-up = { };
+            "Mod+Ctrl+Down".move-window-down = { };
+            "Mod+Page_Up".focus-workspace-up = { };
+            "Mod+Page_Down".focus-workspace-down = { };
+            "Mod+Ctrl+Page_Up".move-column-to-workspace-up = { };
+            "Mod+Ctrl+Page_Down".move-column-to-workspace-down = { };
 
-          "Mod+F".maximize-column = { };
-          "Mod+Shift+F".fullscreen-window = { };
-          "Mod+C".center-column = { };
-          "Mod+R".switch-preset-column-width = { };
-          "Mod+Shift+Space".toggle-window-floating = { };
-          "Mod+Minus".set-column-width = "-10%";
-          "Mod+Equal".set-column-width = "+10%";
+            "Mod+F".maximize-column = { };
+            "Mod+Shift+F".fullscreen-window = { };
+            "Mod+C".center-column = { };
+            "Mod+R".switch-preset-column-width = { };
+            "Mod+Shift+Space".toggle-window-floating = { };
+            "Mod+Minus".set-column-width = "-10%";
+            "Mod+Equal".set-column-width = "+10%";
 
-          "Print".screenshot = { };
-          "Ctrl+Print".screenshot-screen = { };
-          "Alt+Print".screenshot-window = { };
+            "Print".screenshot = { };
+            "Ctrl+Print".screenshot-screen = { };
+            "Alt+Print".screenshot-window = { };
 
-        };
+          }
+          // lib.optionalAttrs config.features.desktop.fileManager.enable {
+            "Mod+E".spawn = [ (software.nautilus.command "nautilus") ];
+          }
+        );
       }
     ];
   };

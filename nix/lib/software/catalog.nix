@@ -193,6 +193,7 @@ lib.foldl' (catalog: profile: catalog // profile) {
   papers.pacman = pacman "papers";
   snapshot.pacman = pacman "snapshot";
   sushi.pacman = pacman "sushi";
+  seahorse.pacman = pacman "seahorse";
   greetd.pacman = pacman "greetd";
   tuigreet.pacman = pacman "greetd-tuigreet";
   dms-greeter.pacman = aur "greetd-dms-greeter-git";

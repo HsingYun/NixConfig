@@ -187,6 +187,11 @@ in
     };
     gnome = {
       options.settings = settingsOption "GNOME dconf settings keyed by schema path";
+      options.flatAppGrid = {
+        default = true;
+        check = builtins.isBool;
+        description = "show GNOME Overview applications without folder groups";
+      };
       path = [
         "desktop"
         "gnome"
@@ -268,6 +273,33 @@ in
       };
       systemModules = [ ../../modules/system/features/dms.nix ];
     };
+    fileManager = {
+      path = [
+        "desktop"
+        "fileManager"
+      ];
+      platforms = desktops;
+      defaultFrom = [
+        "gnome"
+        "niri"
+        "dms"
+      ];
+      software = [ "nautilus" ];
+      homeModules = [ ../../modules/home/features/file-manager.nix ];
+      options =
+        builtins.mapAttrs
+          (_: description: {
+            default = true;
+            check = builtins.isBool;
+            inherit description;
+          })
+          {
+            sortDirectoriesFirst = "sort directories before files";
+            showHiddenFiles = "show hidden files by default";
+            showCreateLink = "show the Create Link context menu item";
+            showDeletePermanently = "show the Delete Permanently context menu item";
+          };
+    };
     printing = {
       path = [
         "desktop"
@@ -326,6 +358,7 @@ in
           "avahi-discover.desktop"
           "bssh.desktop"
           "bvnc.desktop"
+          "cups.desktop"
           "org.gnome.Terminal.desktop"
           "org.gnome.gedit.desktop"
           "org.gnome.Cheese.desktop"
@@ -339,6 +372,10 @@ in
           "gvim.desktop"
           "org.gnome.Tour.desktop"
           "org.gnome.Tecla.desktop"
+          "kbd-layout-viewer5.desktop"
+          "fcitx5-configtool.desktop"
+          "org.fcitx.fcitx5-config-qt.desktop"
+          "org.fcitx.fcitx5-migrator.desktop"
           "org.gnome.Epiphany.desktop"
           "org.gnome.Software.desktop"
         ];

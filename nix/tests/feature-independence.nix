@@ -56,27 +56,7 @@ let
       ]
       && !(home cfg).programs.gpg.enable;
     launcher =
-      cfg:
-      (home cfg).desktop.launcher.hiddenEntries == [
-        "avahi-discover.desktop"
-        "bssh.desktop"
-        "bvnc.desktop"
-        "org.gnome.Terminal.desktop"
-        "org.gnome.gedit.desktop"
-        "org.gnome.Cheese.desktop"
-        "htop.desktop"
-        "jconsole-java-openjdk.desktop"
-        "jshell-java-openjdk.desktop"
-        "nvtop.desktop"
-        "cmake-gui.desktop"
-        "lstopo.desktop"
-        "vim.desktop"
-        "gvim.desktop"
-        "org.gnome.Tour.desktop"
-        "org.gnome.Tecla.desktop"
-        "org.gnome.Epiphany.desktop"
-        "org.gnome.Software.desktop"
-      ];
+      cfg: (home cfg).desktop.launcher.hiddenEntries == catalog.launcher.options.hiddenEntries.default;
     wallpaper = cfg: (home cfg).features.desktop.wallpaper.enable;
     keyring =
       cfg:

@@ -140,11 +140,19 @@ features.desktop = {
 };
 ```
 
-`keyring`、`launcher`、`wallpaper`、`printing`、`firmware` 随桌面功能默认启用，也能独立关闭。壁纸共享默认值在 `flake.nix` 的 `features.desktop.wallpaper` 中，已从 `user.wallpaper/lockWallpaper` 迁入；主机可覆盖路径，显式 `null` 表示不管理对应图片。GNOME 和 DMS 使用同一组图片，NixOS DMS 登录界面也使用 `lockImage`。单独的 Niri 不含壁纸渲染器，这里由 DMS 显示壁纸。
+`fileManager`、`keyring`、`launcher`、`wallpaper`、`printing`、`firmware` 随桌面功能默认启用，也能独立关闭。壁纸共享默认值在 `flake.nix` 的 `features.desktop.wallpaper` 中，已从 `user.wallpaper/lockWallpaper` 迁入；主机可覆盖路径，显式 `null` 表示不管理对应图片。GNOME 和 DMS 使用同一组图片，NixOS DMS 登录界面也使用 `lockImage`。单独的 Niri 不含壁纸渲染器，这里由 DMS 显示壁纸。
+
+`features.desktop.fileManager` 统一安装 Nautilus，并将其设为默认文件管理器。`sortDirectoriesFirst`、`showHiddenFiles`、`showCreateLink`、`showDeletePermanently` 默认均为 `true`：文件夹优先、显示隐藏文件，右键菜单显示“新建链接”和“永久删除”。HM 通过 dconf 管理设置，同时兼容 GTK3/GTK4 文件选择器。Arch 使用 pacman，NixOS 使用 Nix；关闭此 feature 会同时移除受管理的 Niri `Mod+E` 快捷键，Arch 已安装的软件包保留。
+
+`features.desktop.gnome.flatAppGrid` 默认 `true`，仅将 GNOME Overview 应用抽屉的分组列表显式设为空；它不删除分组详情或重置应用排列。设为 `false` 后不再管理该分组列表。GNOME Shell 会识别显式空列表，因此不会自动重新创建默认分组（[上游实现](https://github.com/GNOME/gnome-shell/blob/main/js/ui/appDisplay.js)）。
+
+GNOME 的 Dash to Dock 默认固定在底部并延伸至屏幕边缘，关闭自动隐藏和智能隐藏，启用“收缩 Dash”，登录时不自动显示概览。“显示应用程序”位于最左侧。固定项按文本编辑器、文件管理器、Ghostty 排列；后两项仅在对应功能启用时添加。可通过 `features.desktop.gnome.settings` 覆盖 `org/gnome/shell` 和 `org/gnome/shell/extensions/dash-to-dock` 下的设置。
 
 ArchLinux 主机已启用 GNOME、Niri+DMS、壁纸和应用隐藏。GNOME 按[明确的 Arch 软件包清单](nix/modules/home/features/gnome.nix)安装缺失组件，包括 GDM，但不安装整个 `gnome` 包组；仓库来源遵循本机 pacman 配置。HM 管理 GNOME 扩展 UUID 和 dconf，以原生 `niri validate` 验证配置，并将 Arch 的 DMS 用户服务启用到 Niri 会话。通过系统的 Niri 登录会话或 `niri-session` 启动，用户服务才会随会话启动。
 
-GNOME 在 Arch 和 NixOS 都安装任务中心 `mission-center`、相机 `snapshot` 和 `gnome-text-editor`。终端使用独立的 Ghostty feature，不再请求 `gnome-console`；NixOS 排除旧的 GNOME Terminal、gedit、Cheese，隐藏规则也覆盖这些旧入口。
+GNOME 在 Arch 和 NixOS 都安装任务中心 `mission-center`、相机 `snapshot`、`gnome-text-editor` 和“密码与密钥”`seahorse`（NixOS 沿用官方 GNOME 模块）。终端使用独立的 Ghostty feature，不再请求 `gnome-console`；NixOS 排除旧的 GNOME Terminal、gedit、Cheese，隐藏规则也覆盖这些旧入口。
+
+默认隐藏名单还包含 CUPS 打印管理、GNOME Tecla、Fcitx 键盘布局查看器，以及 Fcitx 5 配置入口和迁移向导：`cups.desktop`、`org.gnome.Tecla.desktop`、`kbd-layout-viewer5.desktop`、`fcitx5-configtool.desktop`、`org.fcitx.fcitx5-config-qt.desktop`、`org.fcitx.fcitx5-migrator.desktop`。仅隐藏实际存在的桌面入口，打印服务、命令行调用和输入法菜单中的配置功能保留。
 
 `features.desktop.printing.enable` 管理 CUPS 和打印发现；`features.desktop.firmware.enable` 管理 fwupd 和 GNOME Firmware。两项在 ArchLinux 主机已启用。Arch 安装原生 CUPS、过滤器、Ghostscript、libusb、Avahi 和 fwupd，启动 `cups.socket`、Avahi 服务/socket、`fwupd-refresh.timer`；NixOS 使用官方系统模块。刷新 timer 只更新固件元数据，不自动刷写。打印机队列、专有驱动和固件更新仍按具体设备配置；网络打印机的 `.local` 名称解析沿用主机网络配置。
 

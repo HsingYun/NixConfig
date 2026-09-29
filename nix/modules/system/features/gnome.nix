@@ -28,6 +28,8 @@
     gnome-tecla
     gnome-tour
     gnome-weather
+    # The shared desktop.fileManager feature owns the file manager package.
+    nautilus
     orca
     showtime
     simple-scan
