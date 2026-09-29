@@ -74,6 +74,10 @@ let
       on = cfg: (home cfg).programs.zsh.oh-my-zsh.enable;
       off = cfg: !(home cfg).programs.zsh.oh-my-zsh.enable;
     };
+    vim = {
+      on = cfg: (home cfg).home.file ? ".vimrc";
+      off = cfg: !((home cfg).home.file ? ".vimrc");
+    };
     gpg = {
       on = cfg: (home cfg).programs.gpg.scdaemonSettings.disable-ccid or false;
       off =

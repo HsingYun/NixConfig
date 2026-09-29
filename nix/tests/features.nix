@@ -17,6 +17,7 @@ let
     network = [ "nixos" ];
     devel = all;
     git = all;
+    vim = all;
     shell = all;
     gpg = all;
     gpgSshSupport = all;

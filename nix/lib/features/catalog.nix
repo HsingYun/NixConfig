@@ -36,6 +36,11 @@ in
       platforms = all;
       homeModules = [ ../../modules/home/features/git.nix ];
     };
+    vim = {
+      default = true;
+      platforms = all;
+      homeModules = [ ../../modules/home/features/vim.nix ];
+    };
     shell = {
       default = true;
       platforms = all;

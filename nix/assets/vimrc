@@ -1,0 +1,281 @@
+" 检查插件管理器是否安装，如果未安装，执行安装
+if empty(glob('~/.vim/autoload/plug.vim'))
+  silent !mkdir -p ~/.vim/autoload
+  silent !git clone https://github.com/junegunn/vim-plug.git ~/.vim/vim-plug
+  silent !cp ~/.vim/vim-plug/plug.vim ~/.vim/autoload/plug.vim
+  autocmd VimEnter * PlugInstall --sync | source $MYVIMRC
+endif
+
+
+" function {
+    " Identify platform {
+        silent function! OSX()
+            return has('macunix')
+        endfunction
+        silent function! LINUX()
+            return has('unix') && !has('macunix') && !has('win32unix')
+        endfunction
+        silent function! WINDOWS()
+            return  (has('win32') || has('win64'))
+        endfunction
+    " }
+
+    " Astyle {
+        func CodeFormat()
+            exec "w"
+            "取得当前光标所在行号
+            let lineNum = line(".")
+            if &filetype == 'java'
+                exec "%!astyle --style=java --suffix=none"
+            elseif &filetype == 'cpp'
+                exec "%!astyle --style=java --suffix=none"
+            else
+                exec "%!astyle --suffix=none"
+            endif
+            "返回先前光标所在行
+            exec lineNum
+        endfunc
+    " }
+" }
+
+" Environment {
+    " Basics {
+        set nocompatible        " 设置为vim模式
+    " }
+ " }
+
+" General {
+    syntax on                   " 语法高亮
+    set background=dark         " 暗色主题
+    filetype plugin on          " 开启文件类型插件
+    "filetype plugin indent on   " 开启文件类型缩进插件
+    set mouse=a                 " 鼠标可以自由定位
+    "set mousehide              " 输入时隐藏光标
+    scriptencoding utf-8        " vim Script的编码
+    "set spell                  " 开启拼写检查
+    set shortmess=atI           " 不显示捐赠信息
+
+    " 编辑git commit message时，回到第一行（默认记录上次打开的位置）
+    au FileType gitcommit au! BufEnter COMMIT_EDITMSG call setpos('.', [0, 1, 1, 0])
+
+    if has('clipboard')
+        if has('unnamedplus')   " 使用 + 剪贴板寄存器
+            set clipboard=unnamed,unnamedplus
+        else                    " 使用 * 剪贴板寄存器
+            set clipboard=unnamed
+        endif
+    endif
+
+    set autoread                " 文件变化时自动读入
+    set confirm                 " 设置保存提示
+    set noeb                    " 关闭提示声音
+    set vb t_vb=                " 关置空错误铃声的终端代码
+    au GuiEnter * set t_vb=     " 关闭GUI屏幕闪烁
+    set magic                   " 正则不转义
+    set nobackup                " 覆盖文件时不备份，这个备份文件会一直保存
+    set nowritebackup           " 覆盖文件时不备份，这个备份文件会在覆盖写入成功后删除
+    set noswapfile              " 没有swap文件
+    set autochdir               " 自动切换当前目录为当前文件所在的目录
+" }
+
+" Vim UI
+    set guifont=Monospace\ 10
+    set guioptions-=T           " 隐藏工具栏
+    set guioptions-=m           " 隐藏菜单栏
+    set showmode                " 左下角显示当前的wim模式
+    set cursorline              " 高亮当前行
+    "set cursorcolumn            " 高亮当前列
+
+    if has('cmdline_info')
+        set ruler               " 显示光标所在的行和列，以逗号分割
+        set rulerformat=%30(%=\:b%n%y%m%r%w\ %l,%c%V\ %P%)      " 设置标尺显示的格式
+        set showcmd             " 状态栏显示当前正在输入的命令
+    endif
+
+    if has('statusline')
+        set laststatus=2        " 总是显示状态栏
+    endif
+
+    set backspace=indent,eol,start  " 退格键可删除缩进，上一行结束和插入符前面的文字
+    set number                      " 显示行号
+    set showmatch                   " 插入括号时，短暂地跳转到匹配的对应括号
+    set incsearch                   " 搜索过程中显示搜索结果
+    set hlsearch                    " 搜索时高亮显示搜索到的文本
+    set winminheight=0              " 窗口最小高度可为0行
+    set ignorecase                  " 忽略大小写
+    set smartcase                   " 在有一个或多个大写字母时保持大小写敏感
+    set wildmenu                    " 补全时弹出菜单而不是直接补全
+    set wildmode=list:longest,full  " Tab自动补全时的顺序
+    "set whichwrap=b,s,h,l,<,>,[,]  " 允许跨行移动光标
+    set list                        " 高亮显示特殊字符
+    set listchars=tab:›\ ,trail:•,extends:#,nbsp:.      " 高亮显示哪些特殊字符
+    set cmdheight=2                 " Command-line 高度
+    if (empty($TMUX))
+        if (has("termguicolors"))
+            set termguicolors
+        endif
+    endif
+" }
+
+" Formatting {
+    set nowrap                      " 不自动换行
+    "set smartindent                 " 开启新行时使用智能自动缩进，会被cindent覆盖
+    "set autoindent                  " 开启新行时复制当前行的缩进
+    set shiftwidth=4                " 设置Shift+<<和Shift+>>缩进时的宽度
+    set expandtab                   " 用空格表示tab
+    set smarttab                    " 插入行首tab时其宽度参考shiftwidth的值
+    set tabstop=4                   " 一个tab代表4个空格
+    set softtabstop=4               " 退格键可以一次性删掉4个空格（代表一个tab）
+    set nojoinspaces                " 用J命令合并两行时会用一个空格来分隔，如果去掉no则是两个空格
+    set splitright                  " 用vsplit新建窗口时，新的窗口出现在右边
+    set splitbelow                  " 用split新建窗口时，新的窗口出现在下边
+    set encoding=utf-8              " 字符编码
+    set ffs=unix,dos,mac            " 文件格式，决定行尾字符
+    autocmd FileType haskell,puppet,ruby,yml setlocal expandtab shiftwidth=2 softtabstop=2
+" }
+
+" Plugins {
+    " vundle {
+        if isdirectory(expand("~/.vim/vim-plug"))
+            filetype off
+            call plug#begin('~/.vim/plugged')
+            "Plug 'dracula/vim', { 'as': 'dracula' }      " 配色方案
+            Plug 'vim-scripts/a.vim'                      " C/C++语言头文件和源文件跳转
+            Plug 'vim-scripts/c.vim'                      " C/C++代码辅助
+            Plug 'majutsushi/tagbar'                      " 代码结构
+            Plug 'scrooloose/nerdtree'                    " 文件树
+            Plug 'scrooloose/syntastic'                   " 语义分析
+            Plug 'ctrlpvim/ctrlp.vim'                     " 快速查询
+            Plug 'dyng/ctrlsf.vim'
+            Plug 'vim-airline/vim-airline'                " 状态栏
+            Plug 'Yggdroot/indentLine'                    " 代码段提示
+            Plug 'vim-scripts/DoxygenToolkit.vim'         " 文档型注释
+            Plug 'scrooloose/nerdcommenter'               " 简单注释
+            Plug 'elzr/vim-json'                          " json
+            Plug 'Shougo/neocomplete.vim'
+            Plug 'sbdchd/neoformat'
+            "Plug 'tpope/vim-fugitive'
+            call plug#end()
+            filetype on
+        endif
+    " }
+
+    " solarized {
+        if isdirectory(expand("~/.vim/plugged/vim-colors-solarized/"))
+            let g:solarized_termcolors=256
+            let g:solarized_termtrans=1
+            colorscheme solarized
+        endif
+    " }
+    " vim-one {
+        if isdirectory(expand("~/.vim/plugged/vim-one/"))
+            let g:one_allow_italics = 1
+            colorscheme one
+        endif
+    " }
+
+    " dracula {
+        if isdirectory(expand("~/.vim/plugged/dracula/"))
+            colorscheme dracula
+        endif
+    " }
+
+    " Tagbar {
+        if isdirectory(expand("~/.vim/plugged/tagbar/"))
+            let g:tagbar_width=45
+            let g:tagbar_autofocus=1
+            "autocmd vimenter * Tagbar
+            nmap <F6> :TagbarToggle<cr>
+        endif
+    " }
+
+    " the NERD Tree {
+        if isdirectory(expand("~/.vim/plugged/nerdtree/"))
+            "autocmd vimenter * NERDTree    " 自动打开文件列表
+            let NERDTreeWinPos="left"
+            nmap <F7> :NERDTreeToggle<CR>
+        endif
+    " }
+
+    " vim-airline {
+        if isdirectory(expand("~/.vim/plugged/vim-airline/"))
+            set t_Co=255
+            let g:airline#extensions#tabline#enabled = 1
+            let g:airline#extensions#tabline#buffer_nr_show = 1
+            let g:airline#extensions#tabline#formatter = 'unique_tail'
+        endif
+    " }
+
+    " indentLine {
+        if isdirectory(expand("~/.vim/plugged/indentLine/"))
+            let g:indentLine_char = '┆'
+            map <F8> :IndentLinesToggle<CR>
+            let g:indentLine_concealcursor=""
+        endif
+    " }
+
+    " syntastic {
+        if isdirectory(expand("~/.vim/plugged/syntastic/"))
+            set statusline+=%#warningmsg#
+            set statusline+=%{SyntasticStatuslineFlag()}
+            set statusline+=%*
+            let g:syntastic_always_populate_loc_list = 1
+            "let g:syntastic_auto_loc_list = 1
+            let g:syntastic_check_on_open = 1
+            let g:syntastic_check_on_wq = 0
+        endif
+    " }
+
+    " DoxygenToolkit.vim {
+        if isdirectory(expand("~/.vim/plugged/DoxygenToolkit.vim/"))
+            let g:DoxygenToolkit_authorName="hsingyun"
+            let g:DoxygenToolkit_licenseTag="Apache Licence 2.0"
+        endif
+    " }
+
+    " vim-json {
+        if isdirectory(expand("~/.vim/plugged/vim-json/"))
+            let g:vim_json_syntax_conceal = 0
+        endif
+    " }
+
+    " neocomplete.vim {
+        if isdirectory(expand("~/.vim/plugged/neocomplete.vim/"))
+            let g:neocomplete#enable_at_startup = 1
+        endif
+    " }
+
+    " neoformat {
+        if isdirectory(expand("~/.vim/plugged/neoformat/"))
+            "map <C-S-F> ::Neoformat<CR>       "映射代码格式化函数到shift+f快捷键
+        endif
+    " }
+
+    " ctrlsf {
+        if isdirectory(expand("~/.vim/plugged/ctrlsf.vim/"))
+            nnoremap <C-f> :CtrlSF<Space>
+            let g:ctrlsf_default_view_mode = 'compact'
+        endif
+    " }
+
+    " 默认编辑窗口 {
+        wincmd w
+        autocmd VimEnter * wincmd w
+    " }
+" }
+
+" keyMaps {
+    nmap <C-X> :bwipe<CR>       " Ctrl+X 表示清除缓存区
+    noremap <C-A> gggH<C-O>G
+    inoremap <C-A> <C-O>gg<C-O>gH<C-O>G
+    cnoremap <C-A> <C-C>gggH<C-O>G
+    onoremap <C-A> <C-C>gggH<C-O>G
+    snoremap <C-A> <C-C>gggH<C-O>G
+    vnoremap <BS> d
+    vnoremap <C-X> "+x
+    vnoremap <C-C> "+y
+    map <C-V> "+gP
+    cmap <C-V> <C-R>+
+    nnoremap <F2> :bp<CR>
+    nnoremap <F3> :bn<CR>
+" }

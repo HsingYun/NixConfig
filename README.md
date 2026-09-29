@@ -57,6 +57,10 @@ Feature defaults and platform support are defined in the [feature catalog](nix/l
 
 Features provide their own required tools and may share packages. For example, `devel` includes Git; `git` adds the user identity and aliases.
 
+The `vim` feature is enabled by default on every supported platform. It manages `~/.vimrc` from [nix/assets/vimrc](nix/assets/vimrc), works with the existing Vim installation, and retains vim-plug for plugin installation and updates. Set `features.vim = false` to opt out. Back up an existing unmanaged `~/.vimrc` before the first activation.
+
+The Darwin host installs Vim through Homebrew and prioritizes its executable over macOS's bundled Vim. Linux hosts continue to receive Vim from the Nix base packages; the `vim` feature manages the same configuration for both.
+
 DMS uses the upstream Home Manager options `programs.dank-material-shell.settings` and `.session`. Nonempty values manage the corresponding JSON file declaratively (read-only); use `lib.mkForce { }` for either option to let DMS manage that file instead. Launcher exclusions are configured through `desktop.launcher.hiddenEntries`; only existing desktop entries are hidden.
 
 Native NixOS enables `network` by default: systemd-networkd with systemd-resolved. Desktop features share this capability and default to NetworkManager with systemd-resolved. Set `networking.networkmanager.enable` in `system.nix` to select NetworkManager (`true`) or networkd (`false`) independently of the desktop. WSL, macOS, and standalone Home Manager retain their platform's network management.

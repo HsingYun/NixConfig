@@ -1,8 +1,9 @@
 { pkgs }:
 
 with pkgs;
-[
-  vim
+lib.optionals (!stdenv.hostPlatform.isDarwin) [ vim ]
+++ [
+  nano
   wget
   curl
 ]

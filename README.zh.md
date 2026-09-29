@@ -57,6 +57,10 @@ features = {
 
 各功能独立提供所需工具，允许共享软件包。例如，`devel` 提供 Git 命令，`git` 配置用户身份与别名。
 
+`vim` 功能在所有支持的平台默认启用，使用 [nix/assets/vimrc](nix/assets/vimrc) 管理 `~/.vimrc`，可配合已有的 Vim 使用，插件仍由 vim-plug 安装与更新。设置 `features.vim = false` 可关闭。首次应用前，请备份已有且尚未由 Home Manager 管理的 `~/.vimrc`。
+
+Darwin 主机通过 Homebrew 安装 Vim，并优先使用它而非 macOS 自带版本；Linux 主机继续由 Nix 基础包提供 Vim。两者共用 `vim` 功能管理的配置。
+
 DMS 使用上游 Home Manager 选项 `programs.dank-material-shell.settings` 和 `.session`。非空值以声明式方式管理对应 JSON 文件（只读）；将对应选项设为 `lib.mkForce { }`，可交由 DMS 管理该文件。应用列表通过 `desktop.launcher.hiddenEntries` 配置隐藏名单，仅处理实际存在的桌面入口。
 
 原生 NixOS 默认启用 `network`，使用 systemd-networkd 与 systemd-resolved；桌面功能共享该能力，默认使用 NetworkManager 与 systemd-resolved。在 `system.nix` 中设置 `networking.networkmanager.enable`，可独立选择 NetworkManager（`true`）或 networkd（`false`）。WSL、macOS 和独立 Home Manager 保留所属平台的网络管理方式。

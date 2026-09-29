@@ -46,6 +46,11 @@ let
       && !cfg.networking.networkmanager.enable
       && !cfg.networking.dhcpcd.enable;
     git = cfg: (home cfg).programs.git.enable && (home cfg).programs.git.settings.alias ? lg;
+    vim =
+      cfg:
+      (home cfg).home.file ? ".vimrc"
+      && (home cfg).home.file.".vimrc".enable
+      && !(home cfg).programs.vim.enable;
     shell =
       cfg: (home cfg).programs.zsh.enable && (home cfg).programs.zsh.oh-my-zsh.enable && plainGit cfg;
     devel =
