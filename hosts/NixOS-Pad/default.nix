@@ -8,7 +8,7 @@
     ghostty = true;
     mpv = true;
   };
-  hardwareConfig = ./harware.nix;
+  hardwareConfig = ./hardware.nix;
   systemConfig = ./system.nix;
   homeConfig = ./home.nix;
 }
