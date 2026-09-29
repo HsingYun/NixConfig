@@ -2,15 +2,20 @@
   lib,
   catalog,
   enabled,
+  platform ? "nixos",
 }:
 
 let
+  activationFor =
+    feature:
+    catalog.features.${feature}.activationByPlatform.${platform}
+      or catalog.features.${feature}.activation;
   rules = lib.concatMap (
     feature:
     map (dependency: {
       inherit feature dependency;
-      from = catalog.features.${feature}.activation;
-      to = catalog.features.${dependency}.activation;
+      from = activationFor feature;
+      to = activationFor dependency;
     }) (catalog.features.${feature}.requires or [ ])
   ) (lib.filter (feature: enabled.${feature}) (builtins.attrNames catalog.features));
   homeOnly = rule: rule.from.scope == "home" && rule.to.scope == "home";

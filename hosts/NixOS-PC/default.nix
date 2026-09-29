@@ -1,34 +1,14 @@
+let
+  profile = import ../../nix/lib/hosts/profiles.nix;
+in
 {
   platform = "nixos";
-  packageManager = {
-    type = "nix";
-    externalPkg.packages = [
-      "aria2"
-      "gnupg"
-      "gnutls"
-      "graphviz"
-      "ncurses"
-      "openssl"
-      "pinentry-curses"
-      "rsync"
-      "sqlite"
-      "procps"
-      "xz"
-      "zlib"
-      "zstd"
-    ];
-  };
+  packageManager = "nix";
   system = "x86_64-linux";
-  features = {
-    chrome = true;
-    vscode = true;
-    codex = true;
-    devel = true;
-    chinese = true;
-    niri = true;
-    dms = true;
-    ghostty = true;
-    mpv = true;
+  features = profile.linuxDesktop;
+  preferences = {
+    desktop = "niri";
+    loginManager = "greetd";
   };
   hardwareConfig = ./hardware.nix;
   systemConfig = ./system.nix;

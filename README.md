@@ -4,7 +4,7 @@ English · [简体中文](README.zh.md)
 
 Declarative system and user configurations for NixOS, WSL, macOS, and Linux. Hosts share a common configuration with independent feature selection and local overrides.
 
-- NixOS desktops: GNOME or Niri with DankMaterialShell.
+- NixOS / Arch desktops: GNOME or Niri with DankMaterialShell; Arch supplies native packages through pacman/AUR while Home Manager owns configuration.
 - Application profiles: Git, Zsh, GPG, Ghostty, and mpv.
 - Development tools (`devel`): Clang/LLVM, GCC, GDB/LLDB, build tools, Python, Go, Node.js/TypeScript, OpenJDK, Rust/Cargo, plus Git LFS, Protobuf, Abseil, coreutils, and Telnet.
 - Chinese environment: Simplified Chinese locale, CJK fonts, Maple Mono, and Fcitx5 with Rime Ice.
@@ -16,7 +16,21 @@ Declarative system and user configurations for NixOS, WSL, macOS, and Linux. Hos
 | `nixos` | NixOS and Home Manager |
 | `nixos-wsl` | NixOS-WSL and Home Manager |
 | `darwin` | macOS through nix-darwin and Home Manager |
-| `linux` | User environment through Home Manager |
+| `arch` | Arch user environment through Home Manager and native adapters |
+
+`platform = "arch"` selects Arch integration; `system = "x86_64-linux"` still selects the Nix CPU/OS target. Platform definitions live in [nix/lib/hosts/platforms.nix](nix/lib/hosts/platforms.nix). The old `platform = "linux"` name is not supported.
+
+Shared experience is defined in [nix/lib/hosts/profiles.nix](nix/lib/hosts/profiles.nix):
+
+| Host | Default experience |
+| --- | --- |
+| ArchLinux | Niri + DMS + greetd, with GNOME also installed; pacman/AUR preferred |
+| NixOS-PC | The same Niri desktop and GNOME alternative; hardware remains a placeholder |
+| NixOS-Pad | GNOME + GDM, screen rotation, on-screen keyboard and touchscreen orientation |
+| Darwin | Shared CLI/development/GPG tools, Ghostty, Chrome, VS Code and mpv; native macOS desktop |
+| NixOS-WSL | Shared CLI/development/GPG/smart-card tools, terminal pinentry; no desktop or Chinese IME |
+
+For GNOME on PC/Arch, select `preferences.desktop = "gnome"; preferences.loginManager = "gdm";`. Niri configuration can remain enabled. To use Niri on Pad, enable `desktop.niri` and `desktop.dms` and change those preferences.
 
 ## Usage
 
@@ -47,38 +61,53 @@ For example, enable a Niri desktop with Chinese input:
 
 ```nix
 features = {
-  niri = true;
-  dms = true;
-  chinese = true;
-  ghostty = true;
+  desktop.niri.enable = true;
+  desktop.dms.enable = true;
+  chinese.enable = true;
+  ghostty.enable = true;
 };
 ```
 
 Feature defaults and platform support are defined in the [feature catalog](nix/lib/features/catalog.nix). Declare only changes to the defaults. Disabling a feature removes this repository's customization without blocking other modules or deleting application data.
+
+`features` is hierarchical: each feature has an `.enable` switch with its settings alongside it. Desktop features are grouped under `features.desktop`, including `gnome`, `niri`, `dms`, `keyring`, `launcher`, `wallpaper`, `printing`, `firmware`, and `screenRotate`; GPG SSH support is under `features.gpg.sshSupport`. Groups have no master switch. Shared defaults and host overrides merge by field; explicit `false` and empty lists replace inherited values. Boolean declarations such as `features.niri = true` have been migrated to `features.desktop.niri.enable = true`.
+
+For example, enable Chrome with no default extensions:
+
+```nix
+features.chrome = {
+  enable = true;
+  extensions = [ ];
+};
+```
+
+Keep these settings in `hosts/<name>/default.nix`; the resolved tree is shared with Home Manager and system modules.
 
 Software installation is coordinated by one software layer. Hosts select `packageManager` and `features`; host-specific extras belong in `packageManager.externalPkg` using that manager’s native package names:
 
 ```nix
 packageManager = {
   type = "homebrew";
-  externalPkg.brews = [ "aria2" ];
+  externalPkg.brews = [ "watch" ];
 };
 features = {
-  ghostty = true;
-  vim = true;
-  chrome = true;
+  ghostty.enable = true;
+  vim.enable = true;
+  chrome.enable = true;
 };
 ```
 
-NixOS/WSL default to Nix. Darwin prefers Homebrew, falling back to Nix when an implementation is unavailable or cannot meet a feature's capabilities. Standalone Linux requires an explicit package manager; Arch uses `pacman`, including AUR packages installed through yay. Unimplemented managers such as `apt` are rejected explicitly. Resolution uses the software catalog, not the machine's current installation state.
+NixOS/WSL default to Nix. Darwin prefers Homebrew, falling back to Nix when an implementation is unavailable or cannot meet a feature's capabilities. Arch defaults to `pacman`, including AUR packages installed through yay. Unimplemented managers such as `apt` are rejected explicitly. Resolution uses the software catalog, not the machine's current installation state.
 
 Features declare both configuration and software requirements. Shared dependencies are merged: Ghostty requests Maple Mono, which can remain installed for the Chinese feature after Ghostty is disabled. Niri launches a terminal through `xdg-terminal-exec` without choosing Ghostty implicitly.
 
-Extras matching active software requirements follow that software's selected provider and wrapper. Selected Nix commands take precedence over stale native installations. Set `software.packageOverrides.<software-id>` in the Home Manager configuration to replace a feature's Nix package consistently across its installation plan and module configuration. Arch, PC and Pad also declare equivalent extra tools using their manager's package names, excluding macOS-only packages.
+`features.vscode` installs Maple Mono and seeds the editor and integrated terminal fonts once. Existing values and JSONC comments are preserved; subsequent activations and feature toggles leave the settings user-owned. Customize the initial defaults with `features.vscode.initialSettings`. The initialization marker lives at `$XDG_STATE_HOME/nixconfig/vscode-initialized` (under `~/.local/state` by default). Named profiles, portable installations, and remote VS Code settings are not modified.
+
+Extras matching active software requirements follow that software's selected provider and wrapper. Selected Nix commands take precedence over stale native installations. Set `software.packageOverrides.<software-id>` in the Home Manager configuration to replace a feature's Nix package consistently across its installation plan and module configuration. Arch, PC, Pad and Darwin enable `features.commonTools.enable`: aria2, GnuPG, GnuTLS, Graphviz, ncurses, OpenSSL, pinentry, rsync, SQLite, xz, zlib and zstd. It requests software without enabling GPG configuration. Provider preference and capability-based fallback remain shared. Linux procps is also provided by commonTools. Host extras retain differences such as watch and generic pinentry on Darwin; WSL selects terminal pinentry through its package binding.
 
 The default-enabled `vim` feature installs Vim through the selected provider and manages `~/.vimrc` from [nix/assets/vimrc](nix/assets/vimrc). Plugins remain managed by vim-plug. Back up an existing unmanaged `~/.vimrc` before activation. PC and Pad use Nix applications; Darwin prefers Homebrew, with provider-specific PATH handling generated centrally.
 
-Disabling a feature removes its software requests while retaining shared requirements. Homebrew keeps `cleanup = "none"`, so removing a manifest entry does not uninstall existing software. Integrations requiring a Nix package path, including Zsh, GPG agent and mpv plugins, declare that capability explicitly. Resolution reports explain fallbacks.
+Disabling a feature removes its software requests while retaining shared requirements. Arch keeps packages on ordinary feature removal. Explicit application overrides to Nix remove the corresponding installed native package only after Nix installation succeeds, using plain `pacman -R` with dependency checks, no cascading removal, and no dependency bypass. Reverse dependencies, account login shells, and active/enabled native system units block removal. Homebrew keeps `cleanup = "none"`, so removing a manifest entry does not uninstall existing software. Integrations requiring a Nix package path, including Zsh, GPG agent and mpv plugins, declare that capability explicitly. Resolution reports explain fallbacks.
 
 Inspect a host's software sources:
 
@@ -89,11 +118,76 @@ nix eval --json .#lib.softwareManifests.Darwin
 
 See the [software architecture](docs/software.md) for catalog, capability and backend-extension contracts.
 
-DMS uses the upstream Home Manager options `programs.dank-material-shell.settings` and `.session`. Nonempty values manage the corresponding JSON file declaratively (read-only); use `lib.mkForce { }` for either option to let DMS manage that file instead. Launcher exclusions are configured through `desktop.launcher.hiddenEntries`; only existing desktop entries are hidden.
+Desktop settings belong to structured features:
 
-Native NixOS enables `network` by default: systemd-networkd with systemd-resolved. Desktop features share this capability and default to NetworkManager with systemd-resolved. Set `networking.networkmanager.enable` in `system.nix` to select NetworkManager (`true`) or networkd (`false`) independently of the desktop. WSL, macOS, and standalone Home Manager retain their platform's network management.
+```nix
+features.desktop = {
+  gnome.enable = true;
+  niri.enable = true;
+  dms.enable = true;
+  niri.settings.layout.gaps = 12;
+  gnome.settings."org/gnome/desktop/interface".clock-show-seconds = true;
+  dms.settings.fontFamily = "Sans";
+  launcher = {
+    enable = true;
+    hiddenEntries = [ "org.gnome.Tour.desktop" "org.gnome.Tecla.desktop" ];
+  };
+  wallpaper = {
+    enable = true;
+    image = /absolute/path/desktop.png;
+    lockImage = /absolute/path/lock.png;
+  };
+};
+```
 
-To add a host, copy the matching directory from [nix/templates/](nix/templates/) into `hosts/<name>/`, complete its configuration and state versions, then register it in `hosts/default.nix`. Native NixOS also requires a hardware configuration and boot loader.
+Desktop features default-enable `keyring`, `launcher`, `wallpaper`, `printing`, and `firmware`; each can be disabled independently. Shared wallpaper paths now live in `flake.nix` under `features.desktop.wallpaper`, replacing `user.wallpaper/lockWallpaper`. Hosts can override paths or use explicit `null` to leave an image unmanaged. GNOME and DMS share these images; the NixOS DMS greeter uses `lockImage` too. Niri alone has no wallpaper renderer; DMS renders its wallpaper here.
+
+ArchLinux enables GNOME, Niri+DMS, wallpaper, and launcher exclusions. GNOME installs missing components from the [explicit Arch package selection](nix/modules/home/features/gnome.nix), including GDM, without installing the entire `gnome` group. Package repositories follow the host pacman configuration. HM manages GNOME extension UUIDs and dconf, validates Niri configuration with the native binary, and enables Arch’s DMS user service for Niri sessions. Start Niri through its system login session or `niri-session`.
+
+GNOME requests Mission Center (`mission-center`), Snapshot (`snapshot`), and GNOME Text Editor on both Arch and NixOS. Ghostty is the separately managed terminal; GNOME Console is no longer requested. NixOS excludes legacy GNOME Terminal, gedit, and Cheese, whose desktop entries are also hidden by default.
+
+`features.desktop.printing.enable` manages CUPS and discovery; `features.desktop.firmware.enable` manages fwupd and GNOME Firmware. Both are enabled on the ArchLinux host. Arch installs native CUPS, filters, Ghostscript, libusb, Avahi, and fwupd, and enables `cups.socket`, the Avahi service/socket, and `fwupd-refresh.timer`. NixOS uses its official service modules. Firmware metadata is refreshed automatically; firmware is never flashed automatically. Printer queues, device-specific drivers, and firmware installation remain device-specific. Network printer `.local` resolution uses the host's networking configuration.
+
+Arch service ownership is recorded under root-owned `/var/lib/nixconfig/native-systemd/`. Disabling a feature removes only boot links created by this configuration and stops units that were originally neither enabled nor active and have no remaining owner. Existing services, administrator edits, and shared dependencies are preserved. Packages remain installed. Repeated activation performs no redundant service changes, and interrupted activation can be retried. Native DBus activation remains available to other applications; services are not masked.
+
+Arch and NixOS share the same login selection: GNOME defaults to GDM; Niri defaults to greetd, with a DMS greeter when DMS is enabled and tuigreet otherwise. When multiple providers are enabled, select one explicitly. The Arch host uses:
+
+```nix
+preferences = {
+  desktop = "niri";
+  loginManager = "greetd"; # "gdm" for GDM; "none" for unmanaged/manual login
+};
+```
+
+On Arch, activation installs the chosen greeter, writes dedicated greetd configuration when selected, and uses sudo to enable one login manager and graphical.target. Switching replaces the old manager’s boot links without restarting the running session; the new manager takes effect after reboot. The dedicated greetd service drop-in uses `/etc/greetd/nixconfig.toml`; the original `/etc/greetd/config.toml` is preserved. Selecting `none` or removing the desktop feature leaves existing native login services untouched. Existing PAM rules and network connection configuration remain host-managed.
+
+`features.desktop.dms.settings` and `.session` map to the corresponding HM options. Nonempty values manage JSON files declaratively (read-only). To let DMS save its own settings, disable the wallpaper feature and clear the corresponding feature parameters, or use `lib.mkForce { }` on the HM option in `home.nix`. The Arch adapter manages settings, session, clipboard JSON and user services; NixOS retains the full upstream HM interface.
+
+The catalog declares a fixed default list, including Avahi’s `avahi-discover.desktop`, `bssh.desktop`, `bvnc.desktop`, legacy GNOME Terminal/gedit/Cheese, and `org.gnome.Tour.desktop`, `org.gnome.Tecla.desktop`, `org.gnome.Epiphany.desktop`, `org.gnome.Software.desktop`, plus `htop.desktop`, `nvtop.desktop`, `cmake-gui.desktop`, `lstopo.desktop`, `jconsole-java-openjdk.desktop`, `jshell-java-openjdk.desktop`, and vim/gvim entries. These Arch filenames were checked against installed packages; runtime discovery does not add applications to the fixed list. `features.desktop.launcher.hiddenEntries` replaces this list and hides existing entries using `NoDisplay=true`, preserving commands, associations and actions. Nix package entries are read during builds; native Arch entries are read after package installation on each HM activation. On Arch, both sources use the same checksum-tracked override owner, avoiding link-preflight collisions when changing providers. NixOS uses Home Manager links to the build-time output, without native filesystem scanning. Removing rules, disabling the feature, or removing source entries cleans up unchanged generated native copies. Existing user files and other symlinks are preserved.
+
+Chinese input is supported on native Arch/NixOS desktops, not WSL. Both use the working local Rime setup: a single Rime input-method entry, the Ice preset, and English mode by default, preserving personal dictionaries. Set `features.chinese.englishByDefault = false;` for Chinese by default; `.settings` overrides Fcitx `inputMethod`, `globalOptions`, and `addons`. Arch uses native Fcitx, GTK/Qt modules, Rime and rime-ice-git; NixOS uses the Nix runtime. Both GNOME desktops receive Kimpanel, XSettings and session-specific GTK configuration. Niri uses Wayland input support without globally setting GTK_IM_MODULE. A session-bound user unit owns Fcitx startup, suppressing duplicate XDG autostart. Arch retains that managed suppression when the feature is disabled because the native package remains installed; a host that never enabled the feature is untouched.
+
+Arch desktops also request NetworkManager, PipeWire/WirePlumber, Bluetooth, UPower, UDisks and GVfs. HM manages audio user units. An active alternative network manager causes a read-only preflight failure instead of interrupting the current connection. NetworkManager-wait-online is enabled for boot without running it during activation.
+
+Native Niri/session/portal and Keyring packages must stay consistent with their OS integration. Arch rejects Nix overrides for these system components. Customize NixOS Keyring through a system nixpkgs overlay so PAM, DBus, wrappers and the user unit share one package. Standalone Nix Keyring requires `useWrappedDaemon = false`.
+
+dconf records original and last-written values. Removing a feature, including the final desktop feature, restores only values still matching the managed value, preserving subsequent user edits. Explicitly declared settings remain authoritative on activation.
+
+ArchLinux enables `features.mpv.enable` with the pacman player. HM manages `mpv.conf`, script options and links under `mpv/scripts`; ModernX, thumbfast and fonts retain their pinned Nix sources without installing a Nix player. Thumbnail generation explicitly uses `/usr/bin/mpv`. See the [mpv file layout](https://mpv.io/manual/stable/#files). NixOS/macOS retain their Nix wrapper integration.
+
+Native NixOS enables `network` by default: systemd-networkd with systemd-resolved. Desktop features share this capability and default to NetworkManager with systemd-resolved. Set `networking.networkmanager.enable` in `system.nix` to select NetworkManager (`true`) or networkd (`false`) independently of the desktop. Arch desktops manage native NetworkManager through the desktop adapter. WSL, macOS, and standalone Home Manager without that adapter retain their platform's network management.
+
+On native NixOS and Arch, the `chrome` feature defaults HTTP, HTTPS and HTML associations to Google Chrome. Override individual desktop entries with `xdg.mimeApps.defaultApplications` in `home.nix`, or set `xdg.mimeApps.enable = false` to manage default applications through the desktop settings.
+
+The `chrome` feature also installs Bitwarden by default. Set `features.chrome.extensions = [ ];` in the host’s `default.nix` to disable this, or supply other Chrome Web Store extension IDs. Linux uses Chrome's `normal_installed` policy, which installs extensions automatically but lets users disable them. NixOS manages the policy declaratively. Arch activation uses sudo to reconcile `/etc/opt/chrome/policies/managed/nixconfig-extensions.json` for all Chrome users on the machine. Root-owned records track content, file identity and configuration owners; unmanaged files, administrator edits and symlinked paths are rejected. Identical content is not rewritten. Disabling the extensions or `chrome` removes only the unchanged owned policy when no other configuration owner needs it. macOS uses user-level External Extensions manifests and may ask for confirmation when Chrome starts. See the [Chrome policy documentation](https://support.google.com/chrome/a/answer/7517525?hl=en) and [external extension documentation](https://developer.chrome.com/docs/extensions/how-to/distribute/install-extensions).
+
+GNOME Keyring is a shared Home Manager desktop capability implemented in [keyring.nix](nix/modules/home/shared/keyring.nix). Use `features.desktop.keyring.enable = true;` in the host’s `default.nix`, or `false` to disable it. GNOME and Niri desktops default to enabled, and the ArchLinux host opts in as well. The module uses the software layer's selected provider: pacman uses native `gnome-keyring-daemon.service` and `.socket` units enabled under `default.target` and `sockets.target`; Nix uses a user service started with the graphical session. The NixOS adapter only supplies PAM, D-Bus and portal integration. Only password and certificate components are enabled; SSH remains with the existing agent configuration. Automatic login unlocking depends on the login manager's PAM configuration.
+
+To add a host, follow [Creating hosts](docs/hosts.md), which covers deployment platforms, CPU architectures, state versions and validation.
+
+Smart cards use `features.smartcard` on every supported platform. ArchLinux explicitly enables it, installs native `pcsclite`, `ccid`, and `polkit`, and manages `pcscd.socket` through the shared unit adapter. GPG uses PC/SC when enabled. Ordinary desktop sessions do not receive additional Polkit grants. For Arch-WSL or remote SSH, opt into `features.smartcard.allowBackgroundAccess = true;`: the rule allows only the configured account and the two PC/SC actions. See the [Arch-WSL guide](docs/hosts.md#arch-under-wsl) and [ArchWiki GnuPG](https://wiki.archlinux.org/title/GnuPG#Using_a_smart_card_on_a_remote_client). Disabling the option removes only an unchanged managed policy. WSL still needs device forwarding.
+
+Reusable activation helpers live in [nix/assets/helpers](nix/assets/helpers), with feature behavior and platform adapters kept in their respective modules.
 
 ## Layout
 
@@ -102,7 +196,6 @@ flake.nix      Dependencies and shared user settings
 hosts/         Machine configurations
 nix/
   modules/     System, user, and feature modules
-  templates/   Host templates by platform
   lib/         Configuration assembly and software resolution
   tests/       Configuration checks
 ```
@@ -121,7 +214,7 @@ Then build and run checks for the current platform:
 nix flake check --print-build-logs
 ```
 
-CI runs native checks on x86_64 Linux and Apple Silicon macOS. The `host-*` checks evaluate complete host outputs and their assertions without building or activating the entire machine. Feature tests exercise independent toggles individually and retain local combinations for dependencies, conflicts, and desktop choices.
+CI runs native checks on x86_64 Linux and Apple Silicon macOS. The `host-*` checks evaluate complete host outputs and their assertions. The `home-profile-*` checks build each host's actual Home Manager package directory to catch file collisions; they do not activate it or build the entire system. `--no-build` cannot detect these collisions. Feature tests exercise independent toggles individually and retain local combinations for dependencies, conflicts, and desktop choices.
 
 Before deployment, build the actual output on its matching platform, for example:
 

@@ -35,11 +35,14 @@
     import ./nix/lib/outputs.nix {
       inherit inputs;
 
+      features.desktop.wallpaper = {
+        image = ./nix/assets/desktop.png;
+        lockImage = ./nix/assets/background.png;
+      };
+
       user = {
         username = "hsingyun";
         avatar = ./nix/assets/avatar.png;
-        wallpaper = ./nix/assets/desktop.png;
-        lockWallpaper = ./nix/assets/background.png;
         git = {
           name = "HsingYun";
           email = "iakext@gmail.com";

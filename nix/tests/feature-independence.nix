@@ -34,6 +34,55 @@ let
     && hasPackage "tela-icon-theme" cfg
     && (home cfg).dconf.settings."org/gnome/desktop/interface".icon-theme == "Tela";
   checks = {
+    printing =
+      cfg: cfg.services.printing.enable && cfg.services.avahi.enable && !cfg.services.fwupd.enable;
+    firmware =
+      cfg: cfg.services.fwupd.enable && hasPackage "gnome-firmware" cfg && !cfg.services.printing.enable;
+    commonTools =
+      cfg:
+      lib.all (name: hasPackage name cfg) [
+        "aria2"
+        "gnutls"
+        "graphviz"
+        "ncurses"
+        "openssl"
+        "rsync"
+        "sqlite"
+        "xz"
+        "zlib"
+        "zstd"
+        "gnupg"
+        "pinentry-qt"
+      ]
+      && !(home cfg).programs.gpg.enable;
+    launcher =
+      cfg:
+      (home cfg).desktop.launcher.hiddenEntries == [
+        "avahi-discover.desktop"
+        "bssh.desktop"
+        "bvnc.desktop"
+        "org.gnome.Terminal.desktop"
+        "org.gnome.gedit.desktop"
+        "org.gnome.Cheese.desktop"
+        "htop.desktop"
+        "jconsole-java-openjdk.desktop"
+        "jshell-java-openjdk.desktop"
+        "nvtop.desktop"
+        "cmake-gui.desktop"
+        "lstopo.desktop"
+        "vim.desktop"
+        "gvim.desktop"
+        "org.gnome.Tour.desktop"
+        "org.gnome.Tecla.desktop"
+        "org.gnome.Epiphany.desktop"
+        "org.gnome.Software.desktop"
+      ];
+    wallpaper = cfg: (home cfg).features.desktop.wallpaper.enable;
+    keyring =
+      cfg:
+      (home cfg).features.desktop.keyring.enable
+      && (home cfg).systemd.user.services ? gnome-keyring-daemon
+      && cfg.services.gnome.gnome-keyring.enable;
     plymouth =
       cfg:
       cfg.boot.plymouth.enable
@@ -101,6 +150,17 @@ let
           ]
       && (home cfg).xdg.userDirs.enable
       && (home cfg).xdg.userDirs.createDirectories
+      && lib.all (name: hasPackage name cfg) [
+        "mission-center"
+        "snapshot"
+        "gnome-text-editor"
+      ]
+      && builtins.elem "gnome-console" (map lib.getName cfg.environment.gnome.excludePackages)
+      && lib.all (name: builtins.elem name (map lib.getName cfg.environment.gnome.excludePackages)) [
+        "gnome-terminal"
+        "gedit"
+        "cheese"
+      ]
       && desktopServices cfg;
     niri =
       cfg:

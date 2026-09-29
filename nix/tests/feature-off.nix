@@ -33,6 +33,43 @@ let
   # Check repository-specific settings, including integrations, rather than
   # assuming that upstream defaults or shared packages disappear.
   checks = {
+    printing = {
+      on = cfg: cfg.services.printing.enable && cfg.services.avahi.enable;
+      off =
+        cfg: !cfg.services.printing.enable && !cfg.services.avahi.nssmdns4 && cfg.services.fwupd.enable;
+    };
+    firmware = {
+      on = cfg: cfg.services.fwupd.enable && hasPackage "gnome-firmware" cfg;
+      off =
+        cfg:
+        !cfg.services.fwupd.enable && !(hasPackage "gnome-firmware" cfg) && cfg.services.printing.enable;
+    };
+    commonTools = {
+      on = cfg: hasPackage "aria2" cfg && hasPackage "graphviz" cfg;
+      off =
+        cfg:
+        !(hasPackage "aria2" cfg)
+        && !(hasPackage "graphviz" cfg)
+        && (home cfg).programs.gpg.enable
+        && hasPackage "gnupg" cfg;
+    };
+    launcher = {
+      on = cfg: (home cfg).desktop.launcher.hiddenEntries != [ ];
+      off =
+        cfg: (home cfg).desktop.launcher.hiddenEntries == [ ] && !((home cfg).xdg.dataFile ? applications);
+    };
+    wallpaper = {
+      on = cfg: (home cfg).features.desktop.wallpaper.enable;
+      off = cfg: !(home cfg).features.desktop.wallpaper.enable;
+    };
+    keyring = {
+      on = cfg: (home cfg).features.desktop.keyring.enable;
+      off =
+        cfg:
+        !(home cfg).features.desktop.keyring.enable
+        && !((home cfg).systemd.user.services ? gnome-keyring-daemon)
+        && !cfg.services.gnome.gnome-keyring.enable;
+    };
     plymouth = {
       on = cfg: cfg.boot.plymouth.enable && builtins.elem "splash" cfg.boot.kernelParams;
       off =
@@ -206,7 +243,7 @@ let
           if name == "gnome" then
             {
               desktop = "niri";
-              loginManager = "dms";
+              loginManager = "greetd";
             }
           else
             {

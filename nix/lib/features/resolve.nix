@@ -20,41 +20,34 @@ let
   definitions = catalog.features;
   names = builtins.attrNames definitions;
   prefix = "Host ${name}: ";
-  validate =
-    source: values:
-    if !builtins.isAttrs values then
-      [ "${source} must be an attribute set." ]
-    else
-      lib.concatMap (
-        key:
-        if !(builtins.elem key names) then
-          [ "unknown ${source}.${key}." ]
-        else
-          lib.optional (!builtins.isBool values.${key}) "${source}.${key} must be true or false."
-      ) (builtins.attrNames values);
-  clean =
-    values:
-    if builtins.isAttrs values then
-      lib.filterAttrs (key: value: builtins.elem key names && builtins.isBool value) values
-    else
-      { };
-  shared = clean defaults;
-  local = clean overrides;
-  explicit = shared // local;
+  input = import ./input.nix { inherit lib catalog; };
+  shared = input.normalize "shared features" defaults;
+  local = input.normalize "features" overrides;
+  explicit = lib.recursiveUpdate shared.values local.values;
+  pathFor = key: definitions.${key}.path or [ key ];
+  enableKey = key: lib.concatStringsSep "." (pathFor key ++ [ "enable" ]);
   supported = key: builtins.elem platform definitions.${key}.platforms;
   enabled = lib.genAttrs names (
-    key: supported key && (explicit.${key} or (definitions.${key}.default or false))
+    key:
+    supported key
+    && (explicit.${enableKey key} or (
+      (
+        (definitions.${key}.default or false)
+        && builtins.elem platform (definitions.${key}.defaultPlatforms or definitions.${key}.platforms)
+      )
+      || lib.any (other: enabled.${other}) (definitions.${key}.defaultFrom or [ ])
+    )
+    )
   );
   featureErrors = lib.concatMap (
     key:
     lib.optional (
-      (local.${key} or false) && !supported key
-    ) "features.${key} is not supported on platform '${platform}'."
+      (local.values.${enableKey key} or false) && !supported key
+    ) "features.${lib.concatStringsSep "." (pathFor key)} is not supported on platform '${platform}'."
     ++ lib.concatMap (
       other:
-      lib.optional (
-        enabled.${key} && enabled.${other}
-      ) "features.${key} conflicts with features.${other}."
+      lib.optional (enabled.${key} && enabled.${other})
+        "features.${lib.concatStringsSep "." (pathFor key)} conflicts with features.${lib.concatStringsSep "." (pathFor other)}."
     ) (definitions.${key}.conflicts or [ ])
   ) names;
   preferenceValues = if builtins.isAttrs preferences then preferences else { };
@@ -68,7 +61,12 @@ let
   choices = lib.mapAttrs (
     key: rule:
     let
-      candidates = builtins.attrNames (lib.filterAttrs (_: feature: enabled.${feature}) rule.providers);
+      applicable = !(rule ? platforms) || builtins.elem platform rule.platforms;
+      candidates = builtins.attrNames (
+        lib.filterAttrs (
+          _: features: lib.any (feature: enabled.${feature}) (lib.toList features)
+        ) rule.providers
+      );
       supplied = preferenceValues.${key} or null;
       valid =
         supplied == null
@@ -78,29 +76,49 @@ let
     in
     {
       value =
-        if supplied != null then
+        if !applicable then
+          rule.empty
+        else if supplied != null then
           supplied
         else if builtins.length candidates == 1 then
           builtins.head candidates
         else
           rule.empty;
       errors =
-        lib.optional (!valid)
-          "preferences.${key} must select an available value: ${
-            lib.concatStringsSep ", " (candidates ++ (rule.alternatives or [ ]))
-          }."
-        ++
-          lib.optional (supplied == null && builtins.length candidates > 1)
-            "multiple ${key} providers are enabled (${lib.concatStringsSep ", " candidates}); set preferences.${key} explicitly.";
+        if !applicable then
+          lib.optional (
+            supplied != null
+          ) "preferences.${key} is managed by the host OS on platform '${platform}'."
+        else
+          lib.optional (!valid)
+            "preferences.${key} must select an available value: ${
+              lib.concatStringsSep ", " (candidates ++ (rule.alternatives or [ ]))
+            }."
+          ++
+            lib.optional (supplied == null && builtins.length candidates > 1)
+              "multiple ${key} providers are enabled (${lib.concatStringsSep ", " candidates}); set preferences.${key} explicitly.";
     }
   ) catalog.choices;
 in
 {
   inherit enabled;
+  config = lib.foldl' lib.recursiveUpdate { } (
+    lib.mapAttrsToList (
+      key: entry:
+      lib.setAttrByPath (pathFor key) (
+        {
+          enable = enabled.${key};
+        }
+        // lib.mapAttrs (
+          option: spec: explicit.${lib.concatStringsSep "." (pathFor key ++ [ option ])} or spec.default
+        ) (entry.options or { })
+      )
+    ) definitions
+  );
   selected = lib.mapAttrs (_: choice: choice.value) choices;
   errors = map (error: prefix + error) (
-    validate "shared features" defaults
-    ++ validate "features" overrides
+    shared.errors
+    ++ local.errors
     ++ featureErrors
     ++ preferenceErrors
     ++ lib.concatMap (choice: choice.errors) (builtins.attrValues choices)

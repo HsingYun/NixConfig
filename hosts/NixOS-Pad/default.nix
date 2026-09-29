@@ -1,35 +1,25 @@
+let
+  profile = import ../../nix/lib/hosts/profiles.nix;
+in
 {
   platform = "nixos";
-  packageManager = {
-    type = "nix";
-    externalPkg.packages = [
-      "aria2"
-      "gnupg"
-      "gnutls"
-      "graphviz"
-      "ncurses"
-      "openssl"
-      "pinentry-curses"
-      "rsync"
-      "sqlite"
-      "procps"
-      "xz"
-      "zlib"
-      "zstd"
-    ];
-  };
+  packageManager = "nix";
   system = "x86_64-linux";
-  features = {
-    efiTools = true;
-    chrome = true;
-    vscode = true;
-    codex = true;
-    screenRotate = true;
-    devel = true;
-    chinese = true;
-    gnome = true;
-    ghostty = true;
-    mpv = true;
+  features = profile.linuxDesktop // {
+    efiTools.enable = true;
+    desktop = profile.linuxDesktop.desktop // {
+      gnome = {
+        enable = true;
+        settings."org/gnome/desktop/a11y/applications".screen-keyboard-enabled = true;
+      };
+      niri.enable = false;
+      dms.enable = false;
+      screenRotate.enable = true;
+    };
+  };
+  preferences = {
+    desktop = "gnome";
+    loginManager = "gdm";
   };
   hardwareConfig = ./hardware.nix;
   systemConfig = ./system.nix;

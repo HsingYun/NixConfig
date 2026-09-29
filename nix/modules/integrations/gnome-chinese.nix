@@ -1,7 +1,7 @@
 {
   config,
   lib,
-  osConfig,
+  osConfig ? { },
   software,
   ...
 }:
@@ -10,9 +10,16 @@
   config =
     lib.mkIf
       (
-        osConfig.services.desktopManager.gnome.enable
-        && config.i18n.inputMethod.enable
-        && config.i18n.inputMethod.type == "fcitx5"
+        (
+          if config.software.platform == "arch" then
+            config.features.desktop.gnome.enable
+          else
+            osConfig.services.desktopManager.gnome.enable
+        )
+        && (
+          config.software.platform == "arch"
+          || (config.i18n.inputMethod.enable && config.i18n.inputMethod.type == "fcitx5")
+        )
       )
       {
         # Select at login, not when evaluating a machine with several desktops.
@@ -22,9 +29,18 @@
             *:GNOME:*) export GTK_IM_MODULE="''${GTK_IM_MODULE-fcitx}" ;;
           esac
         '';
-        software.requirements.gnome-kimpanel.capabilities = [ "store-package" ];
+        software.requirements.gnome-kimpanel.capabilities = lib.optionals (
+          config.software.platform != "arch"
+        ) [ "store-package" ];
         dconf.settings = {
-          "org/gnome/shell".enabled-extensions = [ software.gnome-kimpanel.package.extensionUuid ];
+          "org/gnome/shell".enabled-extensions = [
+            (
+              if config.software.platform == "arch" then
+                "kimpanel@kde.org"
+              else
+                software.gnome-kimpanel.package.extensionUuid
+            )
+          ];
           "org/gnome/settings-daemon/plugins/xsettings".overrides = [
             (lib.hm.gvariant.mkDictionaryEntry [
               "Gtk/IMModule"

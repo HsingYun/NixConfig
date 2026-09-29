@@ -2,7 +2,7 @@
 
 let
   inherit (inputs.nixpkgs) lib;
-  mkHost = import ../lib/hosts/mk-host.nix {
+  rawMkHost = import ../lib/hosts/mk-host.nix {
     inherit lib;
     builders = import ../lib/builders { inherit inputs; };
     settings = {
@@ -16,11 +16,16 @@ let
       };
     };
   };
+  mkHost = import ./host-fixture.nix {
+    inherit lib;
+    mkHost = rawMkHost;
+  };
   build =
     case:
     (mkHost "FeatureTest" {
       platform = "nixos";
       features = case.features;
+      featureConfig = case.featureConfig or { };
       preferences = case.preferences or { };
       hardwareConfig = {
         boot.initrd.enable = false;
@@ -56,7 +61,7 @@ let
       name = "niri";
       features.niri = true;
       desktop = "niri";
-      loginManager = "none";
+      loginManager = "greetd";
     }
     {
       name = "niri-dms";
@@ -66,7 +71,7 @@ let
         chinese = true;
       };
       desktop = "niri";
-      loginManager = "dms";
+      loginManager = "greetd";
     }
     {
       name = "gnome-manual-login";
@@ -84,7 +89,10 @@ let
           gnome = true;
           niri = true;
         };
-        preferences = { inherit desktop; };
+        preferences = {
+          inherit desktop;
+          loginManager = "gdm";
+        };
         inherit desktop;
         loginManager = "gdm";
       })
@@ -113,7 +121,7 @@ let
           ];
           loginManager = [
             "gdm"
-            "dms"
+            "greetd"
           ];
         }
       );
@@ -184,7 +192,10 @@ let
       }";
     assert cfg.services.displayManager.defaultSession == case.desktop;
     assert cfg.services.displayManager.gdm.enable == (case.loginManager == "gdm");
-    assert cfg.services.displayManager.dms-greeter.enable == (case.loginManager == "dms");
+    assert cfg.services.greetd.enable == (case.loginManager == "greetd");
+    assert
+      cfg.services.displayManager.dms-greeter.enable
+      == (case.loginManager == "greetd" && case.desktop == "niri" && (case.features.dms or false));
     assert cfg.services.pcscd.enable == smartcard;
     assert home.services.gpg-agent.enable == gpg;
     assert !gpg || home.services.gpg-agent.enableSshSupport == ssh;
@@ -581,4 +592,18 @@ in
   ghostty = import ./ghostty.nix { inherit lib mkHost; };
   networking = import ./network.nix { inherit lib build; };
   smartcard = import ./smartcard.nix { inherit lib mkHost; };
+  experience = import ./experience.nix {
+    inherit
+      lib
+      mkHost
+      build
+      rawMkHost
+      ;
+  };
+  printingFirmware = import ./printing-firmware.nix { inherit lib mkHost build; };
+  smartcardNative = import ./smartcard-native.nix { inherit lib mkHost build; };
+  desktopServices = import ./desktop-services.nix { inherit lib build mkHost; };
+  archDesktop = import ./arch-desktop.nix { inherit lib mkHost; };
+  commonTools = import ./common-tools.nix { inherit lib mkHost; };
+  nativeMpv = import ./mpv-native.nix { inherit lib mkHost; };
 }

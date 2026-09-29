@@ -45,7 +45,7 @@ let
       isDarwin = manager == "homebrew";
       configuration =
         (mkHost "DisabledExtraTest" {
-          platform = if isDarwin then "darwin" else "linux";
+          platform = if isDarwin then "darwin" else "arch";
           packageManager = {
             type = manager;
             externalPkg.${if isDarwin then "brews" else "packages"} = [ "mpv" ];

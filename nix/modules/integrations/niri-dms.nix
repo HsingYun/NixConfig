@@ -1,12 +1,14 @@
 {
   config,
   lib,
-  osConfig,
+  osConfig ? { },
+  software,
   ...
 }:
 
 let
-  dms = lib.getExe osConfig.programs.dms-shell.package;
+  native = config.software.platform == "arch";
+  dms = if native then software.dms.command "dms" else lib.getExe osConfig.programs.dms-shell.package;
   ipc = target: action: [
     dms
     "ipc"
@@ -19,8 +21,12 @@ in
   config =
     lib.mkIf
       (
-        osConfig.programs.niri.enable
-        && osConfig.programs.dms-shell.enable
+        (
+          if native then
+            config.programs.dank-material-shell.enable or false
+          else
+            osConfig.programs.niri.enable && osConfig.programs.dms-shell.enable
+        )
         && config.wayland.windowManager.niri.enable
       )
       {

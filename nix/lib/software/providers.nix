@@ -54,12 +54,7 @@ in
         )
       );
 
-    platforms = [
-      "nixos"
-      "nixos-wsl"
-      "darwin"
-      "linux"
-    ];
+    platforms = (import ../hosts/platforms.nix).all;
     fallback = [ ];
     resolve = source: {
       package = source.package;
@@ -156,7 +151,7 @@ in
         "package"
         "aur"
       ];
-    platforms = [ "linux" ];
+    platforms = [ "arch" ];
     fallback = [ "nix" ];
     resolve = source: {
       package = null;

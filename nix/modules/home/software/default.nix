@@ -37,8 +37,8 @@ in
   ];
   options.software = {
     platform = lib.mkOption {
-      type = lib.types.str;
-      default = if pkgs.stdenv.hostPlatform.isDarwin then "darwin" else "linux";
+      type = lib.types.enum (import ../../../lib/hosts/platforms.nix).all;
+      default = if pkgs.stdenv.hostPlatform.isDarwin then "darwin" else "arch";
     };
     packageManager = lib.mkOption {
       type = lib.types.coercedTo lib.types.str (type: { inherit type; }) (
@@ -110,7 +110,7 @@ in
     home.sessionPath = plan.binPaths;
     assertions = [
       {
-        assertion = cfg.platform != "linux" || plan.installations.nix.systemPackages == [ ];
+        assertion = cfg.platform != "arch" || plan.installations.nix.systemPackages == [ ];
         message = "Software: standalone Home Manager cannot install system-scoped packages.";
       }
     ];

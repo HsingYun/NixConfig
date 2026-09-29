@@ -7,14 +7,7 @@
 name:
 {
   platform,
-  packageManager ? (
-    if platform == "darwin" then
-      "homebrew"
-    else if platform == "linux" then
-      null
-    else
-      "nix"
-  ),
+  packageManager ? (import ./platforms.nix).definitions.${platform}.packageManager or null,
   system ? null,
   hostname ? name,
   user ? { },
@@ -27,39 +20,10 @@ name:
 }:
 
 let
-  platforms = {
-    linux = {
-      # Standalone Home Manager: the distribution owns the system configuration.
-      managesSystem = false;
-      output = "homeConfigurations";
-      build = builders.homeManager;
-      defaultSystem = "x86_64-linux";
-      systemModules = [ ];
-      homeModules = [ ../../modules/home/platforms/linux.nix ];
-    };
-    nixos = {
-      managesSystem = true;
-      output = "nixosConfigurations";
-      build = builders.nixos;
-      defaultSystem = "x86_64-linux";
-      systemModules = [ ../../modules/system/platforms/nixos.nix ];
-      homeModules = [ ];
-    };
-    darwin = {
-      managesSystem = true;
-      output = "darwinConfigurations";
-      build = builders.darwin;
-      defaultSystem = "aarch64-darwin";
-      systemModules = [ ../../modules/system/platforms/darwin.nix ];
-      homeModules = [ ];
-    };
-    nixos-wsl = platforms.nixos // {
-      systemModules = [ ../../modules/system/platforms/nixos-wsl.nix ];
-    };
-  };
+  platforms = (import ./platforms.nix).definitions;
   selected =
     platforms.${platform}
-      or (throw "Host ${name}: unknown platform '${platform}'. Choose linux, nixos, darwin, or nixos-wsl.");
+      or (throw "Host ${name}: unknown platform '${platform}'. Choose ${lib.concatStringsSep ", " (builtins.attrNames platforms)}.");
   validateUser = import ./validate-user.nix { inherit lib name; };
   actualUser = lib.recursiveUpdate (validateUser "flake.nix user" settings.user) (
     validateUser "user" user
@@ -102,7 +66,7 @@ in
   configuration =
     assert lib.assertMsg (
       packageManager != null
-    ) "Host ${name}: standalone Linux must explicitly select packageManager.";
+    ) "Host ${name}: platform must select a packageManager.";
     assert lib.assertMsg (
       builtins.isString hostname && hostname != ""
     ) "Host ${name}: hostname must be a non-empty string.";
@@ -124,7 +88,7 @@ in
       "Host ${name}: homeDirectory must be an absolute Unix path string other than '/', without '.' or '..' components.";
     assert lib.assertMsg (
       selected.managesSystem || systemConfig == null
-    ) "Host ${name}: platform linux only supports homeConfig; it does not manage the host OS.";
+    ) "Host ${name}: platform arch only supports homeConfig; it does not manage the host OS.";
     assert lib.assertMsg (
       platform != "nixos" || hardwareConfig != null
     ) "Host ${name}: platform nixos requires hardwareConfig.";
@@ -135,7 +99,7 @@ in
       actualSystem
     ) "Host ${name}: system '${actualSystem}' is incompatible with platform '${platform}'.";
     builtins.seq featureModules (
-      selected.build (
+      builders.${selected.builder} (
         {
           user = actualUser;
           system = actualSystem;

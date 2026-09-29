@@ -47,6 +47,34 @@ let
     name = "software-wrapper-profile";
     paths = lib.filter (p: lib.getName p == "mpv") home.home.packages;
   };
+  terminfo =
+    name:
+    pkgs.runCommand name { } ''
+      mkdir -p "$out/share/terminfo/g"
+      echo ${name} > "$out/share/terminfo/g/ghostty"
+    '';
+  terminfoCatalog = import ../lib/software/catalog.nix {
+    pkgs = pkgs // {
+      ncurses = terminfo "generic-ncurses";
+      ghostty = terminfo "terminal-ghostty";
+    };
+  };
+  terminfoSelection = import ../lib/software/resolve.nix { inherit lib; } {
+    catalog = { inherit (terminfoCatalog) ncurses ghostty maple-mono; };
+    requirements = {
+      ncurses = { };
+      ghostty = { };
+    };
+    packageManager = "nix";
+    platform = if pkgs.stdenv.hostPlatform.isDarwin then "darwin" else "nixos";
+  };
+  terminfoProfile = pkgs.buildEnv {
+    name = "terminal-and-generic-terminfo-profile";
+    paths = lib.concatMap (name: terminfoSelection.resolved.${name}.packages) [
+      "ncurses"
+      "ghostty"
+    ];
+  };
   # Model an old native executable that remains installed after switching
   # provider. It must not mask the feature's configured executable.
   staleNative = pkgs.writeShellScriptBin "mpv" "echo stale-native";
@@ -69,7 +97,7 @@ let
     pkgs = pkgs // {
       gcc = compiler "gcc";
     };
-    platform = if pkgs.stdenv.hostPlatform.isDarwin then "darwin" else "linux";
+    platform = if pkgs.stdenv.hostPlatform.isDarwin then "darwin" else "arch";
     packageManager = {
       type = "nix";
       externalPkg.packages = [ "gcc" ];
@@ -95,7 +123,7 @@ let
       clang = { };
     };
     packageManager = "nix";
-    platform = if pkgs.stdenv.hostPlatform.isDarwin then "darwin" else "linux";
+    platform = if pkgs.stdenv.hostPlatform.isDarwin then "darwin" else "arch";
   };
   develCompilerProfile = pkgs.buildEnv {
     name = "devel-compilers-profile";
@@ -110,7 +138,7 @@ let
     };
     packageOverrides.gcc = lib.hiPrio compilerPkgs.gcc;
     packageManager = "nix";
-    platform = if pkgs.stdenv.hostPlatform.isDarwin then "darwin" else "linux";
+    platform = if pkgs.stdenv.hostPlatform.isDarwin then "darwin" else "arch";
   };
   priorityPlan = import ../lib/software/materialize.nix { inherit lib; } {
     selection = prioritySelection;
@@ -130,7 +158,7 @@ let
         type = "nix";
         externalPkg.packages = [ "gcc" ];
       };
-      platform = if pkgs.stdenv.hostPlatform.isDarwin then "darwin" else "linux";
+      platform = if pkgs.stdenv.hostPlatform.isDarwin then "darwin" else "arch";
     };
     runtimePackages.clang = lib.setPrio 40 (compiler "wrapped-clang");
   };
@@ -167,7 +195,7 @@ let
       requirements.llvm = { };
       packageOverrides.llvm = llvmStub "replacement";
       packageManager = "nix";
-      platform = if pkgs.stdenv.hostPlatform.isDarwin then "darwin" else "linux";
+      platform = if pkgs.stdenv.hostPlatform.isDarwin then "darwin" else "arch";
     };
   };
   outputProfile = pkgs.buildEnv {
@@ -176,6 +204,7 @@ let
   };
 in
 pkgs.runCommand "software-runtime-check" { } ''
+  test "$(cat ${terminfoProfile}/share/terminfo/g/ghostty)" = terminal-ghostty
   test "$(${disabledProfile}/bin/mpv)" = raw
   (
     export PATH=${lib.escapeShellArg (lib.concatStringsSep ":" disabledRuntimePaths)}:$PATH

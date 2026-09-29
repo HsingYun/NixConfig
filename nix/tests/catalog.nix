@@ -21,6 +21,82 @@ let
     };
   cases = [
     {
+      name = "platform-module-type";
+      value = feature { homeModulesByPlatform.arch = "wrong"; };
+      message = "homeModulesByPlatform has an invalid value";
+    }
+    {
+      name = "platform-module-range";
+      value = feature {
+        platforms = [ "nixos" ];
+        homeModulesByPlatform.arch = [ { } ];
+      };
+      message = "homeModulesByPlatform keys must be a subset";
+    }
+    {
+      name = "platform-activation-range";
+      value = feature {
+        platforms = [ "nixos" ];
+        activationByPlatform.arch = {
+          scope = "home";
+          option = [ "enable" ];
+        };
+      };
+      message = "activationByPlatform keys must be a subset";
+    }
+    {
+      name = "empty-feature-path";
+      value = feature { path = [ ]; };
+      message = "features.gpg.path";
+    }
+    {
+      name = "duplicate-feature-path";
+      value = feature { path = [ "chrome" ]; };
+      message = "input paths must be unique";
+    }
+    {
+      name = "feature-path-leaf-conflict";
+      value = feature {
+        path = [
+          "chrome"
+          "enable"
+        ];
+      };
+      message = "cannot also be a group";
+    }
+    {
+      name = "unknown-default-source";
+      value = feature { defaultFrom = [ "missing" ]; };
+      message = "defaultFrom references unknown feature";
+    }
+    {
+      name = "default-cycle";
+      value = feature { defaultFrom = [ "gpg" ]; };
+      message = "dependency cycle";
+    }
+    {
+      name = "reserved-enable-option";
+      value = feature {
+        options.enable = {
+          default = true;
+          check = builtins.isBool;
+          description = "a boolean";
+        };
+      };
+      message = "features.gpg.options";
+    }
+    {
+      name = "invalid-option-default";
+      value = feature {
+        options.example = {
+          default = "bad";
+          check = builtins.isBool;
+          description = "a boolean";
+        };
+      };
+      message = "features.gpg.options";
+    }
+    {
       name = "integration-missing-owner";
       value = catalog // {
         integrations.bad.platforms = [ "nixos" ];
@@ -90,6 +166,14 @@ let
       message = "features.gpg.defaut is unknown";
     }
     {
+      name = "default-platform-range";
+      value = feature {
+        platforms = [ "nixos" ];
+        defaultPlatforms = [ "darwin" ];
+      };
+      message = "defaultPlatforms must be a subset";
+    }
+    {
       name = "default-type";
       value = feature { default = "true"; };
       message = "features.gpg.default";
@@ -103,8 +187,8 @@ let
       name = "duplicate-platform";
       value = feature {
         platforms = [
-          "linux"
-          "linux"
+          "arch"
+          "arch"
         ];
       };
       message = "features.gpg.platforms";
@@ -117,7 +201,7 @@ let
     {
       name = "system-platform-range";
       value = feature {
-        platforms = [ "linux" ];
+        platforms = [ "arch" ];
         systemPlatforms = [ "nixos" ];
       };
       message = "systemPlatforms must be a subset";
@@ -205,6 +289,21 @@ let
     {
       name = "unknown-provider";
       value = choice { providers.gnome = "typo"; };
+      message = "providers.gnome references unknown feature";
+    }
+    {
+      name = "empty-provider-list";
+      value = choice { providers.gnome = [ ]; };
+      message = "choices.desktop.providers";
+    }
+    {
+      name = "unknown-provider-in-list";
+      value = choice {
+        providers.gnome = [
+          "gnome"
+          "typo"
+        ];
+      };
       message = "providers.gnome references unknown feature";
     }
     {

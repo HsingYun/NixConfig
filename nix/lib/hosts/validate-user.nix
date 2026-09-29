@@ -20,8 +20,6 @@ let
     && !lib.hasInfix "\r" value;
   imageFields = [
     "avatar"
-    "wallpaper"
-    "lockWallpaper"
   ];
   checked = checkFields source (
     [

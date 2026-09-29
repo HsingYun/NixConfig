@@ -1,28 +1,14 @@
+let
+  profile = import ../../nix/lib/hosts/profiles.nix;
+in
 {
-  platform = "linux";
-  packageManager = {
-    type = "pacman";
-    externalPkg.packages = [
-      "aria2"
-      "gnupg"
-      "gnutls"
-      "graphviz"
-      "ncurses"
-      "openssl"
-      "pinentry"
-      "rsync"
-      "sqlite"
-      "procps-ng"
-      "xz"
-      "zlib"
-      "zstd"
-    ];
-  };
+  platform = "arch";
+  packageManager = "pacman";
   system = "x86_64-linux";
-  features = {
-    chrome = true;
-    vscode = true;
-    devel = true;
+  features = profile.linuxDesktop;
+  preferences = {
+    desktop = "niri";
+    loginManager = "greetd";
   };
   homeConfig = ./home.nix;
 }

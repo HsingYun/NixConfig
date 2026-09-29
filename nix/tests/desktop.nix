@@ -32,6 +32,7 @@ let
             homeDirectory = "/home/test";
             stateVersion = "26.05";
           };
+          software.platform = "nixos";
           desktop.launcher = {
             inherit hiddenEntries;
             packageRoots = lib.mkForce roots;
@@ -50,6 +51,7 @@ let
     modules = [
       ../modules/integrations/gnome-chinese.nix
       {
+        software.platform = "nixos";
         home = {
           username = "test";
           homeDirectory = "/home/test";
@@ -73,11 +75,11 @@ pkgs.runCommand "desktop-boundaries-check"
     ];
   }
   ''
-    filtered=${filtered.xdg.dataFile.applications.source}
+    filtered=${filtered.desktop.launcher.entries}/share/applications
     test -f "$filtered/vim.desktop"
     test ! -e "$filtered/absent.desktop"
     test ! -e "$filtered/visible.desktop"
-    test -z "$(ls -A ${absent.xdg.dataFile.applications.source})"
+    test -z "$(ls -A ${absent.desktop.launcher.entries}/share/applications)"
     desktop-file-validate "$filtered/vim.desktop"
     python - ${userProfile}/share/applications/vim.desktop "$filtered/vim.desktop" <<'PY'
     import configparser

@@ -15,9 +15,12 @@
     gnome-calculator
     gnome-calendar
     gnome-clocks
-    gnome-color-manager
     gnome-connections
+    # Ghostty supplies the terminal; Text Editor and Snapshot replace legacy apps.
     gnome-console
+    gnome-terminal
+    gedit
+    cheese
     gnome-contacts
     gnome-maps
     gnome-music
@@ -28,6 +31,5 @@
     orca
     showtime
     simple-scan
-    sushi
   ];
 }

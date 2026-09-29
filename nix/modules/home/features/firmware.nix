@@ -1,0 +1,4 @@
+{ ... }:
+{
+  software.requirements.gnome-firmware = { };
+}

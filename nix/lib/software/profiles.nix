@@ -1,5 +1,6 @@
 { pkgs }:
 let
+  inherit (pkgs) lib;
   inherit (import ./recipes.nix { inherit pkgs; }) nix brew pacman;
   base = {
     nano = {
@@ -53,6 +54,27 @@ let
 in
 {
   inherit base user;
+  commonTools =
+    lib.genAttrs
+      [
+        "aria2"
+        "gnutls"
+        "graphviz"
+        "ncurses"
+        "openssl"
+        "rsync"
+        "sqlite"
+        "xz"
+        "zlib"
+        "zstd"
+      ]
+      (name: {
+        # The generic terminfo database is a fallback: terminal packages ship
+        # definitions matching their own versions (notably Ghostty).
+        nix = nix (if name == "ncurses" then lib.lowPrio pkgs.${name} else pkgs.${name});
+        homebrew = brew (if name == "openssl" then "openssl@4" else name);
+        pacman = pacman name;
+      });
   devel = {
     inherit (base) curl wget;
     inherit (user)

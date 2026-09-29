@@ -3,14 +3,30 @@
 catalog:
 
 let
-  platforms = [
-    "linux"
-    "nixos"
-    "nixos-wsl"
-    "darwin"
-  ];
+  platforms = (import ../hosts/platforms.nix).all;
   strings = value: builtins.isList value && lib.all (v: builtins.isString v && v != "") value;
   uniqueStrings = value: strings value && lib.unique value == value;
+  identifier =
+    value: builtins.isString value && builtins.match "[A-Za-z][A-Za-z0-9_-]*" value != null;
+  featurePath = value: builtins.isList value && value != [ ] && lib.all identifier value;
+  featureOptions =
+    value:
+    builtins.isAttrs value
+    && lib.all (
+      key:
+      let
+        option = value.${key};
+      in
+      identifier key
+      && key != "enable"
+      &&
+        fields "option" [ "default" "check" "description" ] {
+          default = _: true;
+          check = builtins.isFunction;
+          description = builtins.isString;
+        } option == [ ]
+      && option.check option.default
+    ) (builtins.attrNames value);
   platformList =
     value: uniqueStrings value && value != [ ] && lib.all (p: builtins.elem p platforms) value;
   modules =
@@ -47,6 +63,10 @@ let
     platforms = platformList;
     systemPlatforms = platformList;
     homeModules = modules;
+    homeModulesByPlatform =
+      value:
+      builtins.isAttrs value
+      && lib.all (p: builtins.elem p platforms && modules value.${p}) (builtins.attrNames value);
     software = uniqueStrings;
     systemModules = modules;
   };
@@ -63,9 +83,17 @@ let
           common
           // {
             default = builtins.isBool;
+            defaultPlatforms = platformList;
+            path = featurePath;
+            options = featureOptions;
+            defaultFrom = uniqueStrings;
             requires = uniqueStrings;
             conflicts = uniqueStrings;
             inherit activation;
+            activationByPlatform =
+              value:
+              builtins.isAttrs value
+              && lib.all (p: builtins.elem p platforms && activation value.${p}) (builtins.attrNames value);
           }
         )
       ) catalog.features
@@ -85,8 +113,13 @@ let
       lib.mapAttrsToList (
         name:
         fields "choices.${name}" [ "providers" "empty" ] {
+          platforms = platformList;
           providers =
-            v: builtins.isAttrs v && lib.all (x: builtins.isString x && x != "") (builtins.attrValues v);
+            v:
+            builtins.isAttrs v
+            && lib.all (x: (builtins.isString x && x != "") || (uniqueStrings x && x != [ ])) (
+              builtins.attrValues v
+            );
           empty = v: v == null || builtins.isString v;
           alternatives = uniqueStrings;
         }
@@ -99,6 +132,18 @@ let
   entryRelations =
     path: entry:
     lib.concatMap (reference "${path}.requires") (entry.requires or [ ])
+    ++
+      lib.concatMap
+        (
+          field:
+          lib.optional (lib.any (p: !(builtins.elem p entry.platforms)) (
+            builtins.attrNames (entry.${field} or { })
+          )) "${path}.${field} keys must be a subset of platforms."
+        )
+        [
+          "homeModulesByPlatform"
+          "activationByPlatform"
+        ]
     ++ lib.optional (lib.any (p: !(builtins.elem p entry.platforms)) (
       entry.systemPlatforms or [ ]
     )) "${path}.systemPlatforms must be a subset of platforms.";
@@ -107,6 +152,10 @@ let
       lib.mapAttrsToList (
         name: entry:
         entryRelations "features.${name}" entry
+        ++ lib.optional (lib.any (p: !(builtins.elem p entry.platforms)) (
+          entry.defaultPlatforms or [ ]
+        )) "features.${name}.defaultPlatforms must be a subset of platforms."
+        ++ lib.concatMap (reference "features.${name}.defaultFrom") (entry.defaultFrom or [ ])
         ++ lib.concatMap (reference "features.${name}.conflicts") (entry.conflicts or [ ])
         ++ lib.optional (builtins.elem name (
           entry.conflicts or [ ]
@@ -124,7 +173,9 @@ let
       lib.mapAttrsToList (
         name: rule:
         lib.concatLists (
-          lib.mapAttrsToList (key: reference "choices.${name}.providers.${key}") rule.providers
+          lib.mapAttrsToList (
+            key: features: lib.concatMap (reference "choices.${name}.providers.${key}") (lib.toList features)
+          ) rule.providers
         )
         ++ lib.optional (
           rule.empty != null && !(builtins.elem rule.empty (rule.alternatives or [ ]))
@@ -139,7 +190,28 @@ let
     if builtins.elem key trail then
       [ "dependency cycle: ${lib.concatStringsSep " -> " (trail ++ [ key ])}." ]
     else
-      lib.concatMap (visit (trail ++ [ key ])) (catalog.features.${key}.requires or [ ]);
+      lib.concatMap (visit (trail ++ [ key ])) (
+        (catalog.features.${key}.requires or [ ]) ++ (catalog.features.${key}.defaultFrom or [ ])
+      );
+  inputPaths = lib.concatLists (
+    lib.mapAttrsToList (
+      name: entry:
+      map (key: (entry.path or [ name ]) ++ [ key ]) (
+        [ "enable" ] ++ builtins.attrNames (entry.options or { })
+      )
+    ) catalog.features
+  );
+  pathErrors =
+    lib.optional (lib.unique inputPaths != inputPaths) "feature input paths must be unique."
+    ++ lib.concatMap (
+      path:
+      lib.concatMap (
+        other:
+        lib.optional (
+          builtins.length path < builtins.length other && lib.take (builtins.length path) other == path
+        ) "feature input path '${lib.concatStringsSep "." path}' cannot also be a group."
+      ) inputPaths
+    ) inputPaths;
   dependencyErrors = lib.concatMap (
     name:
     let
@@ -184,5 +256,5 @@ map (message: "Feature catalog: ${message}") (
   else if referenceErrors != [ ] then
     referenceErrors
   else
-    dependencyErrors ++ integrationErrors
+    pathErrors ++ dependencyErrors ++ integrationErrors
 )

@@ -21,6 +21,11 @@ let
       cfg = host.configuration;
       inherit (cfg) pkgs;
       system = pkgs.stdenv.hostPlatform.system;
+      home =
+        if host.output == "homeConfigurations" then
+          cfg.config
+        else
+          cfg.config.home-manager.users.${host.username};
       target =
         if host.output == "nixosConfigurations" then
           cfg.config.system.build.toplevel
@@ -30,14 +35,18 @@ let
           cfg.activationPackage;
     in
     lib.recursiveUpdate checks {
-      ${system}."host-${name}" = pkgs.writeText "host-${name}-evaluation.json" (
-        builtins.toJSON {
-          inherit name system;
-          # Force the complete output derivation, including module assertions,
-          # without making a routine check build the whole machine closure.
-          drvPath = builtins.unsafeDiscardStringContext target.drvPath;
-        }
-      );
+      ${system} = {
+        "host-${name}" = pkgs.writeText "host-${name}-evaluation.json" (
+          builtins.toJSON {
+            inherit name system;
+            # Force system assertions without building the whole machine.
+            drvPath = builtins.unsafeDiscardStringContext target.drvPath;
+          }
+        );
+        # Evaluation alone cannot catch collisions in buildEnv. Assemble the
+        # actual package set for every host on its native CI runner.
+        "home-profile-${name}" = home.home.path;
+      };
     }
   ) { } hosts;
   testSystems = [
@@ -87,11 +96,23 @@ in
         feature-modules = pkgs.writeText "feature-modules.json" featureModules;
         software = pkgs.writeText "software.json" softwareTests;
         software-runtime = import ../tests/software-runtime.nix { inherit inputs pkgs; };
+        seed-json-settings = import ../tests/seed-json-settings.nix { inherit pkgs; };
         pacman-activation = import ../tests/pacman.nix { inherit inputs pkgs; };
       }
       // lib.optionalAttrs pkgs.stdenv.hostPlatform.isLinux {
         desktop-boundaries = import ../tests/desktop.nix { inherit inputs pkgs; };
+        native-input-autostart = import ../tests/autostart.nix { inherit pkgs; };
+        pacman-migration = import ../tests/pacman-migration.nix { inherit inputs pkgs; };
+        greeter-session = import ../tests/greeter-session.nix { inherit pkgs; };
+        dconf-lifecycle = import ../tests/dconf.nix { inherit pkgs; };
+        native-units = import ../tests/native-units.nix { inherit pkgs; };
+        owned-root-file = import ../tests/owned-root-file.nix { inherit inputs pkgs; };
+        launcher-native = import ../tests/launcher-native.nix { inherit pkgs; };
         feature-devel = import ../tests/devel.nix { inherit pkgs; };
+        chrome-policy = import ../tests/chrome-policy.nix { inherit inputs pkgs; };
+        display-manager-activation = import ../tests/display-manager-activation.nix {
+          inherit inputs pkgs;
+        };
       }
     )
   );

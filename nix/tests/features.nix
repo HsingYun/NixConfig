@@ -2,10 +2,20 @@
 
 let
   catalog = import ../lib/features/catalog.nix;
-  resolve = import ../lib/features/resolve.nix { inherit lib; };
+  rawResolve = import ../lib/features/resolve.nix { inherit lib; };
+  toTree = import ./feature-input.nix { inherit lib; };
+  resolve =
+    args:
+    rawResolve (
+      args
+      // {
+        defaults = toTree (args.defaults or { });
+        overrides = toTree (args.overrides or { });
+      }
+    );
   names = builtins.attrNames catalog.features;
   platforms = [
-    "linux"
+    "arch"
     "nixos"
     "nixos-wsl"
     "darwin"
@@ -13,8 +23,9 @@ let
   # Independent compatibility specification. Update when adding a feature.
   all = platforms;
   support = {
+    commonTools = all;
     efiTools = [
-      "linux"
+      "arch"
       "nixos"
     ];
     chrome = all;
@@ -36,11 +47,12 @@ let
     nixTools = all;
     mpv = all;
     xdg = [
-      "linux"
+      "arch"
       "nixos"
       "nixos-wsl"
     ];
     smartcard = [
+      "arch"
       "nixos"
       "nixos-wsl"
       "darwin"
@@ -49,14 +61,43 @@ let
       "nixos"
       "nixos-wsl"
     ];
-    gnome = [ "nixos" ];
-    niri = [ "nixos" ];
-    dms = [ "nixos" ];
+    gnome = [
+      "arch"
+      "nixos"
+    ];
+    niri = [
+      "arch"
+      "nixos"
+    ];
+    dms = [
+      "arch"
+      "nixos"
+    ];
+    launcher = [
+      "arch"
+      "nixos"
+    ];
+    wallpaper = [
+      "arch"
+      "nixos"
+    ];
     ghostty = all;
-    chinese = [
-      "linux"
+    printing = [
+      "arch"
+      "nixos"
+    ];
+    firmware = [
+      "arch"
+      "nixos"
+    ];
+    keyring = [
+      "arch"
       "nixos"
       "nixos-wsl"
+    ];
+    chinese = [
+      "arch"
+      "nixos"
     ];
   };
   allOff = lib.genAttrs names (_: false);
@@ -84,9 +125,9 @@ let
       other
     ]) (catalog.features.${name}.conflicts or [ ])
   ) names;
-  choiceGroups = map (choice: lib.unique (builtins.attrValues choice.providers)) (
-    builtins.attrValues catalog.choices
-  );
+  choiceGroups = map (
+    choice: lib.unique (lib.concatMap lib.toList (builtins.attrValues choice.providers))
+  ) (builtins.attrValues catalog.choices);
   combinations = lib.unique (
     [ allOff ]
     ++ map (name: allOff // { ${name} = true; }) names
@@ -107,8 +148,13 @@ let
   expected =
     platform: f:
     lib.all (key: !f.${key} || builtins.elem platform support.${key}) names
-    && !(f.gnome && f.niri)
-    && !(f.gnome && f.dms);
+    && (
+      !(builtins.elem platform [
+        "arch"
+        "nixos"
+      ])
+      || (!(f.gnome && f.niri) && !(f.gnome && f.dms))
+    );
   counts = lib.genAttrs platforms (
     platform:
     lib.foldl'
@@ -161,7 +207,14 @@ let
         overrides.${name} = false;
       };
     in
-    assert baseline.enabled.${name} == (supported && (catalog.features.${name}.default or false));
+    assert
+      baseline.enabled.${name} == (
+        supported
+        && (catalog.features.${name}.default or false)
+        && builtins.elem platform (
+          catalog.features.${name}.defaultPlatforms or catalog.features.${name}.platforms
+        )
+      );
     assert disabled.errors == [ ] && !disabled.enabled.${name};
     assert inherited.errors == [ ] && inherited.enabled.${name} == supported;
     assert overridden.errors == [ ] && overridden.enabled == allOff;
@@ -188,14 +241,14 @@ let
       null
       "none"
       "gdm"
-      "dms"
+      "greetd"
     ];
   };
   checkDesktop =
     c:
     let
       desktopCount = (if c.gnome then 1 else 0) + (if c.niri then 1 else 0);
-      managerCount = (if c.gnome then 1 else 0) + (if c.dms then 1 else 0);
+      managerCount = (if c.gnome then 1 else 0) + (if c.niri || c.dms then 1 else 0);
       expectedValid =
         (
           if c.desktop == null then
@@ -211,13 +264,22 @@ let
           else
             c.loginManager == "none"
             || (c.loginManager == "gdm" && c.gnome)
-            || (c.loginManager == "dms" && c.dms)
+            || (c.loginManager == "greetd" && (c.niri || c.dms))
         );
     in
-    valid {
-      overrides = { inherit (c) gnome niri dms; };
-      preferences = { inherit (c) desktop loginManager; };
-    } == expectedValid;
+    lib.all
+      (
+        platform:
+        (valid {
+          inherit platform;
+          overrides = { inherit (c) gnome niri dms; };
+          preferences = { inherit (c) desktop loginManager; };
+        }) == expectedValid
+      )
+      [
+        "arch"
+        "nixos"
+      ];
   extra = [
     ((check { overrides.gpg = false; }).enabled.gpgSshSupport)
     (valid { defaults.gpg = false; })
@@ -243,12 +305,12 @@ let
       };
     })
     (valid {
-      platform = "linux";
+      platform = "arch";
       defaults.gnome = true;
     })
     (
       !(valid {
-        platform = "linux";
+        platform = "darwin";
         overrides.gnome = true;
       })
     )
@@ -290,7 +352,7 @@ let
       {
         name = "conflict";
         platform = "nixos";
-        overrides = allOff // overrides;
+        overrides = toTree (allOff // overrides);
       };
   cyclicCatalog = catalog // {
     features = catalog.features // {
@@ -324,6 +386,7 @@ assert !cycle.success;
 {
   inherit counts;
   catalogValidation = import ./catalog.nix { inherit lib; };
+  hierarchicalInput = import ./feature-tree.nix { inherit lib; };
   targetedCombinations = builtins.length combinations * builtins.length platforms;
   defaultCases = builtins.length names * builtins.length platforms;
   desktopChoices = builtins.length desktopCases;

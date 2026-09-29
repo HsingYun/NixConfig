@@ -1,34 +1,20 @@
+let
+  profile = import ../../nix/lib/hosts/profiles.nix;
+in
 {
   platform = "darwin";
   packageManager = {
     type = "homebrew";
     externalPkg.brews = [
-      "aria2"
-      "gnupg"
-      "gnutls"
-      "graphviz"
-      "ncurses"
-      "openssl@4"
       "pinentry"
-      "pinentry-mac"
-      "rsync"
-      "sqlite"
       "watch"
-      "xz"
-      "zlib"
-      "zstd"
     ];
   };
   system = "aarch64-darwin";
-  features = {
-    ghostty = true;
-    chrome = true;
-    vscode = true;
-    coteditor = true;
-    iina = true;
-    edge = true;
-    mapleMono = true;
-    devel = true;
+  features = profile.graphical // {
+    coteditor.enable = true;
+    iina.enable = true;
+    edge.enable = true;
   };
   systemConfig = ./system.nix;
   homeConfig = ./home.nix;

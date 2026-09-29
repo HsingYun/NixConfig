@@ -1,16 +1,16 @@
-{ lib, software, ... }:
+{
+  config,
+  lib,
+  software,
+  ...
+}:
 
 {
   imports = [
-    ./launcher.nix
     ../software
   ];
-  software.requirements.tela.capabilities = [ "store-package" ];
-
-  desktop.launcher.hiddenEntries = lib.mkDefault [
-    "htop.desktop"
-    "vim.desktop"
-    "gvim.desktop"
+  software.requirements.tela.capabilities = lib.optionals (config.software.platform != "arch") [
+    "store-package"
   ];
 
   gtk = {

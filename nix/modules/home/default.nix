@@ -8,6 +8,11 @@
 {
   imports = [
     ./shared/user-profile.nix
+    ./shared/features.nix
+    ./shared/dconf.nix
+    ./shared/keyring.nix
+    ./shared/chrome.nix
+    ./shared/launcher.nix
     ./software
   ];
 
@@ -18,7 +23,7 @@
     in
     lib.genAttrs (builtins.attrNames profiles.user) (_: { })
     // lib.genAttrs (builtins.attrNames profiles.base) (_: {
-      scopes = [ (if platform == "linux" then "home" else "system") ];
+      scopes = [ (if platform == "arch" then "home" else "system") ];
     });
   programs.home-manager.enable = true;
 }

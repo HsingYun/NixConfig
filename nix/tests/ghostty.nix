@@ -50,7 +50,7 @@ in
 map verify (
   lib.cartesianProduct {
     platform = [
-      "linux"
+      "arch"
       "darwin"
     ];
     enabled = [

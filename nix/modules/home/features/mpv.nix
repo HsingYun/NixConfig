@@ -1,5 +1,18 @@
-{ lib, software, ... }:
+{
+  config,
+  lib,
+  software,
+  ...
+}:
 
+let
+  preferNative = config.software.packageManager.type == "pacman";
+  native = software.mpv.provider != "nix";
+  scripts = [
+    software.mpv-modernx.package
+    software.mpv-thumbfast.package
+  ];
+in
 {
   software.bindings.mpv = {
     enableOption = [
@@ -19,30 +32,35 @@
     ];
   };
   software.requirements = {
-    # Home Manager wraps mpv with the selected scripts and requires a Nix package.
+    # Nix uses HM's wrapper; Arch loads scripts from the user configuration.
     mpv = {
-      capabilities = [ "store-package" ];
+      capabilities = lib.optionals (!preferNative) [ "store-package" ];
       installNix = false;
     };
     mpv-modernx = {
       capabilities = [ "store-package" ];
-      installNix = false;
+      installNix = native;
     };
     mpv-thumbfast = {
       capabilities = [ "store-package" ];
-      installNix = false;
+      installNix = native;
     };
     source-han-sans = { };
   };
+  xdg.configFile = lib.mkIf (native && config.programs.mpv.enable) (
+    lib.listToAttrs (
+      map (script: {
+        name = "mpv/scripts/${script.scriptName}";
+        value.source = "${script}/share/mpv/scripts/${script.scriptName}";
+      }) scripts
+    )
+  );
   programs.mpv = {
     package = lib.mkDefault software.mpv.package;
 
     enable = lib.mkDefault true;
     defaultProfiles = lib.mkDefault [ "high-quality" ];
-    scripts = lib.mkDefault ([
-      software.mpv-modernx.package
-      software.mpv-thumbfast.package
-    ]);
+    scripts = lib.mkDefault (lib.optionals (!native) scripts);
     config = lib.mapAttrs (_: lib.mkDefault) {
       hwdec = "auto";
       hwdec-codecs = "all";
@@ -61,6 +79,9 @@
     scriptOpts.osc = lib.mapAttrs (_: lib.mkDefault) {
       language = "chs";
       font = "Source Han Sans SC";
+    };
+    scriptOpts.thumbfast = lib.mkIf native {
+      mpv_path = lib.mkDefault (software.mpv.command "mpv");
     };
   };
 

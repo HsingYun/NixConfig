@@ -101,7 +101,7 @@ let
   knownApplications = lib.all (entry: lib.all (name: catalog ? ${name}) entry.software) (
     builtins.attrValues applicationFeatures
   );
-  mkHost = import ../lib/hosts/mk-host.nix {
+  rawMkHost = import ../lib/hosts/mk-host.nix {
     inherit lib;
     builders = import ../lib/builders { inherit inputs; };
     settings = {
@@ -114,6 +114,10 @@ let
     };
   };
   allOff = lib.genAttrs (builtins.attrNames featureCatalog) (_: false);
+  mkHost = import ./host-fixture.nix {
+    inherit lib;
+    mkHost = rawMkHost;
+  };
   darwin =
     features:
     (mkHost "SoftwareTest" {
@@ -163,7 +167,7 @@ let
     c.assertions ++ c.home-manager.users.test.assertions;
   fontOnly =
     (mkHost "FontsTest" {
-      platform = "linux";
+      platform = "arch";
       packageManager = "nix";
       features = allOff // {
         mapleMono = true;
@@ -191,12 +195,12 @@ let
     )).configuration.config;
   efiNixos = efiHost "nixos" "nix" true;
   efiNixosOff = efiHost "nixos" "nix" false;
-  efiArch = efiHost "linux" "pacman" true;
-  efiLinuxNix = efiHost "linux" "nix" true;
+  efiArch = efiHost "arch" "pacman" true;
+  efiArchNix = efiHost "arch" "nix" true;
   ownershipHost =
     packageManager: enabledFeatures: homeConfig:
     (mkHost "OwnershipTest" {
-      platform = "linux";
+      platform = "arch";
       inherit packageManager;
       features = allOff // enabledFeatures;
       homeConfig = {
@@ -267,7 +271,7 @@ let
   off = darwin allOff;
   arch =
     (mkHost "ArchSoftwareTest" {
-      platform = "linux";
+      platform = "arch";
       packageManager = {
         type = "pacman";
         externalPkg = {
@@ -300,7 +304,7 @@ let
     };
   };
   pacman = plan {
-    platform = "linux";
+    platform = "arch";
     packageManager = {
       type = "pacman";
       externalPkg = {
@@ -313,7 +317,7 @@ let
     };
   };
   pacmanFallback = plan {
-    platform = "linux";
+    platform = "arch";
     packageManager = "pacman";
     requirements = {
       editor.capabilities = [ "store-package" ];
@@ -435,8 +439,8 @@ assert builtins.elem "efibootmgr" (map lib.getName efiNixos.environment.systemPa
 assert !(builtins.elem "efibootmgr" (map lib.getName efiNixosOff.environment.systemPackages));
 assert efiArch.software.resolved.efibootmgr.provider == "pacman";
 assert builtins.elem "efibootmgr" efiArch.software.plan.installations.pacman.packages;
-assert efiLinuxNix.software.resolved.efibootmgr.scopes == [ "home" ];
-assert builtins.elem "efibootmgr" (map lib.getName efiLinuxNix.home.packages);
+assert efiArchNix.software.resolved.efibootmgr.scopes == [ "home" ];
+assert builtins.elem "efibootmgr" (map lib.getName efiArchNix.home.packages);
 assert
   nativeExternal.installations.homebrew.brews == [
     "editor"
@@ -504,14 +508,14 @@ assert lib.all (args: !(succeeds (plan args))) [
     };
   }
   {
-    platform = "linux";
+    platform = "arch";
     packageManager = {
       type = "pacman";
       externalPkg.aur = [ "editor" ];
     };
   }
   {
-    platform = "linux";
+    platform = "arch";
     packageManager = {
       type = "pacman";
       externalPkg.aur = [ "git" ];
