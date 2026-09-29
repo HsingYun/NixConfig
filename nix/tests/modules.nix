@@ -174,12 +174,14 @@ let
       ssh = case.ssh or true;
       smartcard = case.features.smartcard or true;
     in
-    assert lib.assertMsg (lib.all (
-      a: a.assertion
-    ) cfg.assertions) "System assertion failed: ${case.name}";
-    assert lib.assertMsg (lib.all (
-      a: a.assertion
-    ) home.assertions) "Home assertion failed: ${case.name}";
+    assert lib.assertMsg (lib.all (a: a.assertion) cfg.assertions)
+      "System assertion failed: ${case.name}\n${
+        lib.concatMapStringsSep "\n" (a: a.message) (lib.filter (a: !a.assertion) cfg.assertions)
+      }";
+    assert lib.assertMsg (lib.all (a: a.assertion) home.assertions)
+      "Home assertion failed: ${case.name}\n${
+        lib.concatMapStringsSep "\n" (a: a.message) (lib.filter (a: !a.assertion) home.assertions)
+      }";
     assert cfg.services.displayManager.defaultSession == case.desktop;
     assert cfg.services.displayManager.gdm.enable == (case.loginManager == "gdm");
     assert cfg.services.displayManager.dms-greeter.enable == (case.loginManager == "dms");

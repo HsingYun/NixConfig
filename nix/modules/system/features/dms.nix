@@ -29,7 +29,6 @@ in
     enable = lib.mkDefault true;
     systemd.enable = lib.mkDefault true;
     systemd.target = lib.mkDefault "niri.service";
-    enableCalendarEvents = lib.mkDefault false;
   };
   assertions = [
     {
