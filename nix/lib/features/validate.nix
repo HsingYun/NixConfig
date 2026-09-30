@@ -20,12 +20,12 @@ let
       identifier key
       && key != "enable"
       &&
-        fields "option" [ "default" "check" "description" ] {
+        fields "option" [ "default" "type" "description" ] {
           default = _: true;
-          check = builtins.isFunction;
+          type = lib.types.isOptionType;
           description = builtins.isString;
         } option == [ ]
-      && option.check option.default
+      && option.type.check option.default
     ) (builtins.attrNames value);
   platformList =
     value: uniqueStrings value && value != [ ] && lib.all (p: builtins.elem p platforms) value;

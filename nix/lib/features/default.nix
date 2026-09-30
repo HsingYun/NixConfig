@@ -8,7 +8,7 @@
 }:
 
 let
-  catalog = import ./catalog.nix;
+  catalog = import ./catalog.nix { inherit lib; };
   resolved = import ./resolve.nix { inherit lib catalog; } {
     inherit
       name
@@ -18,6 +18,7 @@ let
       preferences
       ;
   };
+  desktopSession = import ./desktop-session.nix { inherit (resolved) selected enabled; };
   active = lib.filterAttrs (key: _: resolved.enabled.${key}) catalog.features;
   integrations = lib.filterAttrs (
     _: entry:
@@ -42,7 +43,7 @@ assert lib.assertMsg (resolved.errors == [ ]) (lib.concatStringsSep "\n" resolve
     ++ [
       {
         features = resolved.config;
-        _module.args.featureSelection = resolved.selected;
+        _module.args = { inherit desktopSession; };
         software.requirements = lib.genAttrs (lib.unique (
           lib.concatMap (entry: entry.software or [ ]) entries
         )) (_: { });
@@ -50,7 +51,7 @@ assert lib.assertMsg (resolved.errors == [ ]) (lib.concatStringsSep "\n" resolve
 
       dependencyChecks.homeModule
       (import ../../modules/integrations/user-resources.nix {
-        inherit (resolved) selected enabled;
+        inherit (resolved) enabled;
       })
     ];
   systemModules =
@@ -65,7 +66,8 @@ assert lib.assertMsg (resolved.errors == [ ]) (lib.concatStringsSep "\n" resolve
     ++ lib.optionals isNixos [
       dependencyChecks.systemModule
       (import ../../modules/integrations/system-resources.nix {
-        inherit (resolved) selected enabled;
+        inherit desktopSession;
+        inherit (resolved) enabled;
       })
     ];
 }

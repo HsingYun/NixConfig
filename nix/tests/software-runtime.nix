@@ -17,7 +17,7 @@ let
     }
   );
   homeFor =
-    enabled:
+    enabled: extraModules:
     (inputs.home-manager.lib.homeManagerConfiguration {
       pkgs = testPkgs;
       modules = [
@@ -35,10 +35,11 @@ let
             externalPkg.packages = [ "mpv" ];
           };
         }
-      ];
+      ]
+      ++ extraModules;
     }).config;
-  home = homeFor true;
-  disabledHome = homeFor false;
+  home = homeFor true [ ];
+  disabledHome = homeFor false [ ];
   disabledProfile = pkgs.buildEnv {
     name = "software-disabled-wrapper-profile";
     paths = lib.filter (p: lib.getName p == "mpv") disabledHome.home.packages;
@@ -78,10 +79,28 @@ let
   # Model an old native executable that remains installed after switching
   # provider. It must not mask the feature's configured executable.
   staleNative = pkgs.writeShellScriptBin "mpv" "echo stale-native";
-  disabledRuntimePaths = lib.filter (
-    path: lib.hasInfix "-mpv/bin" path
-  ) disabledHome.home.sessionPath;
-  runtimePaths = lib.filter (path: lib.hasInfix "-mpv/bin" path) home.home.sessionPath;
+  # A standard user package override must win in both buildEnv and the shell.
+  preferredMpv = lib.hiPrio (pkgs.writeShellScriptBin "mpv" "echo user-override");
+  overriddenHome = homeFor true [
+    {
+      home.packages = [ preferredMpv ];
+      software = {
+        packageManager = lib.mkForce (if pkgs.stdenv.hostPlatform.isDarwin then "homebrew" else "nix");
+        packageOverrides.mpv = testPkgs.mpv;
+      };
+    }
+  ];
+  overrideProfile = pkgs.buildEnv {
+    name = "upstream-priority-profile";
+    paths = lib.filter (p: lib.getName p == "mpv") overriddenHome.home.packages;
+  };
+  # Run the upstream-generated environment hook, mapping only the installed
+  # profile/native prefix into the sandbox. No handcrafted PATH algorithm.
+  sessionVars = pkgs.runCommand "review-session-vars" { } ''
+    substitute ${overriddenHome.home.sessionVariablesPackage}/etc/profile.d/hm-session-vars.sh "$out" \
+      --replace-warn ${lib.escapeShellArg overriddenHome.home.profileDirectory} ${overrideProfile} \
+      ${lib.optionalString pkgs.stdenv.hostPlatform.isDarwin "--replace-fail ${overriddenHome.software.nativePrefix} ${staleNative}"}
+  '';
   compiler =
     name:
     lib.setPrio 10 (
@@ -204,16 +223,24 @@ let
   };
 in
 pkgs.runCommand "software-runtime-check" { } ''
+  test -z ${lib.escapeShellArg (lib.concatStringsSep ":" home.software.plan.binPaths)}
+  (
+    export PATH=${overrideProfile}/bin:${staleNative}/bin:$PATH
+    unset __HM_SESS_VARS_SOURCED
+    . ${sessionVars}
+    test "$(mpv)" = user-override
+    test "$(${overrideProfile}/bin/mpv)" = "$(mpv)"
+  )
   test "$(cat ${terminfoProfile}/share/terminfo/g/ghostty)" = terminal-ghostty
   test "$(${disabledProfile}/bin/mpv)" = raw
   (
-    export PATH=${lib.escapeShellArg (lib.concatStringsSep ":" disabledRuntimePaths)}:$PATH
+    export PATH=${disabledProfile}/bin:$PATH
     test "$(mpv)" = raw
   )
   test "$(${profile}/bin/mpv)" = configured
-  export PATH=${lib.escapeShellArg (lib.concatStringsSep ":" runtimePaths)}:${staleNative}/bin:$PATH
+  export PATH=${profile}/bin:${staleNative}/bin:$PATH
   test "$(mpv)" = configured
-  test "$(command -v mpv)" = ${home.programs.mpv.finalPackage}/bin/mpv
+  test "$(command -v mpv)" = ${profile}/bin/mpv
   test "$(${home.software.resolved.mpv.command "mpv"})" = configured
   test "$(${compilerProfile}/bin/cc)" = clang
   test "$(${compilerProfile}/bin/c++)" = clang
@@ -222,18 +249,18 @@ pkgs.runCommand "software-runtime-check" { } ''
   test "$(${develCompilerProfile}/bin/c++)" = clang
   test "$(${develCompilerProfile}/bin/gcc)" = gcc
   (
-    export PATH=${lib.escapeShellArg (lib.concatStringsSep ":" outputPlan.binPaths)}:$PATH
+    export PATH=${outputProfile}/bin:$PATH
     test "$(llvm-tool)" = replacement
     test "$(llvm-config)" = replacement
     test "$(${outputProfile}/bin/llvm-config)" = "$(llvm-config)"
   )
   (
-    export PATH=${lib.escapeShellArg (lib.concatStringsSep ":" priorityPlan.binPaths)}:$PATH
+    export PATH=${priorityProfile}/bin:$PATH
     test "$(cc)" = gcc
     test "$(${priorityProfile}/bin/cc)" = "$(cc)"
   )
   (
-    export PATH=${lib.escapeShellArg (lib.concatStringsSep ":" wrappedPlan.binPaths)}:$PATH
+    export PATH=${wrappedProfile}/bin:$PATH
     test "$(cc)" = wrapped-clang
     test "$(${wrappedProfile}/bin/cc)" = "$(cc)"
     test "$(gcc)" = gcc

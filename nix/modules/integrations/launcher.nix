@@ -13,9 +13,5 @@
     packageRoots = lib.mkIf (config.software.platform == "nixos") (
       lib.mkAfter [ osConfig.system.path ]
     );
-    nativeRoots = lib.mkIf (config.software.platform == "arch") [
-      "/usr/local"
-      "/usr"
-    ];
   };
 }

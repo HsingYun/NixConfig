@@ -1,6 +1,8 @@
 { lib, mkHost }:
 let
-  allOff = lib.genAttrs (builtins.attrNames (import ../lib/features/catalog.nix).features) (_: false);
+  allOff = lib.genAttrs (builtins.attrNames
+    (import ../lib/features/catalog.nix { inherit lib; }).features
+  ) (_: false);
   makeWith =
     preferences: featureConfig: homeConfig:
     (mkHost "ArchDesktop" {
@@ -150,6 +152,9 @@ assert
   && niri.portalPackage == null
   && niri.xwaylandSatellitePackage == null;
 assert !niri.systemd.enable && !niri.checkConfig;
+assert cfg.software.resolved.xdg-terminal-exec.provider == "pacman";
+assert cfg.xdg.terminal-exec.package == null;
+assert !lib.any (p: lib.getName p == "xdg-terminal-exec") cfg.home.packages;
 assert niri.settings.layout.gaps == 20;
 assert
   niri.settings.binds."Mod+Space".spawn == [
@@ -159,7 +164,7 @@ assert
     "spotlight"
     "toggle"
   ];
-assert cfg.home.activation.validateNativeNiri.after == [ "installNativePackages" ];
+assert cfg.home.activation.validateArchNiri.after == [ "installNativePackages" ];
 assert cfg.programs.gnome-shell.enable && cfg.programs.gnome-shell.extensions == [ ];
 assert builtins.elem "dash-to-dock@micxgx.gmail.com" (
   map (v: v.value) cfg.dconf.settings."org/gnome/shell".enabled-extensions.value

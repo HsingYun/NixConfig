@@ -1,6 +1,6 @@
 {
   lib,
-  catalog ? import ./catalog.nix,
+  catalog ? import ./catalog.nix { inherit lib; },
 }:
 
 let
@@ -20,29 +20,21 @@ let
   definitions = catalog.features;
   names = builtins.attrNames definitions;
   prefix = "Host ${name}: ";
-  input = import ./input.nix { inherit lib catalog; };
-  shared = input.normalize "shared features" defaults;
-  local = input.normalize "features" overrides;
-  explicit = lib.recursiveUpdate shared.values local.values;
+  featureConfig = import ./input.nix { inherit lib catalog; } {
+    inherit
+      name
+      platform
+      defaults
+      overrides
+      ;
+  };
   pathFor = key: definitions.${key}.path or [ key ];
-  enableKey = key: lib.concatStringsSep "." (pathFor key ++ [ "enable" ]);
   supported = key: builtins.elem platform definitions.${key}.platforms;
-  enabled = lib.genAttrs names (
-    key:
-    supported key
-    && (explicit.${enableKey key} or (
-      (
-        (definitions.${key}.default or false)
-        && builtins.elem platform (definitions.${key}.defaultPlatforms or definitions.${key}.platforms)
-      )
-      || lib.any (other: enabled.${other}) (definitions.${key}.defaultFrom or [ ])
-    )
-    )
-  );
+  enabled = lib.genAttrs names (key: lib.getAttrFromPath (pathFor key ++ [ "enable" ]) featureConfig);
   featureErrors = lib.concatMap (
     key:
     lib.optional (
-      (local.values.${enableKey key} or false) && !supported key
+      enabled.${key} && !supported key
     ) "features.${lib.concatStringsSep "." (pathFor key)} is not supported on platform '${platform}'."
     ++ lib.concatMap (
       other:
@@ -102,25 +94,13 @@ let
 in
 {
   inherit enabled;
-  config = lib.foldl' lib.recursiveUpdate { } (
-    lib.mapAttrsToList (
-      key: entry:
-      lib.setAttrByPath (pathFor key) (
-        {
-          enable = enabled.${key};
-        }
-        // lib.mapAttrs (
-          option: spec: explicit.${lib.concatStringsSep "." (pathFor key ++ [ option ])} or spec.default
-        ) (entry.options or { })
-      )
-    ) definitions
-  );
+  config = featureConfig;
   selected = lib.mapAttrs (_: choice: choice.value) choices;
-  errors = map (error: prefix + error) (
-    shared.errors
-    ++ local.errors
-    ++ featureErrors
-    ++ preferenceErrors
-    ++ lib.concatMap (choice: choice.errors) (builtins.attrValues choices)
+  errors = builtins.deepSeq featureConfig (
+    map (error: prefix + error) (
+      featureErrors
+      ++ preferenceErrors
+      ++ lib.concatMap (choice: choice.errors) (builtins.attrValues choices)
+    )
   );
 }

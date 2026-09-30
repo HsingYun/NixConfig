@@ -73,7 +73,7 @@ let
     assert !(builtins.elem (toString configuration.pkgs.hello) (map toString cfg.home.packages));
     if manager == "nix" then
       lib.count (p: toString p == toString extra) cfg.home.packages == 1
-      && builtins.elem "${extra}/bin" cfg.home.sessionPath
+      && cfg.software.plan.binPaths == [ ]
     else if isDarwin then
       builtins.elem "mpv" plan.installations.homebrew.brews
       && builtins.elem "${cfg.software.nativePrefix}/opt/mpv/bin" cfg.home.sessionPath
@@ -127,8 +127,8 @@ assert
   lib.count (
     p: toString p == toString sameLlvm.software.resolved.llvm.package.dev
   ) sameLlvm.home.packages == 1;
-assert builtins.elem "${customLlvm.dev}/bin" changedLlvm.home.sessionPath;
-assert builtins.head changedLlvm.home.sessionPath == "${customLlvm}/bin";
+assert changedLlvm.software.plan.binPaths == [ ];
+assert !(builtins.elem "${customLlvm.dev}/bin" changedLlvm.home.sessionPath);
 assert !(succeeds (map toString missingOutput.home.packages));
 assert disabledMpv.software.resolved.mpv.runtimePackage == null;
 assert disabledMpv.software.plan.installations.nix.modulePackages == [ ];

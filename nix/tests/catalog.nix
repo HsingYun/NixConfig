@@ -1,7 +1,7 @@
 { lib }:
 
 let
-  catalog = import ../lib/features/catalog.nix;
+  catalog = import ../lib/features/catalog.nix { inherit lib; };
   validate = import ../lib/features/validate.nix { inherit lib; };
   feature =
     patch:
@@ -79,7 +79,7 @@ let
       value = feature {
         options.enable = {
           default = true;
-          check = builtins.isBool;
+          type = lib.types.bool;
           description = "a boolean";
         };
       };
@@ -90,7 +90,7 @@ let
       value = feature {
         options.example = {
           default = "bad";
-          check = builtins.isBool;
+          type = lib.types.bool;
           description = "a boolean";
         };
       };

@@ -46,15 +46,17 @@ in
             message = "Arch desktop session services require native packages and units.";
           }
         ];
-        nativeSystemd.enableOnly = [ "NetworkManager-wait-online.service" ];
-        nativeSystemd.units = [
-          "NetworkManager.service"
-          "bluetooth.service"
-        ]
-        ++ lib.optionals config.features.desktop.gnome.enable [
-          "avahi-daemon.service"
-          "avahi-daemon.socket"
-        ];
+        nativeSystemd = {
+          enableOnly = [ "NetworkManager-wait-online.service" ];
+          units = [
+            "NetworkManager.service"
+            "bluetooth.service"
+          ]
+          ++ lib.optionals config.features.desktop.gnome.enable [
+            "avahi-daemon.service"
+            "avahi-daemon.socket"
+          ];
+        };
         systemd.user.startServices = lib.mkDefault true;
         xdg.configFile =
           lib.concatMapAttrs (

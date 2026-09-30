@@ -12,58 +12,26 @@ let
     "nixos-wsl"
   ];
   keyring = config.software.resolved.gnome-keyring;
-  nativeUnits = keyring.provider == "pacman";
-  nativeUnit = name: config.lib.file.mkOutOfStoreSymlink "/usr/lib/systemd/user/${name}";
-  service = nativeUnit "gnome-keyring-daemon.service";
-  socket = nativeUnit "gnome-keyring-daemon.socket";
+  usesNixPackage = keyring.provider == "nix";
 in
 {
   config = lib.mkIf cfg.enable {
     assertions = [
       {
-        assertion = config.software.packageManager.type != "pacman" || nativeUnits;
-        message = "Arch keyring must use the native package for PAM, DBus and systemd integration; Nix package overrides are unsupported with pacman.";
-      }
-      {
         assertion = pkgs.stdenv.hostPlatform.isLinux;
         message = "features.desktop.keyring is only supported on Linux.";
-      }
-      {
-        assertion = !nativeUnits || !config.services.gnome-keyring.enable;
-        message = "Arch's native keyring units own the daemon; disable Home Manager's services.gnome-keyring to avoid a second instance.";
       }
       {
         assertion = !isNixos || toString keyring.package == toString pkgs.gnome-keyring;
         message = "NixOS keyring must use pkgs.gnome-keyring consistently for PAM, DBus and its capability wrapper. Customize it through a system nixpkgs overlay, not a Home Manager package override.";
       }
-      {
-        assertion =
-          nativeUnits || isNixos || !(lib.hasInfix "/run/wrappers/bin" (keyring.package.postFixup or ""));
-        message = "Standalone Nix keyring requires useWrappedDaemon=false. Set software.packageOverrides.gnome-keyring = pkgs.gnome-keyring.override { useWrappedDaemon = false; };";
-      }
     ];
 
     software.requirements.gnome-keyring.scopes = [ (if isNixos then "system" else "home") ];
-    # Standalone Nix installations have no NixOS capability wrapper. Their
-    # DBus and autostart entries must point to the package's own executable.
-    software.packageOverrides =
-      lib.mkIf (platform == "arch" && config.software.packageManager.type == "nix")
-        {
-          gnome-keyring = lib.mkDefault (pkgs.gnome-keyring.override { useWrappedDaemon = false; });
-        };
-
     systemd.user.startServices = lib.mkDefault true;
 
-    # Arch's package already owns the daemon, socket activation and PAM module.
-    xdg.configFile = lib.mkIf nativeUnits {
-      "systemd/user/gnome-keyring-daemon.service".source = service;
-      "systemd/user/gnome-keyring-daemon.socket".source = socket;
-      "systemd/user/default.target.wants/gnome-keyring-daemon.service".source = service;
-      "systemd/user/sockets.target.wants/gnome-keyring-daemon.socket".source = socket;
-    };
-
     # Let the official Home Manager module maintain Nix runtime integration.
-    services.gnome-keyring = lib.mkIf (!nativeUnits) {
+    services.gnome-keyring = lib.mkIf usesNixPackage {
       enable = lib.mkDefault true;
       package = keyring.package;
       components = [

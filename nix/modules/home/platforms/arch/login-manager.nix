@@ -2,27 +2,15 @@
   config,
   lib,
   pkgs,
-  featureSelection,
+  desktopSession,
   ...
 }:
 let
-  selected = featureSelection;
-  enabled.dms = config.features.desktop.dms.enable;
-  manager = selected.loginManager;
+  inherit (desktopSession) desktop;
+  manager = desktopSession.loginManager;
   greetd = manager == "greetd";
-  desktop =
-    if selected.desktop != null then
-      selected.desktop
-    else if enabled.dms then
-      "niri"
-    else
-      null;
-  useDmsGreeter = enabled.dms && desktop == "niri";
-  sessionCommand =
-    if desktop == "gnome" then
-      "env XDG_SESSION_TYPE=wayland XDG_CURRENT_DESKTOP=GNOME /usr/bin/gnome-session --session=gnome"
-    else
-      "niri-session";
+  useDmsGreeter = desktopSession.greeter == "dms-greeter";
+  sessionCommand = desktopSession.command { gnomeSession = "/usr/bin/gnome-session"; };
   dmsGreeter = import ../../../../assets/helpers/greeter-session.nix { inherit lib pkgs; } {
     command = "/usr/bin/dms-greeter";
     cacheDir = "/var/cache/dms-greeter";
@@ -57,14 +45,14 @@ in
     assertions = [
       {
         assertion = lib.all (name: config.software.resolved.${name}.provider == "pacman") (
-          [ manager ] ++ lib.optional greetd (if useDmsGreeter then "dms-greeter" else "tuigreet")
+          [ manager ] ++ lib.optional greetd desktopSession.greeter
         );
         message = "Arch login components require native packages and system units; Nix overrides are unsupported.";
       }
     ];
-    software.requirements = lib.genAttrs (
-      [ manager ] ++ lib.optional greetd (if useDmsGreeter then "dms-greeter" else "tuigreet")
-    ) (_: { });
+    software.requirements = lib.genAttrs ([ manager ] ++ lib.optional greetd desktopSession.greeter) (
+      _: { }
+    );
     home.activation.selectNativeLoginManager =
       lib.hm.dag.entryAfter [ "installNativePackages" "linkGeneration" ]
         (

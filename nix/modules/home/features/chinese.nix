@@ -27,42 +27,39 @@ in
     "noto-emoji"
     "maple-mono"
   ] (_: { });
-  home.language = {
-    base = lib.mkDefault "zh_CN.UTF-8";
-    messages = lib.mkDefault "zh_CN.UTF-8";
+  home = {
+    language = {
+      base = lib.mkDefault "zh_CN.UTF-8";
+      messages = lib.mkDefault "zh_CN.UTF-8";
+    };
+    sessionVariables = {
+      LANGUAGE = lib.mkDefault "zh_CN:en_US";
+      QT_IM_MODULE = lib.mkDefault "fcitx";
+      XMODIFIERS = lib.mkDefault "@im=fcitx";
+      SDL_IM_MODULE = lib.mkDefault "fcitx";
+      GLFW_IM_MODULE = lib.mkDefault "ibus";
+    };
   };
-  home.sessionVariables = {
-    LANGUAGE = lib.mkDefault "zh_CN:en_US";
-    QT_IM_MODULE = lib.mkDefault "fcitx";
-    XMODIFIERS = lib.mkDefault "@im=fcitx";
-    SDL_IM_MODULE = lib.mkDefault "fcitx";
-    GLFW_IM_MODULE = lib.mkDefault "ibus";
+  systemd = {
+    user = {
+      startServices = lib.mkDefault true;
+      sessionVariables = lib.mapAttrs (_: lib.mkDefault) (
+        lib.filterAttrs (
+          name: _:
+          builtins.elem name [
+            "LANG"
+            "LC_MESSAGES"
+            "LANGUAGE"
+            "QT_IM_MODULE"
+            "XMODIFIERS"
+            "SDL_IM_MODULE"
+            "GLFW_IM_MODULE"
+          ]
+        ) config.home.sessionVariables
+      );
+    };
   };
-  systemd.user.startServices = lib.mkDefault true;
-  systemd.user.sessionVariables = lib.mapAttrs (_: lib.mkDefault) (
-    lib.filterAttrs (
-      name: _:
-      builtins.elem name [
-        "LANG"
-        "LC_MESSAGES"
-        "LANGUAGE"
-        "QT_IM_MODULE"
-        "XMODIFIERS"
-        "SDL_IM_MODULE"
-        "GLFW_IM_MODULE"
-      ]
-    ) config.home.sessionVariables
-  );
-  gtk = {
-    enable = lib.mkDefault true;
-    gtk2.extraConfig = lib.mkIf (config.software.platform == "arch") ''gtk-im-module="fcitx"'';
-    gtk3.extraConfig.gtk-im-module = lib.mkIf (config.software.platform == "arch") (
-      lib.mkDefault "fcitx"
-    );
-    gtk4.extraConfig.gtk-im-module = lib.mkIf (config.software.platform == "arch") (
-      lib.mkDefault "fcitx"
-    );
-  };
+  gtk.enable = lib.mkDefault true;
   # The official module owns files when its Nix runtime is enabled. Arch reads
   # the same settings in its native adapter without enabling that runtime.
   i18n.inputMethod.fcitx5.settings = settings;

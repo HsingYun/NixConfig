@@ -1,7 +1,7 @@
 { lib, build }:
 
 let
-  catalog = (import ../lib/features/catalog.nix).features;
+  catalog = (import ../lib/features/catalog.nix { inherit lib; }).features;
   names = builtins.attrNames (lib.filterAttrs (_: entry: !(entry ? software)) catalog);
   allOff = lib.genAttrs (builtins.attrNames catalog) (_: false);
   home = cfg: cfg.home-manager.users.test;

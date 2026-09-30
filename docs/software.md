@@ -2,13 +2,17 @@
 
 Hosts select `platform`, `packageManager`, and `features`. Software identities, package names, provider fallback, runtime paths, and installation manifests belong to the shared software layer. Hosts normally do not set `programs.*.package`; host-specific tools use the selected manager's native names in `externalPkg`.
 
-Feature input is a tree: `features.desktop.niri.enable`, `features.desktop.keyring.enable`, and `features.chrome.extensions` are examples. Feature catalog entries retain stable internal IDs for dependency and integration references. Their optional `path` declares the public path (otherwise `[name]`); `.enable` is always a boolean. Additional `options` declare a default, validation function, and description. `defaultPlatforms` narrows where a default-enabled feature is enabled without narrowing its supported platforms. `defaultFrom` enables a feature by default when any listed feature is enabled; an explicit setting still wins. The catalog rejects invalid defaults, overlapping option paths, unknown references, and dependency/default cycles.
+Feature input is a tree: `features.desktop.niri.enable`, `features.desktop.keyring.enable`, and `features.chrome.extensions` are examples. Feature catalog entries retain stable internal IDs for dependency and integration references. Their optional `path` declares the public path (otherwise `[name]`); `.enable` is always a boolean. Additional `options` declare a standard Nix option `type`, default, and description. `lib.evalModules` performs option validation and merging; the catalog only describes domain metadata. `defaultPlatforms` narrows where a default-enabled feature is enabled without narrowing its supported platforms. `defaultFrom` enables a feature by default when any listed feature is enabled; an explicit setting still wins. The catalog rejects invalid defaults, overlapping option paths, unknown references, and dependency/default cycles.
 
-Shared and host input is validated against this schema and merged recursively at the field level. Explicit null values override inherited image paths. Lists replace inherited lists, including `[]`. Configuring an option does not implicitly enable its feature. The resolved tree is passed to Home Manager as read-only `config.features`; hosts configure it in `default.nix`, while `home.nix` retains upstream module settings and package overrides.
+Shared profiles supply weak defaults at each setting; host input is evaluated as a Nix module definition. `lib.mkDefault`, `lib.mkForce`, `lib.mkIf`, `lib.mkMerge`, and list ordering use upstream module semantics. Ordinary host definitions override shared defaults, including explicit null image paths and empty lists. Lists at the same priority concatenate; conflicting scalar definitions produce standard Nix diagnostics. Configuring an option does not implicitly enable its feature. The resolved tree is passed to Home Manager as read-only `config.features`; hosts configure it in `default.nix`, while `home.nix` retains upstream module settings and package overrides.
 
 `homeModulesByPlatform` and `activationByPlatform` select module adapters and dependency activation paths through catalog metadata. Choice rules can restrict their `platforms`; desktop/login choices apply to Arch and native NixOS. The generic resolver does not branch on GNOME, Niri, DMS, wallpaper or launcher identities. Desktop settings use `desktop.gnome.settings` (dconf), `desktop.niri.settings` (KDL), `desktop.dms.settings/session` (JSON), `desktop.wallpaper.image/lockImage`, and `desktop.launcher.hiddenEntries`. Business defaults and rendering remain in their modules.
 
 Arch desktop features require pacman. The DMS adapter manages JSON and native service symlinks because the upstream HM module unconditionally installs its Nix runtime. It enables Arch's service only for Niri, preserving the package's DBus notification service and restart behavior. Native GNOME extensions are enabled by UUID rather than copied into the Nix profile. The GNOME feature explicitly requests the selected Arch desktop packages, including GDM, rather than a pacman package group. Arch and NixOS share `preferences.desktop` and `preferences.loginManager`: GNOME supplies GDM, while Niri or DMS supplies greetd. Multiple candidates require explicit selection. DMS supplies the greetd UI; bare Niri uses tuigreet. After package installation and file linking, native activation installs dedicated greetd configuration when selected, enables the chosen login manager using sudo, and sets graphical.target as the default boot target. The greetd drop-in reads `/etc/greetd/nixconfig.toml`, preserving the original host configuration. It installs the new display-manager alias before disabling the previous manager’s boot links, without stopping services or using --now. Repeated activation is a no-op when the boot configuration matches. On Arch, choosing `none` or disabling the desktop features relinquishes management without tearing down the existing login service. GNOME requests its own portal and keyring packages even without Niri; the keyring feature independently controls the user units. Launcher rules inspect native entries at activation time; on Arch, both Nix and native sources use one activation-owned override per filename, so a provider change does not collide with HM link preflight. A checksum manifest permits cleanup without overwriting or deleting user-owned edits. NixOS instead uses declarative Home Manager links to the filtered build output; its launcher adapter does not scan native paths at activation.
+
+Platform and software source are separate decisions. Platform adapters use explicit names such as `isArch` when a check is needed, and are selected through platform imports. Common features use the resolved software provider (for example `usesNixPackage = software.vim.provider == "nix"`) only when packaging changes configuration behavior. A host's preferred manager does not imply the provider of every application. Features without a packaging difference need no provider branch. Arch session, service, and filesystem assumptions remain in `home/platforms/arch/`; NixOS-specific Home Manager adapters live in `home/platforms/nixos/`. Adding another distribution does not opt it into Arch assumptions. Shared desktop/greeter selection lives in `lib/features/desktop-session.nix`; platform adapters provide executable paths and upstream or native service integration.
+
+Chrome extension files on Darwin belong to Home Manager's `programs.google-chrome`, with `package = null` for Homebrew. NixOS delegates `ExtensionSettings` to `programs.chromium.extraOpts`, preserving `normal_installed`; upstream applies this policy to Chrome, Chromium, and Brave without installing those browsers. Only Arch writes a dedicated root policy file through its ownership adapter.
 
 ## Layers
 
@@ -16,7 +20,7 @@ Arch desktop features require pacman. The DMS adapter manages JSON and native se
 2. **Definitions**: `profiles.nix` defines the base, user, and devel groups and their Nix/Homebrew/pacman mappings. `catalog.nix` combines these groups with application definitions and shared dependencies. `recipes.nix` provides recipe constructors.
 3. **Resolution** (`resolve.nix`) merges requests, expands dependencies, checks platform support and capabilities, selects a provider, and matches extras to software identities. Its shared installation planner reconciles extras against confirmed installation owners.
 4. **Providers** (`providers.nix`) define supported platforms, fallback order, recipe validation, package identity, command paths, and installation plan formats.
-5. **Runtime planning** (`materialize.nix`) incorporates final packages produced by upstream modules, finalizes extra ownership, and computes runtime paths. Feature `software.bindings` connect software identities to upstream package and enable options. `nix-packages.nix` handles output selection and package priorities shared by installation and runtime planning.
+5. **Runtime planning** (`materialize.nix`) incorporates final packages produced by upstream modules, finalizes extra ownership, and supplies explicit command paths. Feature `software.bindings` connect software identities to upstream package and enable options. NixOS/Home Manager build the Nix profiles and resolve output selection, priorities and file collisions.
 6. **Installation backends** consume the plan through Home Manager, NixOS/nix-darwin, Homebrew declarations, or pacman/yay commands during Home Manager activation.
 
 The managed user's `software.plan` is the common plan for both user and system backends. They do not resolve providers independently. Base tools and optional features use the same resolution process; shared profile entries reuse the same recipe.
@@ -80,7 +84,7 @@ Extras that match active software identities follow those identities' selected p
 
 The same rule prevents an extra `mpv` request from installing an unconfigured player alongside Home Manager's configured wrapper. An explicit Nix output, such as `llvmPackages.llvm.dev`, is also reconciled when an active recipe already provides it. Requesting the same pacman package from both a repository and AUR is rejected.
 
-Darwin, Arch, PC, and Pad enable `features.commonTools.enable` for aria2, GnuPG, GnuTLS, Graphviz, ncurses, OpenSSL, pinentry, rsync, SQLite, xz, zlib and zstd. These requirements prefer the selected manager and fall back to Nix when needed. GnuPG and pinentry reuse existing identities: enabling GPG merges its store-package requirements, preventing duplicate native installations. Disabling commonTools removes only its requests. Linux procps belongs to commonTools. WSL selects terminal pinentry through its package override. Host differences such as watch and generic pinentry on Darwin remain in `externalPkg`.
+Darwin, Arch, PC, and Pad enable `features.commonTools.enable` for aria2, GnuPG, GnuTLS, Graphviz, ncurses, OpenSSL, pinentry, rsync, SQLite, xz, zlib and zstd. These requirements prefer the selected manager and fall back to Nix when needed. GnuPG and pinentry reuse existing identities: enabling GPG requires a Nix GnuPG package for the managed agent, while pinentry keeps its selected provider. Matching requests and extras are deduplicated. Disabling commonTools removes only its requests. Linux procps belongs to commonTools. WSL selects terminal pinentry through its package override. Host differences such as watch and generic pinentry on Darwin remain in `externalPkg`.
 
 ## Development tools
 
@@ -129,15 +133,28 @@ On every supported platform, the shell feature loads `$HOME/.config/zsh/local.zs
 
 ## Runtime paths and priorities
 
-Managed Nix executables take precedence over native provider paths, protecting selected Nix commands from stale native installations. Native feature paths precede independent native extras.
+Nix commands are exposed through the upstream Home Manager and system profiles.
+The software layer does not expand `meta.outputsToInstall`, sort raw package
+`bin` directories, or create a second executable environment. `buildEnv` owns
+output selection, propagated packages, file collisions and `meta.priority`.
+Standard `home.packages` entries, including `lib.hiPrio` overrides, participate
+in that same environment and therefore affect both the profile and shell.
 
-Within the Nix portion of PATH, outputs are ordered by `meta.priority`, using the same convention as Nix profile assembly: smaller numbers take precedence. Runtime planning includes required outputs and final upstream wrappers, so software identity names do not determine which compiler or other overlapping command runs.
+`software.plan.binPaths` contains only native provider paths. When those paths
+are added to the user environment, the Home Manager profile comes first,
+followed by the system profile on NixOS/nix-darwin. On Darwin, system PATH places
+native paths after Nix profiles and before OS defaults. Homebrew formula paths
+and `bin`/`sbin` remain available, including linked cask commands such as `cot`.
+Explicit feature commands use the resolved package or native command path.
 
-Extras are deduplicated only against confirmed installations: native selections, centrally installed Nix packages, or active upstream runtime packages. If a module-owned program is disabled, an explicit matching extra remains in its requested provider's installation plan and is reported as `external`. For example, disabling `programs.mpv.enable` while keeping an `mpv` extra installs the ordinary package without the feature's wrapper. A resource-only request without a confirmed installer does not absorb an explicit extra.
-
-Independent Nix extras receive a lower priority than selected software, including final wrappers whose priority differs from their input package. The adjusted priority is used both in profile assembly and in the generated PATH. Unique commands from those extras remain available. Equal-priority packages with conflicting files are still subject to normal Nix profile collision checks.
-
-Packages from nixpkgs and custom Nix derivations use the same mechanism when supplied through the software layer. Arbitrary `home.packages` entries and manually configured shell paths are outside its ownership model.
+Extras are deduplicated against confirmed installations: native selections,
+centrally installed Nix packages, or active upstream runtime packages. Disabling
+an upstream program does not absorb an explicit extra or install its inactive
+wrapper. Independent Nix extras receive a lower `meta.priority` than selected
+software, considering final wrappers; this policy is computed once by the
+installation planner. Upstream profile assembly resolves the resulting files.
+Equal-priority conflicts remain errors. Manually overridden shell PATH remains
+under the host's control.
 
 ## pacman and AUR activation
 
@@ -181,7 +198,6 @@ References: [pacman manual](https://man.archlinux.org/man/pacman.8.en), [yay man
 - `provider`: selected backend.
 - `package`: the Nix package passed to an upstream module, or `null` for native software.
 - `runtimePackage`: the actual Nix executable package, including an upstream wrapper when applicable; `null` for native software or an inactive module-owned program.
-- `runtimeOutputs`: the selected Nix runtime outputs used to generate paths.
 - `command "executable"`: the executable's path in its runtime package or native provider's configured command directory. Requesting a command from an inactive module-owned Nix program fails explicitly.
 - `providedCapabilities`: capabilities supplied by the selected recipe.
 - `reason`: preferred provider, explicit override, or the reason for fallback.
@@ -192,7 +208,7 @@ Applications whose Home Manager modules accept `package = null` can use native i
 software.requirements.zsh.capabilities = [ "store-package" ];
 ```
 
-Zsh, GPG agent/pinentry, nh, and mpv script resources currently have this requirement. Git, Vim, Ghostty, commonTools and ordinary development tools can prefer native providers. On Arch, mpv itself uses pacman with `programs.mpv.package = null`; HM generates configuration, links the pinned scripts into the user scripts directory, and installs their font resources in the profile. The Nix wrapper remains active for NixOS/macOS or an explicit Nix override.
+Zsh, GnuPG for the managed GPG agent, nh, and mpv script resources currently have this requirement. Pinentry follows the selected provider: upstream manages Nix pinentry packages directly; external pinentry uses `package = null` and a `pinentry-program` line pointing to the resolved command. GPG agent configuration and service ownership remain upstream. Git, Vim, Ghostty, commonTools and ordinary development tools can prefer native providers. On Arch, mpv itself uses pacman with `programs.mpv.package = null`; HM generates configuration, links the pinned scripts into the user scripts directory, and installs their font resources in the profile. The Nix wrapper remains active when mpv resolves to Nix, including NixOS and explicit package overrides. Homebrew mpv uses the same upstream configuration-only interface as pacman mpv. The shared Linux desktop preset enables mpv; Darwin defaults to IINA without mpv. Explicitly enabling mpv on Darwin prefers Homebrew.
 
 `bindings` connects a software identity to an upstream configuration option. `packageOption = [ "programs" "gpg" "package" ];` refers to `config.programs.gpg.package`, not a filesystem path. The binding validates package consistency and reads the runtime package; the feature still assigns the upstream package default.
 
@@ -257,7 +273,7 @@ The Chinese feature supports native Linux desktops only. Its common module suppl
 
 Keyring and compositor packages are OS-bound resources. Arch adapters reject unsupported Nix overrides rather than silently dropping native dependencies. NixOS's upstream keyring module has no package option, so package customization uses a system overlay; a mismatched home-only override is rejected. The Nix user service comes from the official HM `services.gnome-keyring` module. Standalone Nix keyring validates the absence of NixOS wrapper paths.
 
-NixOS retains the official HM dconf lifecycle, including resetting removed keys to defaults while activation is enabled. The pinned module omits activation when all databases are removed; it does not promise restoration of original values. Only the Arch dconf adapter replaces key-only cleanup with value tracking. It runs even with an empty desired database, restoring original values only if the current value still matches the last managed write. It preserves external edits. A legacy HM default database is adopted from the old generation's immutable INI input and key list; unknown legacy original values reset to schema defaults only when unchanged. Named databases written by this adapter follow the same lifecycle.
+All Linux hosts retain the official Home Manager dconf activation and generation key manifests. The pinned upstream module resets removed keys while a database remains configured, but skips a database removed entirely. A separate `dconfRemovedDatabases` hook handles only that gap: it resets the previous generation's keys for databases with no manifest in the new generation. It never overrides `dconfSettings`, scans the live database, or maintains its own state. With no previous generation or a garbage-collected manifest, cleanup is skipped; current declarations are still applied by Home Manager. Reset means schema defaults, not restoration of pre-management values. Manual edits to previously managed keys follow the same reset semantics as upstream. The old Arch value-tracking journal is no longer read or written; any leftover `~/.local/state/nixconfig/dconf.json` is inert.
 
 Default login sessions are used by tuigreet explicitly. The DMS greeter seeds its session memory once per changed default while retaining the remembered username and later interactive session selections. GNOME as the default with greetd uses tuigreet; Niri with DMS uses the DMS greeter.
 
@@ -314,7 +330,7 @@ NixOS and Darwin use their upstream system/Home Manager modules. Arch's system
 service, policy, input-autostart and native-package adapters are loaded through
 its platform entry point. Arch-specific service requirements are not copied
 into NixOS or Darwin activations. NixOS uses official HM dconf, Fcitx5 and
-Keyring modules. Value-aware dconf restoration belongs only to the Arch adapter.
+Keyring modules. Arch also uses upstream dconf; the shared removed-database hook supplements its generation-based cleanup.
 
 Native recipes list applications and capabilities explicitly requested by this
 configuration. Pacman/yay resolve their current dependency graph, providers,
@@ -322,7 +338,7 @@ versions and conflicts at transaction time. Removal uses plain `pacman -R`,
 without recursive removal or dependency bypass. This repository does not pin or
 reimplement Arch's dependency graph. Unit activation uses the installed systemd
 unit definitions; dependencies and `Also=` peers outside the explicitly managed
-unit set are not claimed for automatic cleanup. Before stopping a retired unit, the adapter checks the current reverse dependency graph and preserves units with active consumers outside the retiring set.
+unit set are not claimed for automatic cleanup. Before stopping a retired unit, the adapter checks the current reverse dependency graph and preserves units with active consumers outside the retiring set. Queries use checked `systemctl show` calls: command failures or unknown active states abort reconciliation instead of being recorded as inactivity. Cleanup failures retain ownership records for retry.
 
 Privileged file changes for Chrome, smart cards and greetd share one ownership
 protocol under `/var/lib/nixconfig/files/`. It uses root-owned records, per-file
@@ -350,7 +366,7 @@ removing entire configuration directories.
 Before adding an activation helper, inspect the pinned NixOS, nix-darwin and HM
 modules. Use their public options when available. Shared features express intent;
 native adapters supply only the missing interface. Do not replace an upstream
-activation node on NixOS to hide a migration or file conflict. A declared file
+activation node to hide a migration or file conflict. A declared file
 must have one owner and stable ownership granularity (whole directory versus
 individual children). Conflicts stay visible; automatic backup, `force`, deleting
 user paths and suppressing errors are not repairs for overlapping ownership.
@@ -380,3 +396,21 @@ and helper behavior; native login, hardware and other operating systems require
 separate runtime validation. None of these is a proof against every future
 upstream change. Keep failing checks visible and identify known upstream blockers
 instead of weakening the checks or calling evaluation a successful deployment.
+
+
+## Writable VS Code settings
+
+`features.vscode.settings` declares values restored on every Home Manager
+activation (previously `initialSettings` was a one-time seed). The feature uses
+upstream `programs.vscode.profiles.default.mutableUserSettings = true`, with
+the selected package or `null` for Homebrew/pacman. There is no custom JSON
+writer or initialization marker.
+
+The settings file remains writable. Declared values win during activation;
+undeclared values, including nested object keys, survive. Objects merge
+recursively; declared arrays replace the corresponding array. Removing a
+setting from the declaration stops enforcing it and retains its current value.
+The upstream operation accepts JSONC/JSON5 input but rewrites formatted JSON,
+so comments and original formatting are not preserved. Invalid input aborts
+activation without overwriting the file. Old `vscode-initialized` markers have
+no effect and may be removed manually.

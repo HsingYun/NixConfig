@@ -1,4 +1,4 @@
-{ selected, enabled }:
+{ enabled }:
 
 {
   config,

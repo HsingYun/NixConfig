@@ -92,7 +92,7 @@ let
   };
   removed = plan { requirements = { }; };
   remaining = plan { requirements.font = { }; };
-  featureCatalog = (import ../lib/features/catalog.nix).features;
+  featureCatalog = (import ../lib/features/catalog.nix { inherit lib; }).features;
   applicationFeatures = lib.filterAttrs (_: entry: entry ? software) featureCatalog;
   catalog = import ../lib/software/catalog.nix {
     pkgs = inputs.nixpkgs.legacyPackages.aarch64-darwin;
@@ -415,16 +415,18 @@ assert
     "htop"
     "jq"
     "nano"
+    "pinentry-mac"
     "ripgrep"
     "tree"
     "wget"
     "aria2"
   ];
 assert
-  builtins.head darwinOwnedHome.home.sessionPath == "${darwinOwnedHome.programs.gpg.package}/bin";
+  builtins.head darwinOwnedHome.home.sessionPath == "${darwinOwnedHome.home.profileDirectory}/bin";
 assert !(builtins.elem "/opt/homebrew/opt/gnupg/bin" darwinOwnedHome.home.sessionPath);
-assert lib.hasPrefix "${darwinOwnedHome.programs.gpg.package}/bin:"
-  darwinOwnership.environment.systemPath;
+assert
+  !(lib.hasInfix (builtins.unsafeDiscardStringContext "${darwinOwnedHome.programs.gpg.package}/bin") darwinOwnership.environment.systemPath);
+assert lib.hasInfix "/run/current-system/sw/bin" darwinOwnership.environment.systemPath;
 assert
   (lib.findFirst (
     p: lib.hasPrefix "gcc" (lib.getName p)
@@ -602,7 +604,16 @@ assert home.software.resolved.ghostty.provider == "homebrew";
 assert home.software.resolved.clang.provider == "homebrew";
 assert home.software.resolved.zsh.provider == "nix";
 assert home.software.resolved.gnupg.provider == "nix";
-assert home.software.resolved.mpv.provider == "nix";
+assert home.software.resolved.mpv.provider == "homebrew";
+assert home.programs.mpv.package == null;
+assert home.xdg.configFile ? "mpv/scripts/modernx.lua";
+assert home.software.resolved.pinentry.provider == "homebrew";
+assert home.services.gpg-agent.pinentry.package == null;
+assert lib.hasInfix
+  "pinentry-program ${home.software.nativePrefix}/opt/pinentry-mac/bin/pinentry-mac"
+  home.home.file."${home.programs.gpg.homedir}/gpg-agent.conf".text;
+assert lib.count (name: name == "pinentry-mac") brews == 1;
+assert !(builtins.elem "pinentry-mac" (map lib.getName home.home.packages));
 assert home.software.plan.resolved.ghostty.package == null;
 assert !(builtins.elem "ghostty" (map lib.getName home.home.packages));
 assert lib.count (name: name == "llvm") brews == 1;

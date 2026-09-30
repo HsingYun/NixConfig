@@ -21,21 +21,23 @@ let
   replacements = lib.subtractLists (plan.packages ++ plan.aur) replacementNames;
 in
 {
-  home.activation.removeReplacedNativePackages =
-    lib.mkIf
-      (
-        config.software.platform == "arch"
-        && config.software.packageManager.type == "pacman"
-        && replacements != [ ]
-      )
-      (
-        lib.hm.dag.entryBetween [ "linkGeneration" ] [ "installPackages" "installNativePackages" ] (
-          import ../../../assets/helpers/pacman-migration.nix { inherit lib; } { packages = replacements; }
+  home.activation = {
+    removeReplacedNativePackages =
+      lib.mkIf
+        (
+          config.software.platform == "arch"
+          && config.software.packageManager.type == "pacman"
+          && replacements != [ ]
         )
-      );
-  home.activation.installNativePackages = lib.mkIf (plan.packages != [ ] || plan.aur != [ ]) (
-    lib.hm.dag.entryBetween [ "linkGeneration" ] [ "writeBoundary" ] (
-      import ../../../assets/helpers/pacman-activation.nix { inherit lib; } plan
-    )
-  );
+        (
+          lib.hm.dag.entryBetween [ "linkGeneration" ] [ "installPackages" "installNativePackages" ] (
+            import ../../../assets/helpers/pacman-migration.nix { inherit lib; } { packages = replacements; }
+          )
+        );
+    installNativePackages = lib.mkIf (plan.packages != [ ] || plan.aur != [ ]) (
+      lib.hm.dag.entryBetween [ "linkGeneration" ] [ "writeBoundary" ] (
+        import ../../../assets/helpers/pacman-activation.nix { inherit lib; } plan
+      )
+    );
+  };
 }

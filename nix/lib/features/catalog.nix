@@ -1,3 +1,4 @@
+{ lib }:
 let
   inherit (import ../hosts/platforms.nix)
     all
@@ -7,14 +8,10 @@ let
     ;
   settingsOption = description: {
     default = { };
-    check = builtins.isAttrs;
+    type = lib.types.lazyAttrsOf lib.types.anything;
     inherit description;
   };
-  imagePath =
-    value:
-    value == null
-    || builtins.isPath value
-    || (builtins.isString value && builtins.match "/.*" value != null);
+
 in
 {
   features = {
@@ -33,12 +30,11 @@ in
     chrome = {
       platforms = all;
       software = [ "chrome" ];
+      systemPlatforms = nixos;
+      systemModules = [ ../../modules/system/features/chrome.nix ];
       options.extensions = {
         default = [ "nngceckbapebfimnlniiiahkandclblb" ]; # Bitwarden
-        check =
-          value:
-          builtins.isList value
-          && builtins.all (id: builtins.isString id && builtins.match "[a-p]{32}" id != null) value;
+        type = lib.types.listOf (lib.types.strMatching "[a-p]{32}");
         description = "a list of Chrome Web Store extension IDs";
       };
     };
@@ -46,13 +42,13 @@ in
       platforms = all;
       software = [ "vscode" ];
       homeModules = [ ../../modules/home/features/vscode.nix ];
-      options.initialSettings = {
+      options.settings = {
         default = {
           "editor.fontFamily" = "'Maple Mono NF CN', monospace";
           "terminal.integrated.fontFamily" = "'Maple Mono NF CN'";
         };
-        check = builtins.isAttrs;
-        description = "VS Code settings seeded once; existing values and later edits remain user-owned";
+        type = lib.types.lazyAttrsOf lib.types.anything;
+        description = "VS Code settings restored at activation; undeclared settings remain user-owned";
       };
     };
     codex = {
@@ -173,7 +169,7 @@ in
       platforms = all;
       options.allowBackgroundAccess = {
         default = false;
-        check = builtins.isBool;
+        type = lib.types.bool;
         description = "allow this account's PC/SC clients outside an active desktop session (WSL/SSH)";
       };
       homeModules = [ ../../modules/home/features/smartcard.nix ];
@@ -186,11 +182,13 @@ in
       systemModules = [ ../../modules/system/features/nix-ld.nix ];
     };
     gnome = {
-      options.settings = settingsOption "GNOME dconf settings keyed by schema path";
-      options.flatAppGrid = {
-        default = true;
-        check = builtins.isBool;
-        description = "show GNOME Overview applications without folder groups";
+      options = {
+        settings = settingsOption "GNOME dconf settings keyed by schema path";
+        flatAppGrid = {
+          default = true;
+          type = lib.types.bool;
+          description = "show GNOME Overview applications without folder groups";
+        };
       };
       path = [
         "desktop"
@@ -208,6 +206,10 @@ in
       platforms = desktops;
       systemPlatforms = [ "nixos" ];
       homeModules = [ ../../modules/home/features/gnome.nix ];
+      homeModulesByPlatform = {
+        arch = [ ../../modules/home/platforms/arch/gnome.nix ];
+        nixos = [ ../../modules/home/platforms/nixos/gnome.nix ];
+      };
       systemModules = [ ../../modules/system/features/gnome.nix ];
     };
     niri = {
@@ -236,6 +238,10 @@ in
       platforms = desktops;
       systemPlatforms = [ "nixos" ];
       homeModules = [ ../../modules/home/features/niri.nix ];
+      homeModulesByPlatform = {
+        arch = [ ../../modules/home/platforms/arch/niri.nix ];
+        nixos = [ ../../modules/home/platforms/nixos/niri.nix ];
+      };
       systemModules = [ ../../modules/system/features/niri.nix ];
     };
     dms = {
@@ -268,7 +274,7 @@ in
       requires = [ "niri" ];
       homeModules = [ ../../modules/home/features/dms.nix ];
       homeModulesByPlatform = {
-        nixos = [ ../../modules/home/software/dms-nix.nix ];
+        nixos = [ ../../modules/home/platforms/nixos/dms.nix ];
         arch = [ ../../modules/home/platforms/arch/dms.nix ];
       };
       systemModules = [ ../../modules/system/features/dms.nix ];
@@ -290,7 +296,7 @@ in
         builtins.mapAttrs
           (_: description: {
             default = true;
-            check = builtins.isBool;
+            type = lib.types.bool;
             inherit description;
           })
           {
@@ -379,12 +385,7 @@ in
           "org.gnome.Epiphany.desktop"
           "org.gnome.Software.desktop"
         ];
-        check =
-          value:
-          builtins.isList value
-          && builtins.all (
-            name: builtins.isString name && builtins.match "[A-Za-z0-9_.+-]+\\.desktop" name != null
-          ) value;
+        type = lib.types.listOf (lib.types.strMatching "[A-Za-z0-9_.+-]+\\.desktop");
         description = "a list of desktop entry filenames";
       };
     };
@@ -405,12 +406,12 @@ in
       options = {
         image = {
           default = null;
-          check = imagePath;
+          type = lib.types.nullOr lib.types.path;
           description = "a path, an absolute filename, or null to leave the desktop wallpaper unmanaged";
         };
         lockImage = {
           default = null;
-          check = imagePath;
+          type = lib.types.nullOr lib.types.path;
           description = "a path, an absolute filename, or null to leave the lock wallpaper unmanaged";
         };
       };
@@ -429,14 +430,14 @@ in
         settings = settingsOption "Fcitx settings: inputMethod, globalOptions and addons";
         englishByDefault = {
           default = true;
-          check = builtins.isBool;
+          type = lib.types.bool;
           description = "start Rime in English mode";
         };
       };
       homeModules = [ ../../modules/home/features/chinese.nix ];
       homeModulesByPlatform = {
         arch = [ ../../modules/home/platforms/arch/chinese.nix ];
-        nixos = [ ../../modules/home/software/chinese-nix.nix ];
+        nixos = [ ../../modules/home/platforms/nixos/chinese.nix ];
       };
       systemPlatforms = [ "nixos" ];
       systemModules = [ ../../modules/system/features/chinese.nix ];
@@ -490,12 +491,18 @@ in
     gnome-chinese = {
       platforms = desktops;
       owners = [ "chinese" ];
-      homeModules = [ ../../modules/integrations/gnome-chinese.nix ];
+      homeModulesByPlatform = {
+        arch = [ ../../modules/home/platforms/arch/gnome-chinese.nix ];
+        nixos = [ ../../modules/home/platforms/nixos/gnome-chinese.nix ];
+      };
     };
     niri-dms = {
       platforms = desktops;
       owners = [ "niri" ];
-      homeModules = [ ../../modules/integrations/niri-dms.nix ];
+      homeModulesByPlatform = {
+        arch = [ ../../modules/home/platforms/arch/niri-dms.nix ];
+        nixos = [ ../../modules/home/platforms/nixos/niri-dms.nix ];
+      };
     };
   };
 }

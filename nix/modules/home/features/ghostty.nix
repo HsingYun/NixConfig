@@ -9,19 +9,22 @@ let
   inherit (pkgs.stdenv.hostPlatform) isDarwin isLinux;
 in
 {
-  software.bindings.ghostty = {
-    enableOption = [
-      "programs"
-      "ghostty"
-      "enable"
-    ];
-    packageOption = [
-      "programs"
-      "ghostty"
-      "package"
-    ];
+  imports = [ ../shared/terminal-exec.nix ];
+  software = {
+    bindings.ghostty = {
+      enableOption = [
+        "programs"
+        "ghostty"
+        "enable"
+      ];
+      packageOption = [
+        "programs"
+        "ghostty"
+        "package"
+      ];
+    };
+    requirements.ghostty = { };
   };
-  software.requirements.ghostty = { };
   programs.ghostty = {
     package = lib.mkDefault software.ghostty.package;
     enable = lib.mkDefault true;

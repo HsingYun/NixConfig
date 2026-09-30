@@ -1,60 +1,29 @@
 {
   config,
   lib,
-  osConfig ? { },
   software,
   ...
 }:
-let
-  native = config.software.platform == "arch";
-in
 {
-  imports = [ ../shared/desktop.nix ];
+  imports = [
+    ../shared/desktop.nix
+    ../shared/terminal-exec.nix
+  ];
 
-  software.requirements = lib.genAttrs (
-    [
-      "wl-clipboard"
-      "xdg-terminal-exec"
-    ]
-    ++ lib.optionals native [
-      "niri"
-      "xwayland-satellite"
-      "xdg-desktop-portal-gnome"
-      "xdg-desktop-portal-gtk"
-    ]
-  ) (_: { });
-  assertions = lib.optional native {
-    assertion =
-      config.software.packageManager.type == "pacman"
-      && lib.all (name: config.software.resolved.${name}.provider == "pacman") [
-        "niri"
-        "xwayland-satellite"
-        "xdg-desktop-portal-gnome"
-        "xdg-desktop-portal-gtk"
-      ];
-    message = "Arch Niri requires native compositor/session/portal packages. Nix overrides for these system components are unsupported; use pacman.";
+  software.requirements.wl-clipboard = { };
+  xdg = {
+    userDirs = {
+      enable = lib.mkDefault true;
+      createDirectories = lib.mkDefault true;
+    };
+    terminal-exec.enable = lib.mkDefault true;
   };
-  home.activation.validateNativeNiri = lib.mkIf (native && config.wayland.windowManager.niri.enable) (
-    lib.hm.dag.entryBetween [ "linkGeneration" ] [ "installNativePackages" ] ''
-      run /usr/bin/niri validate --config ${
-        lib.escapeShellArg (toString config.xdg.configFile."niri/config.kdl".source)
-      }
-    ''
-  );
-  xdg.userDirs = {
-    enable = lib.mkDefault true;
-    createDirectories = lib.mkDefault true;
-  };
-  xdg.terminal-exec.enable = lib.mkDefault true;
 
   wayland.windowManager.niri = {
     enable = lib.mkDefault true;
-    package = lib.mkDefault (if native then null else osConfig.programs.niri.package);
-    # The host OS owns the session units and desktop portals.
+    # The host OS owns session units and desktop portals.
     systemd.enable = false;
     portalPackage = null;
-    checkConfig = lib.mkDefault (!native);
-    xwaylandSatellitePackage = lib.mkIf native null;
 
     settings = lib.mkMerge [
       config.features.desktop.niri.settings

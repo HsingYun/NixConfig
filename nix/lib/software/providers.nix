@@ -4,7 +4,20 @@
   pkgs ? null,
 }:
 let
-  nixPackages = import ./nix-packages.nix { inherit lib; };
+  # Recipes may explicitly request extra outputs (e.g. llvm.dev). Default
+  # output selection remains buildEnv's responsibility.
+  selectOutputs =
+    package: outputs:
+    if outputs == null then
+      [ package ]
+    else
+      map (
+        name:
+        assert lib.assertMsg (builtins.elem name (
+          package.outputs or [ "out" ]
+        )) "Software: package '${lib.getName package}' does not provide required output '${name}'.";
+        lib.setPrio (package.meta.priority or lib.meta.defaultPriority) (lib.getOutput name package)
+      ) outputs;
   validName =
     name: builtins.isString name && builtins.match "[A-Za-z0-9][A-Za-z0-9+._/@:-]*" name != null;
   namesFor =
@@ -22,8 +35,8 @@ in
   nix = {
     samePackage =
       a: b:
-      lib.intersectLists (map toString (nixPackages.selectOutputs a.package (a.outputs or null))) (
-        map toString (nixPackages.selectOutputs b.package (b.outputs or null))
+      lib.intersectLists (map toString (selectOutputs a.package (a.outputs or null))) (
+        map toString (selectOutputs b.package (b.outputs or null))
       ) != [ ];
     externalGroups = {
       packages = "package";
@@ -58,7 +71,7 @@ in
     fallback = [ ];
     resolve = source: {
       package = source.package;
-      packages = nixPackages.selectOutputs source.package (source.outputs or null);
+      packages = selectOutputs source.package (source.outputs or null);
       nativeName = null;
       nativeType = null;
       binPaths = [ ];

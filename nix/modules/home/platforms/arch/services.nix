@@ -13,15 +13,19 @@ let
   state = "/var/lib/nixconfig/native-systemd/state.json";
 in
 {
-  options.nativeSystemd.enableOnly = lib.mkOption {
-    type = lib.types.listOf (lib.types.strMatching "[A-Za-z0-9_@.+:-]+\\.(service|socket|timer|path)");
-    default = [ ];
-    description = "Native units to enable for their target without starting immediately (for example boot-time oneshots).";
-  };
-  options.nativeSystemd.units = lib.mkOption {
-    type = lib.types.listOf (lib.types.strMatching "[A-Za-z0-9_@.+:-]+\\.(service|socket|timer|path)");
-    default = [ ];
-    description = "Native system units required by the enabled platform adapters. Shared requirements are merged before activation.";
+  options = {
+    nativeSystemd = {
+      enableOnly = lib.mkOption {
+        type = lib.types.listOf (lib.types.strMatching "[A-Za-z0-9_@.+:-]+\\.(service|socket|timer|path)");
+        default = [ ];
+        description = "Native units to enable for their target without starting immediately (for example boot-time oneshots).";
+      };
+      units = lib.mkOption {
+        type = lib.types.listOf (lib.types.strMatching "[A-Za-z0-9_@.+:-]+\\.(service|socket|timer|path)");
+        default = [ ];
+        description = "Native system units required by the enabled platform adapters. Shared requirements are merged before activation.";
+      };
+    };
   };
   config = lib.mkIf (config.software.platform == "arch") {
     assertions = [

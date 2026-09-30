@@ -1,7 +1,8 @@
 { ... }:
 {
   imports = [
-    ./dconf.nix
+    ./launcher.nix
+    ./keyring.nix
     ./services.nix
     ./desktop-session.nix
     ./desktop-services.nix

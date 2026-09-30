@@ -1,7 +1,7 @@
 { lib }:
 
 let
-  catalog = import ../lib/features/catalog.nix;
+  catalog = import ../lib/features/catalog.nix { inherit lib; };
   rawResolve = import ../lib/features/resolve.nix { inherit lib; };
   toTree = import ./feature-input.nix { inherit lib; };
   resolve =
@@ -148,7 +148,12 @@ let
       }
       // args
     );
-  valid = args: (check args).errors == [ ];
+  valid =
+    args:
+    let
+      result = builtins.tryEval ((check args).errors == [ ]);
+    in
+    result.success && result.value;
   expected =
     platform: f:
     lib.all (key: !f.${key} || builtins.elem platform support.${key}) names

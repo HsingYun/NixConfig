@@ -5,9 +5,6 @@
   ...
 }:
 
-let
-  native = config.software.platform == "arch";
-in
 {
   software.bindings.dms = {
     enableOption = [
@@ -31,11 +28,5 @@ in
 
     inherit (config.features.desktop.dms) settings session;
     enableCalendarEvents = lib.mkDefault false;
-    # NixOS owns the service; Home Manager owns declarative configuration.
-    systemd.enable = lib.mkDefault native;
-  };
-  software.requirements.dms = {
-    capabilities = lib.optionals (!native) [ "store-package" ];
-    installNix = native;
   };
 }

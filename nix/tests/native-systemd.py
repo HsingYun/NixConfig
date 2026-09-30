@@ -7,6 +7,8 @@ from pathlib import Path
 import sys
 import tempfile
 import unittest
+from unittest.mock import patch
+from subprocess import CompletedProcess
 
 sys.path.insert(0, str(Path(sys.argv[1]).parent))
 spec = importlib.util.spec_from_file_location("native_systemd", sys.argv.pop(1))
@@ -62,6 +64,31 @@ class FakeSystemd(helper.Systemd):
             self.running -= stopped
 
 
+class QueryTest(unittest.TestCase):
+    def test_state_queries_reject_errors_and_empty_results(self):
+        system = helper.Systemd()
+        for method in [system.enabled, system.active]:
+            with self.subTest(method=method.__name__), patch.object(helper.subprocess, "run", return_value=CompletedProcess([], 1, "", "bus unavailable")):
+                with self.assertRaisesRegex(RuntimeError, "bus unavailable"):
+                    method("host.service")
+        for method in [system.enabled, system.active]:
+            for state in ["", "unknown"]:
+                with self.subTest(method=method.__name__, state=state), patch.object(helper.subprocess, "run", return_value=CompletedProcess([], 0, state, "")):
+                    with self.assertRaisesRegex(RuntimeError, "unknown"):
+                        method("host.service")
+
+    def test_active_and_inactive_states(self):
+        for state in ["active", "activating", "deactivating", "maintenance", "refreshing", "inactive", "failed"]:
+            with self.subTest(state=state), patch.object(helper.subprocess, "run", return_value=CompletedProcess([], 0, state, "")):
+                self.assertEqual(helper.Systemd().active("host.service"), state not in {"inactive", "failed"})
+
+    def test_consumer_query_failure_is_not_inactivity(self):
+        results = [CompletedProcess([], 0, "foreign.service", ""), CompletedProcess([], 1, "", "bus unavailable")]
+        with patch.object(helper.subprocess, "run", side_effect=results):
+            with self.assertRaisesRegex(RuntimeError, "bus unavailable"):
+                helper.Systemd().referenced("owned.socket", [])
+
+
 class UnitsTest(unittest.TestCase):
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory()
@@ -72,6 +99,27 @@ class UnitsTest(unittest.TestCase):
 
     def apply(self, units, owner="alice"):
         helper.reconcile(self.state, owner, units, self.system)
+
+    def test_failed_initial_query_does_not_claim_host_service(self):
+        self.system.running.add("host.service")
+        with patch.object(self.system, "active", wraps=lambda unit: helper.Systemd.active(self.system, unit)), patch.object(helper.subprocess, "run", return_value=CompletedProcess([], 1, "", "bus unavailable")):
+            with self.assertRaisesRegex(RuntimeError, "bus unavailable"):
+                self.apply(["host.service"])
+        self.assertFalse(self.state.exists())
+        self.assertEqual(self.system.actions, [])
+        self.apply(["host.service"])
+        self.apply([])
+        self.assertIn("host.service", self.system.running)
+
+    def test_failed_cleanup_query_retains_record_for_retry(self):
+        self.apply(["owned.service"])
+        with patch.object(self.system, "active", wraps=lambda unit: helper.Systemd.active(self.system, unit)), patch.object(helper.subprocess, "run", return_value=CompletedProcess([], 1, "", "bus unavailable")):
+            with self.assertRaisesRegex(RuntimeError, "bus unavailable"):
+                self.apply([])
+        self.assertIn("owned.service", self.system.running)
+        self.assertIn("owned.service", json.loads(self.state.read_text())["units"])
+        self.apply([])
+        self.assertFalse(self.system.running)
 
     def test_enable_repeat_disable(self):
         units = ["cups.socket", "fwupd-refresh.timer"]

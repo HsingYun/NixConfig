@@ -27,6 +27,11 @@ let
   ];
 in
 {
+  gtk = {
+    gtk2.extraConfig = ''gtk-im-module="fcitx"'';
+    gtk3.extraConfig.gtk-im-module = lib.mkDefault "fcitx";
+    gtk4.extraConfig.gtk-im-module = lib.mkDefault "fcitx";
+  };
   software.requirements = lib.genAttrs packages (_: { });
   xdg.configFile = {
     "fcitx5/profile".source = ini.generate "fcitx5-profile" (normalize settings.inputMethod);

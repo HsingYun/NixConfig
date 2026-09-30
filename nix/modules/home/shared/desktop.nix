@@ -1,5 +1,4 @@
 {
-  config,
   lib,
   software,
   ...
@@ -9,9 +8,7 @@
   imports = [
     ../software
   ];
-  software.requirements.tela.capabilities = lib.optionals (config.software.platform != "arch") [
-    "store-package"
-  ];
+  software.requirements.tela = { };
 
   gtk = {
     enable = lib.mkDefault true;

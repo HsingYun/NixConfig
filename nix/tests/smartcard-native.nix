@@ -4,7 +4,9 @@
   build,
 }:
 let
-  allOff = lib.genAttrs (builtins.attrNames (import ../lib/features/catalog.nix).features) (_: false);
+  allOff = lib.genAttrs (builtins.attrNames
+    (import ../lib/features/catalog.nix { inherit lib; }).features
+  ) (_: false);
   arch =
     features: manager:
     (mkHost "SmartcardArch" {

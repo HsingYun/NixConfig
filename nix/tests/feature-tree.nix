@@ -60,6 +60,23 @@ let
     platform = "darwin";
     defaults.desktop.gnome.enable = true;
   };
+  wrappedDefaults =
+    wrap:
+    check {
+      defaults = wrap {
+        vim.enable = true;
+        chrome.extensions = [ "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" ];
+        desktop.niri.settings.layout = {
+          gaps = 12;
+          background-color = "transparent";
+        };
+      };
+      overrides = {
+        vim.enable = false;
+        chrome.extensions = [ ];
+        desktop.niri.settings.layout.gaps = 20;
+      };
+    };
   invalid = [
     { overrides.desktop.nrii.enable = true; }
     { overrides.desktop.launcher.hiddenEntries = [ "../vim.desktop" ]; }
@@ -112,8 +129,70 @@ assert
   arch.errors == [ ] && arch.selected.desktop == "niri" && arch.selected.loginManager == "greetd";
 assert arch.config.desktop.launcher.enable && arch.config.desktop.wallpaper.enable;
 assert sharedPlatform.errors == [ ] && !sharedPlatform.config.desktop.gnome.enable;
-assert lib.all (args: (check args).errors != [ ]) invalid;
-assert lib.any (lib.hasInfix "features.desktop.nrii") (check (builtins.head invalid)).errors;
+assert lib.all (
+  args:
+  let
+    result = builtins.tryEval ((check args).errors == [ ]);
+  in
+  !result.success || !result.value
+) invalid;
+assert lib.all
+  (
+    wrap:
+    let
+      result = (wrappedDefaults wrap).config;
+    in
+    !result.vim.enable
+    && result.chrome.extensions == [ ]
+    &&
+      result.desktop.niri.settings.layout == {
+        gaps = 20;
+        background-color = "transparent";
+      }
+  )
+  [
+    (x: x)
+    (lib.mkIf true)
+    (
+      x:
+      lib.mkMerge [
+        (lib.mkIf false { vim.enable = throw "inactive branch forced"; })
+        x
+      ]
+    )
+  ];
+assert
+  !(check {
+    defaults = lib.mkIf false { vim.enable = throw "inactive branch forced"; };
+    overrides.vim.enable = false;
+  }).config.vim.enable;
+assert
+  (check {
+    defaults = lib.mkIf true { vim.enable = lib.mkForce true; };
+    overrides.vim.enable = false;
+  }).config.vim.enable;
+assert
+  (check {
+    defaults.chrome.extensions = lib.mkBefore [ "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" ];
+    overrides.chrome.extensions = [ ];
+  }).config.chrome.extensions == [ ];
+assert (check { overrides.vim.enable = lib.mkDefault true; }).config.vim.enable;
+assert
+  !(check {
+    defaults.vim.enable = true;
+    overrides.vim.enable = lib.mkForce false;
+  }).config.vim.enable;
+assert (check { overrides = lib.mkIf true { vim.enable = true; }; }).config.vim.enable;
+assert
+  (check {
+    overrides = lib.mkMerge [
+      { chrome.extensions = lib.mkBefore [ "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" ]; }
+      { chrome.extensions = [ "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb" ]; }
+    ];
+  }).config.chrome.extensions == [
+    "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+  ];
 {
   nestedOverrides = true;
   emptyListOverrides = true;

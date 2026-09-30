@@ -31,6 +31,12 @@ official Homebrew module. Arch uses Home Manager for user configuration and a
 separate adapter for native packages, owned policy files and systemd services.
 These Arch activation hooks are not loaded by NixOS or Darwin hosts.
 
+The `linuxDesktop` preset enables one stack: Niri with DMS, resolving to greetd.
+It does not also enable GNOME/GDM. PC and Arch use that stack; Pad explicitly
+selects GNOME/GDM and disables Niri/DMS. Hosts may override the preset and
+choose another desktop or login manager; selecting a default session does not
+itself disable other explicitly enabled desktops.
+
 ## Common steps
 
 1. Create `hosts/<name>/default.nix` and `home.nix` using the examples below.
@@ -55,9 +61,14 @@ A minimal `home.nix` is:
 ```
 
 Use nested feature options such as `features.desktop.niri.enable = true`.
-The presets are plain attribute sets: use `lib.recursiveUpdate` or explicitly
-merge a nested group when changing one nested value. A shallow `//` replaces
-that entire nested group.
+A host definition may be a plain attribute set or a function starting with
+`{ lib }:`; the loader supplies the locked nixpkgs library for module combinators.
+The presets are plain attribute sets. Compose them with `lib.mkMerge` to use
+standard Nix option merging; use `lib.mkForce` when overriding an explicit
+preset value, or `lib.mkDefault` for weak defaults. A shallow `//` replaces
+an entire nested group before module evaluation, so avoid it for partial
+nested overrides. Defaults inherited from the shared flake configuration are
+already weak and can be overridden by ordinary host definitions.
 
 ## Arch desktop
 
@@ -71,11 +82,7 @@ in
   platform = "arch";
   system = "x86_64-linux";
   packageManager = "pacman";
-  features = profiles.linuxDesktop // {
-    desktop = profiles.linuxDesktop.desktop // {
-      gnome.enable = false;
-    };
-  };
+  features = profiles.linuxDesktop;
   preferences = {
     desktop = "niri";
     loginManager = "greetd";
@@ -84,9 +91,9 @@ in
 }
 ```
 
-This host selects Niri/DMS and explicitly disables GNOME from the shared preset.
-To add GNOME, change the feature override to `gnome.enable = true`. To choose it
-at boot, also set `desktop = "gnome"` and `loginManager = "gdm"` in preferences.
+This host selects Niri/DMS. To switch to GNOME, enable `desktop.gnome` and
+disable `desktop.niri` and `desktop.dms`, as in the tablet example below.
+Also set `desktop = "gnome"` and `loginManager = "gdm"` in preferences.
 Preferences do not enable or disable features. One login manager owns the
 boot alias; applying a change does not stop the current desktop session.
 
@@ -116,6 +123,31 @@ home-manager switch --flake .#MyArch
 Conflicting unmanaged files stop activation. HM may accept identical content;
 privileged native adapters require ownership evidence even for identical bytes.
 Inspect conflicts and explicitly relocate files before transferring ownership. Do not delete whole configuration directories to resolve a conflict.
+
+### Arch keyring unlock
+
+The keyring feature starts the daemon; automatically unlocking its login keyring
+also requires PAM to receive the login password. On Arch with greetd, inspect
+`/etc/pam.d/greetd` and its included PAM stacks before applying the desktop.
+The host authentication stack must include these GNOME Keyring hooks:
+
+```text
+auth       optional     pam_gnome_keyring.so
+session    optional     pam_gnome_keyring.so auto_start
+```
+
+Keep the existing authentication/account/session rules. Place the auth hook so
+it receives the password after the login authentication step, and the session
+hook after the normal session setup. Do not duplicate hooks already supplied
+by an included stack. The login keyring password must match the login password;
+automatic or fingerprint login does not supply a password to unlock it.
+Log out and back in after changing the host PAM configuration, then verify that
+an application can access the login keyring without another password prompt.
+
+This repository does not overwrite Arch PAM files or infer their control flow.
+Follow [ArchWiki GNOME Keyring](https://wiki.archlinux.org/title/GNOME/Keyring#PAM_step)
+for the host's actual login stack. NixOS enables its upstream
+`security.pam.services.greetd.enableGnomeKeyring` integration instead.
 
 ## Native NixOS: PC or tablet
 

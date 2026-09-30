@@ -273,7 +273,9 @@ let
       if case.homeAssertion or false then cfg.home-manager.users.test.assertions else cfg.assertions
     );
     case.name;
-  allOff = lib.genAttrs (builtins.attrNames (import ../lib/features/catalog.nix).features) (_: false);
+  allOff = lib.genAttrs (builtins.attrNames
+    (import ../lib/features/catalog.nix { inherit lib; }).features
+  ) (_: false);
   externalCases = [
     {
       name = "dms-mergeable-configuration";

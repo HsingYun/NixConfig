@@ -105,9 +105,16 @@ in
       resolved = plan.resolved;
     };
     _module.args.software = cfg.resolved;
-    home.packages = plan.installations.nix.homePackages;
+    home = {
+      packages = plan.installations.nix.homePackages;
+      # Native paths must not shadow the environment assembled by upstream HM.
+      sessionPath = lib.optionals (plan.binPaths != [ ]) (
+        [ "${config.home.profileDirectory}/bin" ]
+        ++ lib.optional config.submoduleSupport.enable "/run/current-system/sw/bin"
+        ++ plan.binPaths
+      );
+    };
     fonts.fontconfig.enable = lib.mkIf plan.installations.nix.enableFontconfig (lib.mkDefault true);
-    home.sessionPath = plan.binPaths;
     assertions = [
       {
         assertion = cfg.platform != "arch" || plan.installations.nix.systemPackages == [ ];

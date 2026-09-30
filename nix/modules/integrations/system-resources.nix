@@ -1,4 +1,4 @@
-{ selected, enabled }:
+{ desktopSession, enabled }:
 
 {
   config,
@@ -18,56 +18,47 @@ let
     config.programs.ssh.startAgent
     config.services.gnome.gcr-ssh-agent.enable
   ];
-  desktop =
-    if selected.desktop != null then
-      selected.desktop
-    else if enabled.dms then
-      "niri"
-    else
-      null;
-  useDmsGreeter = enabled.dms && desktop == "niri";
-  sessionCommand =
-    if desktop == "gnome" then
-      "env XDG_SESSION_TYPE=wayland XDG_CURRENT_DESKTOP=GNOME ${pkgs.gnome-session}/bin/gnome-session --session=gnome"
-    else
-      "niri-session";
+  inherit (desktopSession) desktop loginManager;
+  useDmsGreeter = desktopSession.greeter == "dms-greeter";
+  sessionCommand = desktopSession.command {
+    gnomeSession = "${pkgs.gnome-session}/bin/gnome-session";
+  };
   managesSsh = enabled.gpg || enabled.gpgSshSupport || enabled.gnome;
 in
 {
-  services.displayManager = {
-    defaultSession = lib.mkIf (desktop != null) desktop;
-    gdm.enable = lib.mkIf enabled.gnome (lib.mkDefault (selected.loginManager == "gdm"));
-    dms-greeter = {
-      package = lib.mkIf (useDmsGreeter && selected.loginManager == "greetd") (
-        lib.mkDefault (
-          import ../../assets/helpers/greeter-session.nix { inherit lib pkgs; } {
-            command = "${pkgs.dms-greeter}/bin/dms-greeter";
-            cacheDir = "/var/lib/dms-greeter";
-            inherit desktop;
-          }
-        )
-      );
-      enable = lib.mkIf enabled.dms (lib.mkDefault (useDmsGreeter && selected.loginManager == "greetd"));
-      compositor.name = lib.mkIf (useDmsGreeter && selected.loginManager == "greetd") (
-        lib.mkDefault "niri"
-      );
+  services = {
+    displayManager = {
+      defaultSession = lib.mkIf (desktop != null) desktop;
+      gdm.enable = lib.mkIf enabled.gnome (lib.mkDefault (loginManager == "gdm"));
+      dms-greeter = {
+        package = lib.mkIf useDmsGreeter (
+          lib.mkDefault (
+            import ../../assets/helpers/greeter-session.nix { inherit lib pkgs; } {
+              command = "${pkgs.dms-greeter}/bin/dms-greeter";
+              cacheDir = "/var/lib/dms-greeter";
+              inherit desktop;
+            }
+          )
+        );
+        enable = lib.mkIf enabled.dms (lib.mkDefault useDmsGreeter);
+        compositor.name = lib.mkIf useDmsGreeter (lib.mkDefault "niri");
+      };
+    };
+    greetd = lib.mkIf ((enabled.niri || enabled.gnome) && !useDmsGreeter) {
+      enable = lib.mkDefault (loginManager == "greetd");
+      settings.default_session = lib.mkIf (loginManager == "greetd") {
+        command = "${lib.getExe pkgs.tuigreet} --time --cmd ${lib.escapeShellArg sessionCommand}";
+        user = "greeter";
+      };
+    };
+    # Home Manager owns the daemon; NixOS supplies PAM, DBus and portal support.
+    gnome = {
+      gcr-ssh-agent.enable = lib.mkIf (managesSsh && (gpgSsh || otherSsh)) false;
+      gnome-keyring.enable = lib.mkIf (
+        enabled.gnome || enabled.niri || enabled.dms || home.features.desktop.keyring.enable
+      ) (lib.mkOverride 900 home.features.desktop.keyring.enable);
     };
   };
-
-  services.greetd = lib.mkIf ((enabled.niri || enabled.gnome) && !useDmsGreeter) {
-    enable = lib.mkDefault (selected.loginManager == "greetd");
-    settings.default_session = lib.mkIf (selected.loginManager == "greetd") {
-      command = "${lib.getExe pkgs.tuigreet} --time --cmd ${lib.escapeShellArg sessionCommand}";
-      user = "greeter";
-    };
-  };
-
-  services.gnome.gcr-ssh-agent.enable = lib.mkIf (managesSsh && (gpgSsh || otherSsh)) false;
-
-  # Home Manager owns the daemon; NixOS supplies PAM, DBus and portal support.
-  services.gnome.gnome-keyring.enable = lib.mkIf (
-    enabled.gnome || enabled.niri || enabled.dms || home.features.desktop.keyring.enable
-  ) (lib.mkOverride 900 home.features.desktop.keyring.enable);
 
   security.pam.services = lib.mkIf (
     config.services.greetd.enable && home.features.desktop.keyring.enable

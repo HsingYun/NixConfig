@@ -1,6 +1,8 @@
 { lib, mkHost }:
 let
-  allOff = lib.genAttrs (builtins.attrNames (import ../lib/features/catalog.nix).features) (_: false);
+  allOff = lib.genAttrs (builtins.attrNames
+    (import ../lib/features/catalog.nix { inherit lib; }).features
+  ) (_: false);
   names = [
     "aria2"
     "gnupg"
@@ -58,9 +60,12 @@ assert darwin.software.resolved.openssl.nativeName == "openssl@4";
 assert darwin.software.resolved.pinentry.nativeName == "pinentry-mac";
 assert !arch.programs.gpg.enable && !arch.services.gpg-agent.enable;
 assert gpg.software.resolved.gnupg.provider == "nix";
-assert gpg.software.resolved.pinentry.provider == "nix";
+assert gpg.software.resolved.pinentry.provider == "pacman";
+assert gpg.services.gpg-agent.pinentry.package == null;
+assert lib.hasInfix "pinentry-program /usr/bin/pinentry"
+  gpg.home.file."${gpg.programs.gpg.homedir}/gpg-agent.conf".text;
 assert !(builtins.elem "gnupg" gpg.software.plan.installations.pacman.packages);
-assert !(builtins.elem "pinentry" gpg.software.plan.installations.pacman.packages);
+assert builtins.elem "pinentry" gpg.software.plan.installations.pacman.packages;
 assert lib.all (name: !(disabled.software.requirements ? ${name})) names;
 assert override.software.resolved.aria2.provider == "nix";
 assert override.software.resolved.rsync.provider == "pacman";

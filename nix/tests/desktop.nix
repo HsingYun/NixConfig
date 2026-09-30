@@ -49,7 +49,7 @@ let
       osConfig.services.desktopManager.gnome.enable = true;
     };
     modules = [
-      ../modules/integrations/gnome-chinese.nix
+      ../modules/home/platforms/nixos/gnome-chinese.nix
       {
         software.platform = "nixos";
         home = {

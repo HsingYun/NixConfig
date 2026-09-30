@@ -11,7 +11,9 @@ let
     inherit lib builders;
     settings = { inherit user features; };
   };
-  hosts = lib.mapAttrs (name: path: mkHost name (import path)) (import ../../hosts);
+  hosts = lib.mapAttrs (name: path: mkHost name (lib.toFunction (import path) { inherit lib; })) (
+    import ../../hosts
+  );
   select =
     output:
     lib.mapAttrs (_: host: host.configuration) (lib.filterAttrs (_: host: host.output == output) hosts);
@@ -97,7 +99,8 @@ in
         software = pkgs.writeText "software.json" softwareTests;
         vim-runtime = import ../tests/vim.nix { inherit inputs pkgs; };
         software-runtime = import ../tests/software-runtime.nix { inherit inputs pkgs; };
-        seed-json-settings = import ../tests/seed-json-settings.nix { inherit pkgs; };
+        dconf-lifecycle = import ../tests/dconf.nix { inherit inputs pkgs; };
+        vscode-settings = import ../tests/vscode-settings.nix { inherit inputs pkgs; };
         pacman-activation = import ../tests/pacman.nix { inherit inputs pkgs; };
       }
       // lib.optionalAttrs pkgs.stdenv.hostPlatform.isLinux {
@@ -105,7 +108,6 @@ in
         native-input-autostart = import ../tests/autostart.nix { inherit pkgs; };
         pacman-migration = import ../tests/pacman-migration.nix { inherit inputs pkgs; };
         greeter-session = import ../tests/greeter-session.nix { inherit pkgs; };
-        dconf-lifecycle = import ../tests/dconf.nix { inherit pkgs; };
         native-units = import ../tests/native-units.nix { inherit pkgs; };
         owned-root-file = import ../tests/owned-root-file.nix { inherit inputs pkgs; };
         launcher-native = import ../tests/launcher-native.nix { inherit pkgs; };

@@ -10,6 +10,7 @@
     ./shared/user-profile.nix
     ./shared/features.nix
     ./shared/keyring.nix
+    ./shared/dconf.nix
     ./shared/chrome.nix
     ./shared/launcher.nix
     ./software

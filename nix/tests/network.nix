@@ -1,7 +1,9 @@
 { lib, build }:
 
 let
-  allOff = lib.genAttrs (builtins.attrNames (import ../lib/features/catalog.nix).features) (_: false);
+  allOff = lib.genAttrs (builtins.attrNames
+    (import ../lib/features/catalog.nix { inherit lib; }).features
+  ) (_: false);
   usesResolved =
     cfg:
     cfg.services.resolved.enable

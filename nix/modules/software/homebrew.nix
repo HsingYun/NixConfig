@@ -18,7 +18,8 @@ in
     }
   ];
   home-manager.users.${user.username}.software.nativePrefix = config.homebrew.prefix;
-  environment.systemPath = lib.mkBefore plan.binPaths;
+  # After Nix profiles (1000), before the OS defaults (1200).
+  environment.systemPath = lib.mkOrder 1100 plan.binPaths;
   homebrew = {
     enable = lib.mkDefault (cfg.packageManager.type == "homebrew");
     brews = plan.installations.homebrew.brews;

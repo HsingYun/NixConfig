@@ -7,12 +7,6 @@
 
 let
   cfg = config.desktop.launcher;
-  rules = pkgs.writeText "launcher-rules.json" (
-    builtins.toJSON {
-      inherit (cfg) hiddenEntries;
-      nativeRoots = [ (toString entries) ] ++ cfg.nativeRoots;
-    }
-  );
   entries =
     pkgs.runCommandLocal "desktop-launcher-overrides"
       {
@@ -59,14 +53,6 @@ in
   };
 
   config = {
-    # Keep cleanup active even when the feature is disabled in a later generation.
-    home.activation.launcherOverrides = lib.mkIf (config.software.platform == "arch") (
-      lib.hm.dag.entryAfter [ "linkGeneration" "installNativePackages" "removeReplacedNativePackages" ] ''
-        run ${lib.getExe pkgs.python3} ${../../../assets/helpers}/launcher.py ${rules} \
-          ${lib.escapeShellArg config.xdg.dataHome} ${lib.escapeShellArg config.xdg.stateHome} \
-          ${pkgs.desktop-file-utils}/bin/desktop-file-install
-      ''
-    );
     # On NixOS the complete set is known at build time: use HM's declarative
     # links, without an imperative scan of the native filesystem.
     xdg.dataFile."applications" =
@@ -75,9 +61,13 @@ in
           source = "${entries}/share/applications";
           recursive = true;
         };
-    desktop.launcher.packageRoots = lib.mkBefore [ config.home.path ];
-    # One owner for both native and Nix entries prevents provider-switch link
-    # collisions. Nix sources are still validated and filtered at build time.
-    desktop.launcher.entries = entries;
+    desktop = {
+      launcher = {
+        packageRoots = lib.mkBefore [ config.home.path ];
+        # One owner for both native and Nix entries prevents provider-switch link
+        # collisions. Nix sources are still validated and filtered at build time.
+        entries = entries;
+      };
+    };
   };
 }

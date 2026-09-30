@@ -9,7 +9,6 @@
   nativePrefix ? "/opt/homebrew",
 }:
 let
-  nixPackages = import ./nix-packages.nix { inherit lib; };
   manager = import ./manager.nix { inherit lib; } packageManager;
   providers = import ./providers.nix { inherit lib nativePrefix pkgs; };
   preferred = manager.type;
@@ -195,7 +194,10 @@ let
     name: resolved.${name}.provider != "nix" || resolved.${name}.installNix
   ) names;
   planInstallations =
-    installedOwners:
+    {
+      installedOwners,
+      runtimePackages ? { },
+    }:
     let
       reconciledExtras = map (
         extra:
@@ -204,14 +206,23 @@ let
           owners = lib.intersectLists installedOwners extra.owners;
         }
       ) matchedExtras;
-      # Compiler wrappers already use lowPrio's priority (10). Put extras below
-      # every selected package instead of assigning that same priority again.
+      # Express the extras policy once through upstream package metadata.
+      # buildEnv resolves the resulting priorities and output collisions.
+      selectedPackages = lib.concatLists (
+        lib.mapAttrsToList (
+          name: entry:
+          if entry.provider != "nix" then
+            [ ]
+          else if (runtimePackages.${name} or null) != null then
+            [ runtimePackages.${name} ]
+          else
+            entry.packages
+        ) resolved
+      );
       externalPriority =
         1
         + lib.foldl' lib.max lib.meta.defaultPriority (
-          lib.concatMap (entry: map nixPackages.priority entry.packages) (
-            lib.filter (entry: entry.provider == "nix") (builtins.attrValues resolved)
-          )
+          map (package: package.meta.priority or lib.meta.defaultPriority) selectedPackages
         );
       externalEntries = map (
         extra:
@@ -224,9 +235,6 @@ let
       values = builtins.attrValues resolved ++ externalEntries;
     in
     {
-      externalNixPackages = lib.concatMap (entry: entry.packages) (
-        lib.filter (entry: entry.provider == "nix") externalEntries
-      );
       externalReport = map (extra: {
         inherit (extra) name group owners;
         status = if extra.owners == [ ] then "external" else "provided-by-feature";
@@ -234,10 +242,6 @@ let
       installations = lib.mapAttrs (
         provider: backend: backend.plan (lib.filter (entry: entry.provider == provider) values)
       ) providers;
-      selectedBinPaths = lib.unique (
-        lib.concatMap (entry: entry.binPaths) (builtins.attrValues resolved)
-      );
-      externalBinPaths = lib.unique (lib.concatMap (entry: entry.binPaths) externalEntries);
       inherit managerBinPaths;
       binPaths = lib.unique (lib.concatMap (entry: entry.binPaths) values ++ managerBinPaths);
     };
@@ -267,4 +271,4 @@ assert lib.assertMsg (
       ;
   }) resolved;
 }
-// planInstallations installedOwners
+// planInstallations { inherit installedOwners; }

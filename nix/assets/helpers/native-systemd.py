@@ -23,7 +23,6 @@ def save(path, state):
         write(path, serialized)
 
 
-
 class Systemd:
     def __init__(self, command="/usr/bin/systemctl", directory="/etc/systemd/system"):
         self.command = command
@@ -31,26 +30,39 @@ class Systemd:
 
     def query(self, *args):
         result = subprocess.run([self.command, *args], text=True, capture_output=True)
+        if result.returncode:
+            raise RuntimeError(f"Cannot query systemd ({' '.join(args)}): {result.stderr.strip()}")
         return result.stdout.strip()
 
     def enabled(self, unit):
-        return self.query("is-enabled", unit)
+        state = self.query("show", "--property=UnitFileState", "--value", "--", unit)
+        if state not in {
+            "enabled", "enabled-runtime", "disabled", "indirect", "linked",
+            "linked-runtime", "alias", "static", "masked", "masked-runtime",
+            "generated", "transient",
+        }:
+            raise RuntimeError(f"Cannot manage {unit}: unknown unit-file state {state!r}")
+        return state
 
     def active(self, unit):
-        return self.query("is-active", unit) in {"active", "activating", "reloading"}
+        state = self.query("show", "--property=ActiveState", "--value", "--", unit)
+        if state in {"inactive", "failed"}:
+            return False
+        if state in {
+            "active", "activating", "reloading", "deactivating", "maintenance", "refreshing",
+        }:
+            return True
+        raise RuntimeError(f"Cannot manage {unit}: unknown active state {state!r}")
 
     def referenced(self, unit, retired):
         # Re-evaluate the live reverse graph, rather than encoding dependencies
         # from a particular package version. Foreign active consumers win.
-        result = subprocess.run([
-            self.command, "show", "--value", "--property=RequiredBy",
-            "--property=WantedBy", "--property=BoundBy", "--property=UpheldBy",
-            "--property=TriggeredBy", "--", unit,
-        ], text=True, capture_output=True)
-        if result.returncode:
-            print(f"Preserving {unit}: could not inspect active consumers")
-            return True
-        return any(self.active(name) for name in set(result.stdout.split()) - set(retired))
+        consumers = self.query(
+            "show", "--value", "--property=RequiredBy", "--property=WantedBy",
+            "--property=BoundBy", "--property=UpheldBy", "--property=TriggeredBy",
+            "--", unit,
+        )
+        return any(self.active(name) for name in set(consumers.split()) - set(retired))
 
     def change(self, *args):
         subprocess.run([self.command, *args], check=True)

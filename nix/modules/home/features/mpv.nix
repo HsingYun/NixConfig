@@ -6,48 +6,48 @@
 }:
 
 let
-  preferNative = config.software.packageManager.type == "pacman";
-  native = software.mpv.provider != "nix";
+  usesNixPackage = software.mpv.provider == "nix";
   scripts = [
     software.mpv-modernx.package
     software.mpv-thumbfast.package
   ];
 in
 {
-  software.bindings.mpv = {
-    enableOption = [
-      "programs"
-      "mpv"
-      "enable"
-    ];
-    packageOption = [
-      "programs"
-      "mpv"
-      "package"
-    ];
-    runtimePackageOption = [
-      "programs"
-      "mpv"
-      "finalPackage"
-    ];
+  software = {
+    bindings.mpv = {
+      enableOption = [
+        "programs"
+        "mpv"
+        "enable"
+      ];
+      packageOption = [
+        "programs"
+        "mpv"
+        "package"
+      ];
+      runtimePackageOption = [
+        "programs"
+        "mpv"
+        "finalPackage"
+      ];
+    };
+    requirements = {
+      # Nix uses HM's wrapper; Arch loads scripts from the user configuration.
+      mpv = {
+        installNix = false;
+      };
+      mpv-modernx = {
+        capabilities = [ "store-package" ];
+        installNix = !usesNixPackage;
+      };
+      mpv-thumbfast = {
+        capabilities = [ "store-package" ];
+        installNix = !usesNixPackage;
+      };
+      source-han-sans = { };
+    };
   };
-  software.requirements = {
-    # Nix uses HM's wrapper; Arch loads scripts from the user configuration.
-    mpv = {
-      capabilities = lib.optionals (!preferNative) [ "store-package" ];
-      installNix = false;
-    };
-    mpv-modernx = {
-      capabilities = [ "store-package" ];
-      installNix = native;
-    };
-    mpv-thumbfast = {
-      capabilities = [ "store-package" ];
-      installNix = native;
-    };
-    source-han-sans = { };
-  };
-  xdg.configFile = lib.mkIf (native && config.programs.mpv.enable) (
+  xdg.configFile = lib.mkIf (!usesNixPackage && config.programs.mpv.enable) (
     lib.listToAttrs (
       map (script: {
         name = "mpv/scripts/${script.scriptName}";
@@ -60,7 +60,7 @@ in
 
     enable = lib.mkDefault true;
     defaultProfiles = lib.mkDefault [ "high-quality" ];
-    scripts = lib.mkDefault (lib.optionals (!native) scripts);
+    scripts = lib.mkDefault (lib.optionals usesNixPackage scripts);
     config = lib.mapAttrs (_: lib.mkDefault) {
       hwdec = "auto";
       hwdec-codecs = "all";
@@ -76,13 +76,14 @@ in
       osc = false;
       border = false;
     };
-    scriptOpts.osc = lib.mapAttrs (_: lib.mkDefault) {
-      language = "chs";
-      font = "Source Han Sans SC";
-    };
-    scriptOpts.thumbfast = lib.mkIf native {
-      mpv_path = lib.mkDefault (software.mpv.command "mpv");
+    scriptOpts = {
+      osc = lib.mapAttrs (_: lib.mkDefault) {
+        language = "chs";
+        font = "Source Han Sans SC";
+      };
+      thumbfast = lib.mkIf (!usesNixPackage) {
+        mpv_path = lib.mkDefault (software.mpv.command "mpv");
+      };
     };
   };
-
 }

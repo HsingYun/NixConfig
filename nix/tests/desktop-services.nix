@@ -4,7 +4,9 @@
   mkHost,
 }:
 let
-  allOff = lib.genAttrs (builtins.attrNames (import ../lib/features/catalog.nix).features) (_: false);
+  allOff = lib.genAttrs (builtins.attrNames
+    (import ../lib/features/catalog.nix { inherit lib; }).features
+  ) (_: false);
   browserTypes = [
     "text/html"
     "application/xhtml+xml"
@@ -98,7 +100,7 @@ let
       };
     }).configuration.config;
   bitwarden = "nngceckbapebfimnlniiiahkandclblb";
-  policyPath = "opt/chrome/policies/managed/nixconfig-extensions.json";
+  policyPath = "opt/chrome/policies/managed/extra.json";
   noExtensions = build {
     features = allOff // {
       chrome = true;
@@ -150,14 +152,14 @@ assert
   nativeFiles."systemd/user/gnome-keyring-daemon.socket".source
   == nativeFiles."systemd/user/sockets.target.wants/gnome-keyring-daemon.socket".source;
 assert arch.features.chrome.extensions == [ bitwarden ];
-assert
-  arch.software.chromeExtensionPolicy.ExtensionSettings.${bitwarden}.installation_mode
-  == "normal_installed";
 assert lib.hasInfix "/etc/opt/chrome/policies/managed/nixconfig-extensions.json"
   arch.home.activation.installChromePolicy.data;
+assert chrome.programs.chromium.enable;
 assert
   (builtins.fromJSON chrome.environment.etc.${policyPath}.text)
-  == arch.software.chromeExtensionPolicy;
+  .ExtensionSettings.${bitwarden}.installation_mode == "normal_installed";
+assert !(chrome.environment.etc ? "opt/chrome/policies/managed/nixconfig-extensions.json");
+assert macHome.programs.google-chrome.enable && macHome.programs.google-chrome.package == null;
 assert !(noExtensions.environment.etc ? ${policyPath});
 assert !(console.environment.etc ? ${policyPath});
 assert lib.all (a: a.assertion) (darwin.assertions ++ macHome.assertions);

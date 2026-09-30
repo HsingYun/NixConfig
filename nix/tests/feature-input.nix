@@ -1,6 +1,6 @@
 { lib }:
 let
-  catalog = (import ../lib/features/catalog.nix).features;
+  catalog = (import ../lib/features/catalog.nix { inherit lib; }).features;
 in
 # Scenario matrices use stable feature IDs internally; exercise the public
 # hierarchical input at the resolver/host boundary.

@@ -6,19 +6,21 @@
 }:
 
 {
-  software.bindings.git = {
-    enableOption = [
-      "programs"
-      "git"
-      "enable"
-    ];
-    packageOption = [
-      "programs"
-      "git"
-      "package"
-    ];
+  software = {
+    bindings.git = {
+      enableOption = [
+        "programs"
+        "git"
+        "enable"
+      ];
+      packageOption = [
+        "programs"
+        "git"
+        "package"
+      ];
+    };
+    requirements.git = { };
   };
-  software.requirements.git = { };
   programs.git = {
     package = lib.mkDefault software.git.package;
 

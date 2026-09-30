@@ -5,7 +5,9 @@
   rawMkHost,
 }:
 let
-  allOff = lib.genAttrs (builtins.attrNames (import ../lib/features/catalog.nix).features) (_: false);
+  allOff = lib.genAttrs (builtins.attrNames
+    (import ../lib/features/catalog.nix { inherit lib; }).features
+  ) (_: false);
   arch =
     featureConfig: homeConfig:
     (mkHost "ExperienceArch" {
@@ -128,7 +130,19 @@ assert lib.all (home: !(lib.hasInfix "/dconf.py" home.home.activation.dconfSetti
   pc.home-manager.users.test
   pad.home-manager.users.test
 ];
-assert lib.hasInfix "/dconf.py" native.home.activation.dconfSettings.data;
+assert lib.all
+  (
+    home:
+    lib.hasInfix "dconf load /" home.home.activation.dconfSettings.data
+    && lib.hasInfix "dconf-keys" home.home.extraBuilderCommands
+    && home.home.activation ? dconfRemovedDatabases
+  )
+  [
+    native
+    pc.home-manager.users.test
+    pad.home-manager.users.test
+  ];
+assert !(lib.hasInfix "/dconf.py" native.home.activation.dconfSettings.data);
 assert lib.all (
   home:
   map (v: v.value) home.dconf.settings."org/gnome/shell".favorite-apps.value == [
@@ -203,10 +217,11 @@ assert pc.security.pam.services.greetd.enableGnomeKeyring;
 assert pad.security.pam.services.login.enableGnomeKeyring;
 assert pad.security.pam.services.gdm-password.rules.auth.login.modulePath == "login";
 assert !(pad.security.pam.services ? greetd);
-assert lib.all (home: home.home.activation ? initializeVscode) homes;
+assert lib.all (home: home.home.activation ? vscodeMutableUserSettings) homes;
 assert lib.hasInfix "/Library/Application Support/Code/User/settings.json"
-  mac.home-manager.users.test.home.activation.initializeVscode.data;
-assert lib.hasInfix "/.config/Code/User/settings.json" native.home.activation.initializeVscode.data;
+  mac.home-manager.users.test.home.activation.vscodeMutableUserSettings.data;
+assert lib.hasInfix "/.config/Code/User/settings.json"
+  native.home.activation.vscodeMutableUserSettings.data;
 assert lib.hasInfix "niri-session"
   (allDesktop "niri" false).services.greetd.settings.default_session.command;
 assert lib.hasInfix "htop" migration.home.activation.removeReplacedNativePackages.data;
@@ -227,7 +242,11 @@ assert lib.all (
   && home.features.mpv.enable
 ) homes;
 assert
-  pc.services.displayManager.defaultSession == "niri" && pc.services.desktopManager.gnome.enable;
+  pc.services.displayManager.defaultSession == "niri" && !pc.services.desktopManager.gnome.enable;
+assert
+  pc.programs.niri.enable && pc.services.greetd.enable && !pc.services.displayManager.gdm.enable;
+assert pad.services.desktopManager.gnome.enable && pad.services.displayManager.gdm.enable;
+assert !pad.programs.niri.enable && !pad.services.greetd.enable;
 assert native.features.desktop.niri.enable && native.features.desktop.dms.enable;
 assert !native.features.desktop.gnome.enable;
 assert lib.all (name: !(native.software.resolved ? ${name})) [
@@ -261,7 +280,10 @@ assert
   && wsl.home-manager.users.test.features.codex.enable;
 assert
   mac.home-manager.users.test.features.commonTools.enable
-  && mac.home-manager.users.test.features.mpv.enable;
+  && !mac.home-manager.users.test.features.mpv.enable
+  && mac.home-manager.users.test.features.iina.enable;
+assert !(mac.home-manager.users.test.software.resolved ? mpv);
+assert mac.home-manager.users.test.software.resolved.pinentry.provider == "homebrew";
 {
   nativeChinese = true;
   systemPackageOverridesRejected = true;
