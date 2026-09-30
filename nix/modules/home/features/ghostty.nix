@@ -11,22 +11,12 @@ in
 {
   imports = [ ../shared/terminal-exec.nix ];
   software = {
-    bindings.ghostty = {
-      enableOption = [
-        "programs"
-        "ghostty"
-        "enable"
-      ];
-      packageOption = [
-        "programs"
-        "ghostty"
-        "package"
-      ];
+    requirements = {
+      ghostty = { };
+      maple-mono = { };
     };
-    requirements.ghostty = { };
   };
   programs.ghostty = {
-    package = lib.mkDefault software.ghostty.package;
     enable = lib.mkDefault true;
 
     systemd.enable = lib.mkDefault (

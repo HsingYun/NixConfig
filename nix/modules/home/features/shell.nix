@@ -1,27 +1,13 @@
-{ lib, software, ... }:
+{ lib, ... }:
 
 {
   software = {
-    bindings.zsh = {
-      enableOption = [
-        "programs"
-        "zsh"
-        "enable"
-      ];
-      packageOption = [
-        "programs"
-        "zsh"
-        "package"
-      ];
-    };
     requirements = {
       git = { };
       zsh.capabilities = [ "store-package" ];
     };
   };
   programs.zsh = {
-    package = lib.mkDefault software.zsh.package;
-
     enable = lib.mkDefault true;
     initContent = lib.mkOrder 1500 ''
       # Load private machine-local settings at shell startup, outside the Nix store.

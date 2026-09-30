@@ -15,8 +15,18 @@ let
     inherit description;
   };
 
+  stacks = import ./desktop-stacks.nix;
+  desktopFeatures = lib.unique (lib.concatMap (stack: stack.features) (builtins.attrValues stacks));
+  desktopServices = [
+    "system.session"
+    "system.network"
+    "system.audio"
+    "system.bluetooth"
+    "system.power"
+    "system.storage"
+  ];
 in
-{
+import ./availability.nix { inherit lib platformRegistry; } {
   features = {
     commonTools = {
       platforms = all;
@@ -33,7 +43,6 @@ in
     chrome = {
       contracts = [ "system.chrome" ];
       platforms = all;
-      software = [ "chrome" ];
       systemPlatforms = linux;
       systemModules = [ ../../modules/system/features/chrome.nix ];
       options.extensions = {
@@ -44,7 +53,6 @@ in
     };
     vscode = {
       platforms = all;
-      software = [ "vscode" ];
       homeModules = [ ../../modules/home/features/vscode.nix ];
       options.settings = {
         default = {
@@ -188,7 +196,7 @@ in
       portScopes = [ "system" ];
     };
     gnome = {
-      contracts = [ "system.desktop" ];
+      contracts = desktopServices ++ [ "system.gnome" ];
       portScopes = [
         "home"
         "system"
@@ -207,47 +215,44 @@ in
       ];
       activation = {
         scope = "system";
-        option = [
-          "services"
-          "desktopManager"
-          "gnome"
-          "enable"
-        ];
+        option = stacks.gnome.activation;
       };
       platforms = desktops;
       systemPlatforms = desktops;
       homeModules = [ ../../modules/home/features/gnome.nix ];
     };
     niri = {
-      contracts = [
+      contracts = desktopServices ++ [
         "home.niri"
-        "system.desktop"
+        "system.niri"
       ];
-      portScopes = [
-        "home"
-        "system"
-      ];
-      options.settings = settingsOption "structured Niri KDL settings";
+      portScopes = [ "system" ];
+      options = {
+        settings = settingsOption "structured Niri KDL settings";
+        shell = {
+          default = null;
+          type = lib.types.nullOr (lib.types.enum (builtins.attrNames (import ./desktop-shells.nix)));
+          description = "Session shell to enable and select; null selects among enabled shells by priority";
+        };
+      };
       path = [
         "desktop"
         "niri"
       ];
       activation = {
         scope = "system";
-        option = [
-          "programs"
-          "niri"
-          "enable"
-        ];
+        option = stacks.niri.activation;
       };
       platforms = desktops;
       systemPlatforms = desktops;
       homeModules = [ ../../modules/home/features/niri.nix ];
     };
     dms = {
-      contracts = [
+      contracts = desktopServices ++ [
         "home.dms"
-        "system.desktop"
+        "home.niri"
+        "system.niri"
+        "system.dms"
       ];
       portScopes = [
         "system"
@@ -273,17 +278,40 @@ in
       requires = [ "niri" ];
       homeModules = [ ../../modules/home/features/dms.nix ];
     };
+    noctalia = {
+      contracts = desktopServices ++ [
+        "home.noctalia"
+        "home.niri"
+        "system.noctalia"
+        "system.noctalia-greeter"
+        "system.niri"
+      ];
+      portScopes = [ "system" ];
+      path = [
+        "desktop"
+        "noctalia"
+      ];
+      options.settings = settingsOption "Noctalia TOML settings";
+      activation = {
+        scope = "system";
+        option = [
+          "programs"
+          "noctalia"
+          "enable"
+        ];
+      };
+      platforms = desktops;
+      systemPlatforms = desktops;
+      requires = [ "niri" ];
+      homeModules = [ ../../modules/home/features/noctalia.nix ];
+    };
     fileManager = {
       path = [
         "desktop"
         "fileManager"
       ];
       platforms = desktops;
-      defaultFrom = [
-        "gnome"
-        "niri"
-        "dms"
-      ];
+      defaultFrom = desktopFeatures;
       software = [ "nautilus" ];
       homeModules = [ ../../modules/home/features/file-manager.nix ];
       options =
@@ -301,32 +329,27 @@ in
           };
     };
     printing = {
-      contracts = [ "system.printing" ];
+      contracts = [
+        "system.printing"
+        "system.avahi"
+      ];
       path = [
         "desktop"
         "printing"
       ];
       platforms = desktops;
-      defaultFrom = [
-        "gnome"
-        "niri"
-        "dms"
-      ];
+      defaultFrom = desktopFeatures;
       systemPlatforms = desktops;
       systemModules = [ ../../modules/system/features/printing.nix ];
     };
     firmware = {
-      contracts = [ "system.printing" ];
+      contracts = [ "system.firmware" ];
       path = [
         "desktop"
         "firmware"
       ];
       platforms = desktops;
-      defaultFrom = [
-        "gnome"
-        "niri"
-        "dms"
-      ];
+      defaultFrom = desktopFeatures;
       homeModules = [ ../../modules/home/features/firmware.nix ];
       systemPlatforms = desktops;
       systemModules = [ ../../modules/system/features/firmware.nix ];
@@ -337,11 +360,7 @@ in
         "keyring"
       ];
       platforms = linux;
-      defaultFrom = [
-        "gnome"
-        "niri"
-        "dms"
-      ];
+      defaultFrom = desktopFeatures;
     };
     launcher = {
       path = [
@@ -349,11 +368,7 @@ in
         "launcher"
       ];
       platforms = desktops;
-      defaultFrom = [
-        "gnome"
-        "niri"
-        "dms"
-      ];
+      defaultFrom = desktopFeatures;
       homeModules = [ ../../modules/home/integrations/launcher.nix ];
       options.hiddenEntries = {
         default = [
@@ -391,11 +406,7 @@ in
         "wallpaper"
       ];
       platforms = desktops;
-      defaultFrom = [
-        "gnome"
-        "niri"
-        "dms"
-      ];
+      defaultFrom = desktopFeatures;
       homeModules = [ ../../modules/home/integrations/desktop-wallpaper.nix ];
       systemPlatforms = [ "nixos" ];
       options = {
@@ -436,6 +447,19 @@ in
   };
 
   choices = {
+    desktopShell = {
+      source = {
+        feature = "niri";
+        option = "shell";
+      };
+      platforms = desktops;
+      providers = builtins.mapAttrs (name: _: [ name ]) (import ./desktop-shells.nix);
+      priority = [
+        "dms"
+        "noctalia"
+      ];
+      empty = null;
+    };
     desktop = {
       platforms = desktops;
       providers = builtins.mapAttrs (_: stack: stack.features) (import ./desktop-stacks.nix);
@@ -470,10 +494,21 @@ in
       platforms = desktops;
       owners = [ "chinese" ];
     };
+    niri-noctalia = {
+      platforms = desktops;
+      owners = [
+        "niri"
+        "noctalia"
+      ];
+      homeModules = [ ../../modules/home/integrations/niri-noctalia.nix ];
+    };
     niri-dms = {
       portScopes = [ "home" ];
       platforms = desktops;
-      owners = [ "niri" ];
+      owners = [
+        "niri"
+        "dms"
+      ];
     };
   };
 }

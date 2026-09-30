@@ -7,11 +7,7 @@ let
       cfg = host.configuration;
       inherit (cfg) pkgs;
       system = pkgs.stdenv.hostPlatform.system;
-      home =
-        if host.output == "homeConfigurations" then
-          cfg.config
-        else
-          cfg.config.home-manager.users.${host.username};
+      home = host.views.home;
       target =
         if host.output == "nixosConfigurations" then
           cfg.config.system.build.toplevel
@@ -56,6 +52,15 @@ lib.recursiveUpdate hostChecks (
       platform-registration = pkgs.writeText "platform-registration.json" (
         builtins.toJSON (import ./structure/platforms.nix { inherit lib; })
       );
+      contract-types = pkgs.writeText "contract-types.json" (
+        builtins.toJSON (import ./ports/contract-types.nix { inherit lib pkgs; })
+      );
+      contract-behavior = pkgs.writeText "contract-behavior.json" (
+        builtins.toJSON (import ./contracts { inherit inputs; })
+      );
+      desktop-shells = pkgs.writeText "desktop-shells.json" (
+        builtins.toJSON (import ./features/desktop-shells.nix { inherit inputs; })
+      );
       feature-rules = pkgs.writeText "feature-rules.json" featureRules;
       feature-modules = pkgs.writeText "feature-modules.json" featureComposition;
       software = pkgs.writeText "software.json" softwareTests;
@@ -67,18 +72,20 @@ lib.recursiveUpdate hostChecks (
       software-runtime = import ./software/runtime.nix { inherit inputs pkgs; };
       dconf-lifecycle = import ./helpers/common/dconf.nix { inherit inputs pkgs; };
       vscode-settings = import ./home/vscode-settings.nix { inherit inputs pkgs; };
+      chrome-policy = import ./helpers/arch/chrome-policy.nix { inherit inputs pkgs; };
       pacman-activation = import ./helpers/arch/pacman.nix { inherit inputs pkgs; };
+      native-units = import ./helpers/arch/native-units.nix { inherit pkgs; };
+      native-input-autostart = import ./helpers/arch/autostart.nix { inherit inputs pkgs; };
     }
     // lib.optionalAttrs pkgs.stdenv.hostPlatform.isLinux {
+      noctalia-configuration = import ./home/noctalia.nix { inherit inputs pkgs; };
       desktop-boundaries = import ./home/desktop.nix { inherit inputs pkgs; };
-      native-input-autostart = import ./helpers/arch/autostart.nix { inherit pkgs; };
       pacman-migration = import ./helpers/arch/pacman-migration.nix { inherit inputs pkgs; };
       greeter-session = import ./helpers/common/greeter-session.nix { inherit pkgs; };
-      native-units = import ./helpers/arch/native-units.nix { inherit pkgs; };
+      native-systemd-vm = import ./helpers/arch/native-systemd-vm.nix { inherit inputs pkgs; };
       owned-root-file = import ./helpers/common/owned-root-file.nix { inherit inputs pkgs; };
       launcher-native = import ./helpers/arch/launcher-native.nix { inherit pkgs; };
       feature-devel = import ./software/devel.nix { inherit pkgs; };
-      chrome-policy = import ./helpers/arch/chrome-policy.nix { inherit inputs pkgs; };
       display-manager-activation = import ./helpers/arch/display-manager-activation.nix {
         inherit inputs pkgs;
       };

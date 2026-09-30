@@ -4,6 +4,6 @@
   programs.dank-material-shell.systemd.enable = lib.mkDefault false;
   software.requirements.dms = {
     capabilities = [ "store-package" ];
-    installNix = false;
+    scopes = [ ];
   };
 }

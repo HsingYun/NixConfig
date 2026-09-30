@@ -1,3 +1,3 @@
-{ hostSystem, ... }: {
-  home.sessionPath = [ "${hostSystem.native.profileDirectory}/bin" ];
+{ osConfig, ... }: {
+  home.sessionPath = [ "${osConfig.native.profileDirectory}/bin" ];
 }

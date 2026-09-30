@@ -49,16 +49,28 @@ let
       [ "preferences must be an attribute set." ]
     else
       map (key: "unknown preferences.${key}.") (
-        lib.subtractLists (builtins.attrNames catalog.choices) (builtins.attrNames preferences)
+        lib.subtractLists (builtins.attrNames (
+          lib.filterAttrs (_: rule: !(rule ? source)) catalog.choices
+        )) (builtins.attrNames preferences)
       );
   choices = lib.mapAttrs (
     key: rule:
     let
       applicable = !(rule ? platforms) || builtins.elem platform rule.platforms;
       candidates = lib.filter (
-        provider: lib.any (feature: enabled.${feature}) (lib.toList rule.providers.${provider})
+        provider:
+        (if rule ? source then lib.all else lib.any) (feature: enabled.${feature}) (
+          lib.toList rule.providers.${provider}
+        )
       ) (rule.priority or (builtins.attrNames rule.providers));
-      supplied = preferenceValues.${key} or null;
+      sourcePath = if rule ? source then pathFor rule.source.feature ++ [ rule.source.option ] else [ ];
+      label =
+        if rule ? source then "features.${lib.concatStringsSep "." sourcePath}" else "preferences.${key}";
+      supplied =
+        if rule ? source then
+          (if enabled.${rule.source.feature} then lib.getAttrFromPath sourcePath featureConfig else null)
+        else
+          preferenceValues.${key} or null;
       valid =
         supplied == null
         || (
@@ -77,17 +89,15 @@ let
           rule.empty;
       errors =
         if !applicable then
-          lib.optional (
-            supplied != null
-          ) "preferences.${key} is managed by the host OS on platform '${platform}'."
+          lib.optional (supplied != null) "${label} is managed by the host OS on platform '${platform}'."
         else
           lib.optional (!valid)
-            "preferences.${key} must select an available value: ${
+            "${label} must select an available value: ${
               lib.concatStringsSep ", " (candidates ++ (rule.alternatives or [ ]))
             }."
           ++
             lib.optional (!(rule ? priority) && supplied == null && builtins.length candidates > 1)
-              "multiple ${key} providers are enabled (${lib.concatStringsSep ", " candidates}); set preferences.${key} explicitly.";
+              "multiple ${key} providers are enabled (${lib.concatStringsSep ", " candidates}); set ${label} explicitly.";
     }
   ) catalog.choices;
 in

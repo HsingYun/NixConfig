@@ -19,7 +19,7 @@ They are deliberately separate.
 | `darwin` | `aarch64-darwin`, `x86_64-darwin` | `darwinConfigurations` | `homebrew` |
 
 `arch` means Arch Linux, including Arch under WSL; it is not a generic Linux
-adapter. The former `platform = "linux"` spelling is no longer accepted.
+adapter.
 Do not change `x86_64-linux` to `x86_64-arch`. A valid `system` does not guarantee
 that every selected application has a package for that CPU architecture.
 The checked-in machine configurations target x86_64 Linux and Apple Silicon.

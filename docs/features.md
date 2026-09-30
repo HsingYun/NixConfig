@@ -34,6 +34,67 @@ features.desktop = {
 };
 ```
 
+### Noctalia
+
+`features.desktop.noctalia` provides Noctalia v5 on NixOS and Arch. It is disabled
+in every shipped host and profile. The feature supplies the Niri system session;
+enable `features.desktop.niri` as well for this repository's Niri configuration
+and shortcuts. NixOS uses the locked Nixpkgs package and upstream modules. Arch
+prefers the official `noctalia` package and reuses Home Manager's configuration
+generator, then validates native configuration before linking it. Its session service uses the executable selected by the software
+layer; `systemConfig.software.providerOverrides.noctalia = "nix";` explicitly
+selects the Nix package instead.
+
+```nix
+features = profile.linuxDesktop // {
+  desktop = profile.linuxDesktop.desktop // {
+    niri = { enable = true; shell = "noctalia"; };
+    noctalia.settings.theme.mode = "dark";
+  };
+};
+```
+
+DMS and Noctalia may both be enabled: their packages and settings coexist, while
+`features.desktop.niri.shell` automatically enables the selected shell feature
+and selects its session service and Niri shortcuts. The Niri feature must be
+enabled; settings on a disabled feature have no activation effects. An explicit
+`noctalia.enable = false` conflicts with selecting Noctalia and is rejected.
+The default `shell = null` selects among independently enabled shell features.
+Without an explicit selection, DMS has priority; when only Noctalia is enabled, it is
+selected automatically. To remove DMS entirely, also set
+`features.desktop.dms.enable = false;`. Final system/Home Manager options are
+checked to reject autostarting different shells together. Custom manual launchers
+and previously hand-enabled services remain outside this selection mechanism.
+
+When Niri is the preferred desktop, Shell selection also pairs its greeter:
+Noctalia uses Noctalia Greeter, DMS uses DMS Greeter, and bare Niri uses tuigreet.
+The default session and shared lock wallpaper are passed to Noctalia Greeter.
+NixOS uses the upstream `services.displayManager.noctalia-greeter` module. Arch
+installs `noctalia-greeter` from AUR through yay, along with
+AccountsService, Polkit and bubblewrap, and manages its configuration through the existing
+login-manager activation. The declarative TOML file is exposed read-only inside
+the greeter process's mount namespace; the package's original configuration and mutable
+`sync.toml` remain untouched. The login daemon and resulting desktop session
+keep the host filesystem view. Arch requires unprivileged user namespaces for
+this configuration view; activation checks the greeter account before changing
+the login manager. Its native package supplies the compositor libraries,
+Polkit policy, setup hooks and session wrapper; forcing its Arch provider to Nix
+is rejected. The Noctalia Shell package itself can still use the Nix provider.
+Greeter settings and arguments are exposed through
+`systemConfig.services.displayManager.noctalia-greeter.{settings,extraArgs}`.
+
+GNOME can remain installed as another login session; if it is the preferred
+desktop, GDM owns login and neither graphical greetd greeter starts. The shell
+service starts with `niri.service` and is conditioned on the Niri desktop
+environment. Explicit system overrides can choose another greeter, but enabling
+two graphical greeters is rejected.
+
+`features.desktop.noctalia.settings` maps to upstream `programs.noctalia.settings`.
+Home Manager writes the base `noctalia/config.toml`; Noctalia's own runtime state
+can override base settings according to its upstream configuration rules.
+Desktop and lock images use the shared wallpaper feature. Noctalia-specific
+settings remain available through `homeConfig.programs.noctalia`.
+
 GNOME hosts can set
 `features.desktop.gnome.settings."org/gnome/desktop/interface".clock-show-seconds = true;`.
 `screenRotate` requires GNOME; sensor offsets and touchscreen calibration belong
@@ -55,7 +116,7 @@ Desktop selection supplies defaults for `fileManager`, `keyring`, `launcher`,
   preserved. It does not disable the underlying applications or services.
 - `wallpaper.image` and `wallpaper.lockImage` accept paths or null. Shared images
   are declared in `flake.nix`; null leaves the corresponding image unmanaged.
-  GNOME and DMS render them; bare Niri has no wallpaper renderer here.
+  GNOME, DMS and Noctalia render them; bare Niri has no wallpaper renderer here.
 - DMS `settings` and `session` map to their upstream options on NixOS and native
   JSON files on Arch. Nonempty declarations are read-only. To let DMS save its
   own settings, clear the corresponding declarations and disable managed

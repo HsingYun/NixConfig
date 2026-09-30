@@ -56,8 +56,9 @@ name: definition:
         ++ lib.optional (homeConfig != null) homeConfig;
     };
   in
-  {
+  rec {
     inherit (selected) output;
+    views = import ./configuration-views.nix { inherit output username configuration; };
     username = actualUser.username;
     configuration =
       assert lib.assertMsg (
@@ -83,11 +84,11 @@ name: definition:
         )
         "Host ${name}: homeDirectory must be an absolute Unix path string other than '/', without '.' or '..' components.";
       assert lib.assertMsg (
-        platform != "nixos" || hardwareConfig != null
-      ) "Host ${name}: platform nixos requires hardwareConfig.";
+        !selected.requiresHardwareConfig || hardwareConfig != null
+      ) "Host ${name}: platform ${platform} requires hardwareConfig.";
       assert lib.assertMsg (
-        platform == "nixos" || hardwareConfig == null
-      ) "Host ${name}: hardwareConfig is only supported by platform nixos.";
+        selected.requiresHardwareConfig || hardwareConfig == null
+      ) "Host ${name}: platform ${platform} does not accept hardwareConfig.";
       assert lib.assertMsg (lib.hasSuffix (if selected.family == "darwin" then "-darwin" else "-linux")
         actualSystem
       ) "Host ${name}: system '${actualSystem}' is incompatible with platform '${platform}'.";

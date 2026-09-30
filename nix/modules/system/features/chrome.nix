@@ -9,6 +9,7 @@ let
 in
 {
   # This upstream module manages policies, not the browser package.
+  software.requirements.chrome = { };
   programs.chromium = {
     enable = lib.mkDefault true;
     extraOpts = lib.optionalAttrs (extensions != [ ]) {

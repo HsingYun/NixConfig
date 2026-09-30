@@ -193,7 +193,7 @@ assert !(builtins.elem "font-maple-mono-nf-cn" (map (entry: entry.name) off.home
     "capability-fallback"
     "missing-provider-fallback"
     "unavailable-provider-fallback"
-    "dependencies"
+    "merged-resource-requests"
     "shared-packages"
     "scopes"
     "removal"
@@ -202,9 +202,11 @@ assert !(builtins.elem "font-maple-mono-nf-cn" (map (entry: entry.name) off.home
     "wrong-platform"
     "unknown-software"
     "missing-capability"
-    "dependency-cycle"
   ];
   applicationFeatures = builtins.attrNames applicationFeatures;
+  manifests = import ./manifests.nix { inherit inputs; };
+  placement = import ./placement.nix { inherit inputs ownershipHost; };
+  consumers = import ./consumers.nix { inherit inputs ownershipHost; };
   consistency = import ./ownership.nix {
     inherit
       inputs

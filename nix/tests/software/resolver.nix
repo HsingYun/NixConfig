@@ -19,7 +19,6 @@ let
         type = "package";
         name = "editor";
       };
-      dependencies = [ "font" ];
     };
     font = {
       pacman = {
@@ -62,7 +61,10 @@ let
     resolve (
       {
         catalog = fixture;
-        requirements.editor = { };
+        requirements = {
+          editor = { };
+          font = { };
+        };
         packageManager = "homebrew";
         platform = "darwin";
       }
@@ -72,6 +74,7 @@ let
   native = plan {
     requirements = {
       editor = { };
+      font = { };
       alias = { };
     };
   };
@@ -82,16 +85,19 @@ let
   fallback = plan {
     requirements = {
       editor.capabilities = [ "store-package" ];
+      font = { };
       tool = { };
       unavailable = { };
     };
   };
   scopes = plan {
     packageManager = "nix";
-    requirements.editor.scopes = [
-      "system"
-      "home"
-    ];
+    requirements = lib.genAttrs [ "editor" "font" ] (_: {
+      scopes = [
+        "system"
+        "home"
+      ];
+    });
   };
   removed = plan { requirements = { }; };
   remaining = plan { requirements.font = { }; };
@@ -125,6 +131,7 @@ let
     packageManager = "pacman";
     requirements = {
       editor.capabilities = [ "store-package" ];
+      font = { };
       tool = { };
     };
   };
@@ -267,7 +274,7 @@ assert
   !(succeeds (plan {
     catalog = fixture // {
       font = fixture.font // {
-        dependencies = [ "editor" ];
+        unknownMetadata = [ "editor" ];
       };
     };
   }));

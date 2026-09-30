@@ -75,7 +75,41 @@ let
         desktop.niri.settings.layout.gaps = 20;
       };
     };
+  selectedShell =
+    shell:
+    check {
+      overrides.desktop.niri = {
+        enable = true;
+        inherit shell;
+      };
+    };
+  dormantShell = check { overrides.desktop.niri.shell = "noctalia"; };
   invalid = [
+    {
+      overrides.desktop.niri = {
+        enable = true;
+        shell = "typo";
+      };
+    }
+    {
+      overrides.desktop = {
+        niri = {
+          enable = true;
+          shell = "noctalia";
+        };
+        noctalia.enable = false;
+      };
+    }
+    {
+      overrides.desktop = {
+        niri = {
+          enable = true;
+          shell = "dms";
+        };
+        dms.enable = false;
+      };
+    }
+    { preferences.desktopShell = "noctalia"; }
     { overrides.desktop.nrii.enable = true; }
     { overrides.desktop.launcher.hiddenEntries = [ "../vim.desktop" ]; }
     { overrides.desktop.wallpaper.image = "relative.png"; }
@@ -107,6 +141,22 @@ let
     }
   ];
 in
+assert lib.all
+  (
+    shell:
+    let
+      result = selectedShell shell;
+    in
+    result.errors == [ ]
+    && result.enabled.${shell}
+    && result.selected.desktopShell == shell
+    && result.config.desktop.keyring.enable
+  )
+  [
+    "dms"
+    "noctalia"
+  ];
+assert dormantShell.errors == [ ] && !dormantShell.enabled.noctalia;
 assert merged.errors == [ ];
 assert merged.config.chrome.enable;
 assert merged.config.chrome.extensions == [ ];

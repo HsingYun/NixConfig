@@ -1,11 +1,12 @@
 {
-  lib,
   pkgs,
   ...
 }:
 
 {
-  imports = [ ./desktop.nix ];
-  programs.niri.enable = lib.mkDefault true;
+  imports = [
+    ../../../modules/system/features/niri.nix
+    ./desktop.nix
+  ];
   fonts.packages = [ pkgs.nerd-fonts.jetbrains-mono ];
 }

@@ -10,7 +10,10 @@ let
   hasPackage = name: cfg: builtins.elem name (map lib.getName (home cfg).home.packages);
   hasKimpanel = cfg: lib.any (p: lib.hasInfix "kimpanel" (lib.getName p)) (home cfg).home.packages;
   hasDmsBindings =
-    cfg: lib.hasAttrByPath [ "binds" "Mod+Space" ] (home cfg).wayland.windowManager.niri.settings;
+    cfg:
+    lib.hasInfix "spotlight" (
+      builtins.toJSON ((home cfg).wayland.windowManager.niri.settings.binds or { })
+    );
   hasRime = cfg: (home cfg).xdg.dataFile ? "fcitx5/rime/default.custom.yaml";
   develPackages = [
     "clang-wrapper"
@@ -226,6 +229,14 @@ let
         && !(hasDmsBindings cfg)
         && !(cfg.security.pam.services ? dankshell)
         && (home cfg).wayland.windowManager.niri.enable;
+    };
+    noctalia = {
+      on = cfg: cfg.programs.noctalia.enable && (home cfg).programs.noctalia.enable;
+      off =
+        cfg:
+        !cfg.programs.noctalia.enable
+        && !(home cfg).programs.noctalia.enable
+        && !((home cfg).xdg.configFile ? "noctalia/config.toml");
     };
     ghostty = {
       on =

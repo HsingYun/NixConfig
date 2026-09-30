@@ -9,6 +9,10 @@ references = re.compile(r"(?<![\w/])((?:\.\.?/)[A-Za-z0-9_./-]+)")
 for source in root.rglob("*.nix"):
     relative = source.relative_to(root)
     for number, line in enumerate(source.read_text().splitlines(), 1):
+        if relative.parts[:3] in {("modules", "home", "features"), ("modules", "home", "shared")} and re.search(
+            r"^\s*(?:[A-Za-z0-9_.-]+\.)?(?:package|packageConfigurable)\s*=\s*(?:lib\.mkDefault\s+)?software\.", line
+        ):
+            errors.append(f"{relative}:{number}: register a software consumer instead of assigning its package separately")
         # Only literal references are inspected; normal Nix evaluation checks
         # computed imports and the supported public option interfaces.
         for match in references.finditer(line.split("#", 1)[0]):

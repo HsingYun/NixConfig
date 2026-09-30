@@ -20,7 +20,7 @@ let
   };
   plan = import ../../lib/software/materialize.nix { inherit lib; } {
     inherit selection;
-    inherit (cfg) runtimePackages;
+    inherit (cfg) runtimeArtifacts;
   };
 in
 {

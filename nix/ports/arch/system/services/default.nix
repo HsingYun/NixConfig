@@ -1,5 +1,7 @@
 { ... }: {
   imports = [
+    ./noctalia.nix
+    ./noctalia-greeter.nix
     ./desktop.nix
     ./network.nix
     ./bluetooth.nix

@@ -69,6 +69,10 @@ let
       "arch"
       "nixos"
     ];
+    noctalia = [
+      "arch"
+      "nixos"
+    ];
     dms = [
       "arch"
       "nixos"
@@ -261,7 +265,7 @@ let
             overrides = { inherit (c) gnome niri dms; };
             preferences = { inherit (c) desktop; };
           };
-          session = import ../../lib/features/desktop-session.nix { inherit (result) selected enabled; };
+          session = import ../../lib/features/desktop-defaults.nix { inherit (result) selected; };
         in
         (result.errors == [ ]) == expectedValid
         && (

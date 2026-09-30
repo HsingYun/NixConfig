@@ -15,14 +15,7 @@ let
   select =
     output:
     lib.mapAttrs (_: host: host.configuration) (lib.filterAttrs (_: host: host.output == output) hosts);
-  softwarePlans = lib.mapAttrs (
-    _: host:
-    let
-      cfg = host.configuration.config;
-    in
-    (if host.output == "homeConfigurations" then cfg else cfg.home-manager.users.${host.username})
-    .software.plan
-  ) hosts;
+  softwarePlans = lib.mapAttrs (_: host: host.views.home.software.plan) hosts;
 
 in
 {

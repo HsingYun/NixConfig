@@ -11,33 +11,6 @@ in
 
 {
   software = {
-    bindings = {
-      gnupg = {
-        enableOption = [
-          "programs"
-          "gpg"
-          "enable"
-        ];
-        packageOption = [
-          "programs"
-          "gpg"
-          "package"
-        ];
-      };
-      pinentry = {
-        enableOption = [
-          "services"
-          "gpg-agent"
-          "enable"
-        ];
-        packageOption = [
-          "services"
-          "gpg-agent"
-          "pinentry"
-          "package"
-        ];
-      };
-    };
     requirements = {
       gnupg.capabilities = [ "store-package" ];
       pinentry = { };
@@ -45,13 +18,11 @@ in
   };
   programs = {
     gpg = {
-      package = lib.mkDefault software.gnupg.package;
       enable = lib.mkDefault true;
     };
   };
   services.gpg-agent = {
     pinentry = {
-      package = lib.mkDefault software.pinentry.package;
       program = lib.mkIf (!usesNixPackage) (
         lib.mkDefault (if pkgs.stdenv.hostPlatform.isDarwin then "pinentry-mac" else "pinentry")
       );

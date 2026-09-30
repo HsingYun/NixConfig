@@ -3,14 +3,22 @@
   gnome = {
     features = [ "gnome" ];
     loginManager = "gdm";
-    command = null; # GDM discovers its session through the platform.
+    command = "gnome-session";
+    activation = [
+      "services"
+      "desktopManager"
+      "gnome"
+      "enable"
+    ];
   };
   niri = {
-    features = [
-      "niri"
-      "dms"
-    ];
+    features = [ "niri" ] ++ builtins.attrNames (import ./desktop-shells.nix);
     loginManager = "greetd";
     command = "niri-session";
+    activation = [
+      "programs"
+      "niri"
+      "enable"
+    ];
   };
 }

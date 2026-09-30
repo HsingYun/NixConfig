@@ -2,7 +2,7 @@
 {
   software.requirements.fcitx5-rime = {
     capabilities = [ "store-package" ];
-    installNix = false;
+    scopes = [ ];
   };
   i18n.inputMethod = {
     enable = lib.mkDefault true;

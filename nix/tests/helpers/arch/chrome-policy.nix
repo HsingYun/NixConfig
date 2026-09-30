@@ -1,18 +1,36 @@
 { pkgs, inputs }:
 let
-  inherit (pkgs) lib;
+  lib = pkgs.lib.extend (_: _: { inherit (inputs.home-manager.lib) hm; });
   sudo = pkgs.writeShellScript "sudo-stub" ''exec "$@"'';
+  destination = "/etc/opt/chrome/policies/managed/nixconfig-extensions.json";
+  state = "/var/lib/nixconfig/files/${builtins.hashString "sha256" destination}.json";
+  policy = {
+    ExtensionSettings.example.installation_mode = "normal_installed";
+    ContractProbe = true;
+  };
   script =
-    active:
+    enabled:
+    let
+      # Render the production adapter, retaining its real enabled/disabled
+      # logic, payload and helper. Only privileged paths and sudo are sandboxed.
+      module = import ../../../ports/arch/activation/chrome.nix {
+        inherit lib pkgs;
+        user.username = "test";
+        config.programs.chromium = {
+          enable = enabled;
+          extraOpts = policy;
+        };
+      };
+      activation =
+        lib.replaceStrings
+          [ destination state "/usr/bin/sudo" ]
+          [ "test-root/policies/nixconfig-extensions.json" "test-root/state/chrome.json" (toString sudo) ]
+          module.native.activation.installChromePolicy.data;
+    in
     pkgs.writeShellScript "chrome-policy-test" ''
       set -euo pipefail
       source ${inputs.home-manager}/lib/bash/home-manager.sh
-      ${import ../../../assets/helpers/common/owned-root-file.nix { inherit lib pkgs; } {
-        inherit active sudo;
-        text = builtins.toJSON { ExtensionSettings.example.installation_mode = "normal_installed"; };
-        destination = "test-root/policies/nixconfig-extensions.json";
-        stateFile = "test-root/state/chrome.json";
-      }}
+      ${activation}
     '';
   enabled = script true;
   disabled = script false;
@@ -23,6 +41,7 @@ pkgs.runCommand "chrome-policy-check" { } ''
   DRY_RUN=1 ${enabled}
   test ! -e test-root
   ${enabled}
+  cmp test-root/policies/nixconfig-extensions.json ${pkgs.writeText "expected-chrome-policy.json" (builtins.toJSON policy)}
   cp test-root/policies/nixconfig-extensions.json expected
   ${enabled}
   cmp expected test-root/policies/nixconfig-extensions.json

@@ -21,10 +21,6 @@
 
   wayland.windowManager.niri = {
     enable = lib.mkDefault true;
-    # The host OS owns session units and desktop portals.
-    systemd.enable = false;
-    portalPackage = null;
-
     settings = lib.mkMerge [
       config.features.desktop.niri.settings
       {

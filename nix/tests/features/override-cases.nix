@@ -2,6 +2,23 @@
 let
   externalCases = [
     {
+      name = "disabled-home-keyring-removes-system-integration";
+      features = allOff // {
+        niri = true;
+        keyring = true;
+      };
+      homeConfig.services.gnome-keyring.enable = false;
+      verify =
+        cfg:
+        !cfg.services.gnome.gnome-keyring.enable && !cfg.security.pam.services.greetd.enableGnomeKeyring;
+    }
+    {
+      name = "external-home-keyring-enables-system-integration";
+      features = allOff;
+      homeConfig.services.gnome-keyring.enable = true;
+      verify = cfg: cfg.services.gnome.gnome-keyring.enable;
+    }
+    {
       name = "upstream-default-session-override";
       features = allOff // {
         gnome = true;

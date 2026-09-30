@@ -1,12 +1,13 @@
 {
-  lib,
   pkgs,
   ...
 }:
 
 {
-  imports = [ ./desktop.nix ];
-  services.desktopManager.gnome.enable = lib.mkDefault true;
+  imports = [
+    ../../../modules/system/features/gnome.nix
+    ./desktop.nix
+  ];
 
   environment.gnome.excludePackages = with pkgs; [
     baobab

@@ -1,5 +1,4 @@
-# Public interfaces. Native ports import these declarations;
-# upstream ports keep their upstream declarations and are checked against them.
+# Public capability interfaces; upstream ports retain their upstream declarations.
 {
   "home.gpg" = {
     scope = "home";
@@ -9,6 +8,18 @@
     scope = "home";
     module = ./home/dms.nix;
   };
+  "home.noctalia" = {
+    scope = "home";
+    module = ./home/noctalia.nix;
+  };
+  "system.noctalia-greeter" = {
+    scope = "system";
+    module = ./system/services/noctalia-greeter.nix;
+  };
+  "system.noctalia" = {
+    scope = "system";
+    module = ./system/services/noctalia.nix;
+  };
   "home.niri" = {
     scope = "home";
     module = ./home/niri.nix;
@@ -16,10 +27,6 @@
   "home.input-method" = {
     scope = "home";
     module = ./home/input-method.nix;
-  };
-  "system.printing" = {
-    scope = "system";
-    module = ./system/printing.nix;
   };
   "system.smartcard" = {
     scope = "system";
@@ -29,8 +36,52 @@
     scope = "system";
     module = ./system/chrome.nix;
   };
-  "system.desktop" = {
+  "system.printing" = {
     scope = "system";
-    module = ./system/desktop.nix;
+    module = ./system/services/printing.nix;
+  };
+  "system.avahi" = {
+    scope = "system";
+    module = ./system/services/avahi.nix;
+  };
+  "system.firmware" = {
+    scope = "system";
+    module = ./system/services/firmware.nix;
+  };
+  "system.gnome" = {
+    scope = "system";
+    module = ./system/services/gnome.nix;
+  };
+  "system.niri" = {
+    scope = "system";
+    module = ./system/services/niri.nix;
+  };
+  "system.dms" = {
+    scope = "system";
+    module = ./system/services/dms.nix;
+  };
+  "system.session" = {
+    scope = "system";
+    module = ./system/services/session.nix;
+  };
+  "system.network" = {
+    scope = "system";
+    module = ./system/services/network.nix;
+  };
+  "system.audio" = {
+    scope = "system";
+    module = ./system/services/audio.nix;
+  };
+  "system.bluetooth" = {
+    scope = "system";
+    module = ./system/services/bluetooth.nix;
+  };
+  "system.power" = {
+    scope = "system";
+    module = ./system/services/power.nix;
+  };
+  "system.storage" = {
+    scope = "system";
+    module = ./system/services/storage.nix;
   };
 }

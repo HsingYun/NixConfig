@@ -160,7 +160,8 @@ assert builtins.elem "dash-to-dock@micxgx.gmail.com" (
 assert cfg.dconf.settings."org/gnome/desktop/interface".clock-show-seconds;
 assert
   cfg.dconf.settings."org/gnome/desktop/background".picture-uri == "file:///test/wallpaper.png";
-assert dms.enable && dms.package == null && dms.systemd.enable;
+assert dms.enable && dms.package == null && !dms.systemd.enable;
+assert cfg.hostSystem.programs.dms-shell.systemd.enable;
 assert !cfg.programs.quickshell.enable;
 assert dms.session.wallpaperPath == "/test/wallpaper.png" && dms.session.isLightMode;
 assert

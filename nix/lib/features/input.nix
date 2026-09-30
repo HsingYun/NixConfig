@@ -35,6 +35,32 @@ let
           ) catalog.features
         );
       })
+      ({ config, ... }: {
+        # A feature-local choice enables its providers through normal module
+        # defaults. Explicit disables survive and are diagnosed by the resolver.
+        config.features = lib.mkMerge (
+          lib.concatMap (
+            rule:
+            lib.mapAttrsToList (
+              provider: features:
+              lib.mkIf
+                (
+                  lib.getAttrFromPath (pathFor rule.source.feature ++ [ "enable" ]) config.features
+                  &&
+                    lib.getAttrFromPath (pathFor rule.source.feature ++ [ rule.source.option ]) config.features
+                    == provider
+                )
+                (
+                  lib.mkMerge (
+                    map (feature: lib.setAttrByPath (pathFor feature ++ [ "enable" ]) (lib.mkDefault true)) (
+                      lib.toList features
+                    )
+                  )
+                )
+            ) rule.providers
+          ) (builtins.attrValues (lib.filterAttrs (_: rule: rule ? source) catalog.choices))
+        );
+      })
       {
         _file = "Host ${name}: shared feature defaults";
         config.features = lib.mkDefault defaults;

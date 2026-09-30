@@ -52,32 +52,15 @@ in
 {
   software = {
     requirements = {
-      vim.installNix = false;
+      vim.scopes = [ ];
       ctags = { };
-    };
-    bindings.vim = {
-      enableOption = [
-        "programs"
-        "vim"
-        "enable"
-      ];
-      packageOption = [
-        "programs"
-        "vim"
-        "packageConfigurable"
-      ];
-      runtimePackageOption = [
-        "programs"
-        "vim"
-        "package"
-      ];
     };
   };
   # The official module owns the Nix wrapper and its plugin closure. Native
   # Vim has no HM package=null interface, so use nixpkgs' vimrc generator.
   programs.vim = lib.mkIf usesNixPackage {
     enable = lib.mkDefault true;
-    packageConfigurable = lib.mkDefault software.vim.package;
+
     inherit plugins;
     extraConfig = lib.mkDefault customRC;
   };

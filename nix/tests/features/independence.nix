@@ -40,7 +40,8 @@ let
     vscode =
       cfg:
       (home cfg).programs.vscode.enable
-      && (home cfg).programs.vscode.profiles.default.mutableUserSettings;
+      && (home cfg).programs.vscode.profiles.default.mutableUserSettings
+      && hasPackage "MapleMono-NF-CN" cfg;
     codex = cfg: hasPackage "codex" cfg;
     mapleMono = cfg: hasPackage "MapleMono-NF-CN" cfg && hasPackage "MapleMono-TTF" cfg;
     efiTools = cfg: builtins.elem "efibootmgr" (map lib.getName cfg.environment.systemPackages);
@@ -187,10 +188,19 @@ let
       && cfg.services.displayManager.defaultSession == "niri"
       && desktopServices cfg
       && !(home cfg).wayland.windowManager.niri.enable;
+    noctalia =
+      cfg:
+      cfg.programs.noctalia.enable
+      && cfg.programs.noctalia.systemd.enable
+      && cfg.programs.niri.enable
+      && cfg.services.greetd.enable
+      && !cfg.programs.dms-shell.enable
+      && (home cfg).programs.noctalia.enable;
     ghostty =
       cfg:
       (home cfg).programs.ghostty.enable
       && hasPackage "ghostty" cfg
+      && hasPackage "MapleMono-NF-CN" cfg
       && (home cfg).fonts.fontconfig.enable
       && (home cfg).programs.ghostty.settings ? theme
       && !((home cfg).programs.ghostty.settings ? window-decoration);

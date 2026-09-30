@@ -19,7 +19,57 @@ let
         desktop = catalog.choices.desktop // patch;
       };
     };
+  shellChoice =
+    patch:
+    catalog
+    // {
+      choices = catalog.choices // {
+        desktopShell = catalog.choices.desktopShell // patch;
+      };
+    };
   cases = [
+    {
+      name = "unknown-choice-source";
+      value = shellChoice {
+        source = {
+          feature = "missing";
+          option = "shell";
+        };
+      };
+      message = "source references unknown feature";
+    }
+    {
+      name = "unknown-choice-option";
+      value = shellChoice {
+        source = {
+          feature = "niri";
+          option = "missing";
+        };
+      };
+      message = "source must reference a declared";
+    }
+    {
+      name = "invalid-choice-option-type";
+      value = shellChoice {
+        source = {
+          feature = "niri";
+          option = "settings";
+        };
+      };
+      message = "source must accept null";
+    }
+    {
+      name = "choice-default-cycle";
+      value = catalog // {
+        features = catalog.features // {
+          niri = catalog.features.niri // {
+            defaultFrom = [ "noctalia" ];
+          };
+        };
+      };
+      message = "dependency cycle";
+    }
+
     {
       name = "unknown-contract";
       value = feature { contracts = [ "home.missing" ]; };
@@ -27,8 +77,8 @@ let
     }
     {
       name = "missing-port-contract";
-      value = feature { contracts = [ "system.desktop" ]; };
-      message = "requires contract 'system.desktop'";
+      value = feature { contracts = [ "system.niri" ]; };
+      message = "requires contract 'system.niri'";
     }
     {
       name = "missing-port-implementation";

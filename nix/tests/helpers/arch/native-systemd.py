@@ -25,6 +25,10 @@ class FakeSystemd(helper.Systemd):
         self.fail = None
         self.masked = set()
         self.consumers = {}
+        self.relations = {}
+        self.aliases = {}
+        self.also = {"avahi-daemon.service": {"avahi-daemon.socket"}}
+        self.install_aliases = {}
 
     def enabled(self, unit):
         if unit in self.masked:
@@ -39,16 +43,44 @@ class FakeSystemd(helper.Systemd):
         path.parent.mkdir(exist_ok=True)
         path.symlink_to(f"/usr/lib/systemd/system/{unit}")
 
-    def referenced(self, unit, retired):
-        return bool((self.consumers.get(unit, set()) - set(retired)) & self.running)
+    def query(self, *args):
+        if "--property=ActiveState" in args:
+            return super().query(*args)
+        unit = self.aliases.get(args[-1], args[-1])
+        properties = next(arg.split("=", 1)[1].split(",") for arg in args if arg.startswith("--property="))
+        values = {"Id": unit, **{
+            key: " ".join(self.relations.get(unit, {}).get(key, set()))
+            for key in self.stop_relations + self.keep_relations
+        }}
+        values["RequiredBy"] = " ".join(self.consumers.get(unit, set()))
+        return "\n".join(f"{key}={values[key]}" for key in properties)
+
+    def effects(self, units):
+        pending, seen, result = list(units), set(), {}
+        while pending:
+            unit = pending.pop()
+            if unit in seen:
+                continue
+            seen.add(unit)
+            result[f"multi-user.target.wants/{unit}"] = f"/usr/lib/systemd/system/{unit}"
+            for alias in self.install_aliases.get(unit, []):
+                result[alias] = f"/usr/lib/systemd/system/{unit}"
+            pending.extend(self.also.get(unit, set()))
+        return result
+
+    def enable_plan(self, units, owned):
+        actual = self.links()
+        return {name: target for name, target in self.effects(units).items()
+                if name not in actual or actual[name] == owned.get(name)}
 
     def change(self, *args):
         self.actions.append(args)
         if args[0] == "enable":
-            unit = args[-1]
-            self.link(unit)
-            if unit == "avahi-daemon.service" and not self.links(["avahi-daemon.socket"]):
-                self.link("avahi-daemon.socket")
+            for name, target in self.effects(args[args.index("--") + 1:]).items():
+                path = self.directory / name
+                path.parent.mkdir(exist_ok=True)
+                if not path.is_symlink():
+                    path.symlink_to(target)
         # A failure can occur after side effects, as with an interrupted enable.
         if self.fail == args[0]:
             raise RuntimeError("injected failure")
@@ -57,7 +89,8 @@ class FakeSystemd(helper.Systemd):
         elif args[0] == "stop":
             stopped = set(args[2:])
             while True:
-                dependents = set().union(*(self.consumers.get(unit, set()) for unit in stopped))
+                dependents = set().union(*(self.relationships(unit)[1] for unit in stopped))
+                dependents = {self.aliases.get(unit, unit) for unit in dependents}
                 if dependents <= stopped:
                     break
                 stopped |= dependents
@@ -83,7 +116,8 @@ class QueryTest(unittest.TestCase):
                 self.assertEqual(helper.Systemd().active("host.service"), state not in {"inactive", "failed"})
 
     def test_consumer_query_failure_is_not_inactivity(self):
-        results = [CompletedProcess([], 0, "foreign.service", ""), CompletedProcess([], 1, "", "bus unavailable")]
+        properties = "Id=owned.socket\n" + "\n".join(f"{key}=" + ("foreign.service" if key == "RequiredBy" else "") for key in helper.Systemd.stop_relations + helper.Systemd.keep_relations)
+        results = [CompletedProcess([], 0, properties, ""), CompletedProcess([], 1, "", "bus unavailable")]
         with patch.object(helper.subprocess, "run", side_effect=results):
             with self.assertRaisesRegex(RuntimeError, "bus unavailable"):
                 helper.Systemd().referenced("owned.socket", [])
@@ -190,6 +224,21 @@ class UnitsTest(unittest.TestCase):
         self.apply([])
         self.assertFalse(self.system.links(["cups.socket"]))
 
+    def test_migration_preserves_only_recorded_ownership(self):
+        self.system.link("owned.service")
+        recorded = self.system.links()
+        self.system.link("owned.service", "unrecorded.service")
+        self.system.running.add("owned.service")
+        self.state.write_text(json.dumps({
+            "version": 1, "owners": {"alice": ["owned.service"]}, "reload": False,
+            "units": {"owned.service": {"enabled": "disabled", "active": False, "links": recorded}},
+            "pending": None,
+        }))
+        self.apply([])
+        self.assertEqual(json.loads(self.state.read_text())["version"], 2)
+        self.assertEqual(set(self.system.links()), {"multi-user.target.wants/unrecorded.service"})
+        self.assertTrue(self.system.active("owned.service"))
+
     def test_failed_stop_and_reload_are_retryable(self):
         for phase in ["daemon-reload", "stop"]:
             with self.subTest(phase=phase):
@@ -266,6 +315,124 @@ class UnitsTest(unittest.TestCase):
         self.apply([])
         self.assertFalse(self.system.running)
         self.assertEqual(self.system.actions[-1], ("stop", "--", *units))
+
+    def test_implicit_alias_effects_and_shared_parents(self):
+        self.system.also = {"network.service": {"dispatcher.service"},
+                            "other.service": {"dispatcher.service"}}
+        self.system.install_aliases = {"dispatcher.service": ["dbus-dispatcher.service"]}
+        self.apply(["network.service"])
+        self.assertFalse(self.system.active("dispatcher.service"))
+        self.assertIn("dbus-dispatcher.service", json.loads(self.state.read_text())["links"])
+        self.apply(["other.service"], owner="bob")
+        self.apply([])
+        self.assertIn("dbus-dispatcher.service", self.system.links())
+        self.apply([], owner="bob")
+        self.assertFalse(self.system.links())
+
+    def test_implicit_to_explicit_and_back(self):
+        self.apply(["avahi-daemon.service"])
+        self.apply(["avahi-daemon.socket"], owner="bob")
+        self.apply([])
+        self.assertTrue(self.system.links(["avahi-daemon.socket"]))
+        self.apply([], owner="bob")
+        self.assertFalse(self.system.links())
+        self.assertFalse(self.system.running)
+
+    def test_preexisting_implicit_alias_and_modified_owned_alias(self):
+        self.system.also = {"network.service": {"dispatcher.service"}}
+        self.system.install_aliases = {"dispatcher.service": ["dbus-dispatcher.service"]}
+        alias = self.system.directory / "dbus-dispatcher.service"
+        alias.symlink_to("/usr/lib/systemd/system/dispatcher.service")
+        self.apply(["network.service"])
+        self.apply([])
+        self.assertTrue(alias.is_symlink())
+        alias.unlink()
+        self.apply(["network.service"])
+        alias.unlink()
+        alias.symlink_to("/administrator/dispatcher.service")
+        self.apply([])
+        self.assertEqual(os.readlink(alias), "/administrator/dispatcher.service")
+
+    def test_all_stop_relations_and_inactive_intermediates(self):
+        for relation in self.system.stop_relations:
+            for intermediate in [False, True]:
+                with self.subTest(relation=relation, intermediate=intermediate):
+                    self.apply(["owned.service"])
+                    self.system.running.add("foreign.service")
+                    if intermediate:
+                        self.system.relations = {
+                            "owned.service": {relation: {"idle.service"}},
+                            "idle.service": {"ConsistsOf": {"foreign.service"}},
+                        }
+                    else:
+                        self.system.relations = {"owned.service": {relation: {"foreign.service"}}}
+                    # RequiredBy uses the legacy fixture mapping.
+                    if relation == "RequiredBy":
+                        self.system.consumers = {"owned.service": {"idle.service" if intermediate else "foreign.service"}}
+                    self.apply([])
+                    self.assertIn("owned.service", self.system.running)
+                    self.assertIn("foreign.service", self.system.running)
+                    self.system.running.clear()
+                    self.system.relations.clear()
+                    self.system.consumers.clear()
+
+    def test_aliases_do_not_turn_owned_cycles_into_foreign_consumers(self):
+        self.system.aliases = {"alias.service": "b.service"}
+        self.system.relations = {"a.service": {"ConsistsOf": {"alias.service"}},
+                                 "b.service": {"ConsistsOf": {"a.service"}}}
+        self.apply(["a.service", "b.service"])
+        self.apply([])
+        self.assertFalse(self.system.running)
+
+    def test_planning_failure_has_no_live_effects(self):
+        self.apply(["owned.service"])
+        before = self.state.read_bytes(), self.system.links(), list(self.system.actions)
+        with patch.object(self.system, "enable_plan", side_effect=RuntimeError("namespace unavailable")):
+            with self.assertRaisesRegex(RuntimeError, "namespace unavailable"):
+                self.apply(["other.service"])
+        self.assertEqual(before, (self.state.read_bytes(), self.system.links(), self.system.actions))
+
+    def test_plan_rejects_directory_symlinks_before_subprocess(self):
+        outside = self.root / "outside"
+        outside.mkdir()
+        (self.system.directory / "multi-user.target.wants").symlink_to(outside)
+        with patch.object(helper.subprocess, "run") as run:
+            with self.assertRaisesRegex(RuntimeError, "symlinked systemd directory"):
+                helper.Systemd.enable_plan(self.system, ["owned.service"], {})
+            run.assert_not_called()
+
+    def test_failed_enable_records_all_implicit_effects(self):
+        self.system.fail = "enable"
+        with self.assertRaises(RuntimeError):
+            self.apply(["avahi-daemon.service"])
+        self.system.fail = None
+        self.apply([])
+        self.assertFalse(self.system.links())
+
+    def test_implicit_activity_alone_is_not_runtime_ownership(self):
+        self.apply(["avahi-daemon.service"])
+        self.system.running.add("avahi-daemon.socket")
+        self.apply([])
+        self.assertTrue(self.system.active("avahi-daemon.socket"))
+        self.assertFalse(self.system.links())
+
+    def test_pending_plan_recovers_only_expected_effects(self):
+        self.apply(["avahi-daemon.service"])
+        state = json.loads(self.state.read_text())
+        state["pending"], state["links"] = state["links"], {}
+        state["reload"] = True
+        self.state.write_text(json.dumps(state))
+        self.system.link("foreign.service")
+        self.apply([])
+        self.assertEqual(set(self.system.links()), {"multi-user.target.wants/foreign.service"})
+
+    def test_vendor_install_changes_retire_obsolete_effects(self):
+        self.apply(["avahi-daemon.service"])
+        self.system.also = {}
+        self.apply(["avahi-daemon.service"])
+        self.assertFalse(self.system.links(["avahi-daemon.socket"]))
+        self.assertTrue(self.system.active("avahi-daemon.service"))
+
 
 
 unittest.main()

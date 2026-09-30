@@ -20,6 +20,10 @@ in
     session = settingsOption "Declarative DMS session state.";
     clipboardSettings = settingsOption "Declarative DMS clipboard settings.";
     enableCalendarEvents = lib.mkEnableOption "DMS calendar dependencies";
-    systemd.enable = lib.mkEnableOption "DMS user service";
+    systemd.enable = lib.mkOption {
+      type = lib.types.bool;
+      default = true;
+      description = "Enable the DMS user service.";
+    };
   };
 }

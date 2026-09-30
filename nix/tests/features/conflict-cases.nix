@@ -2,6 +2,12 @@
 let
   conflictCases = [
     {
+      name = "external-manager-default-conflicts-with-selected-stack";
+      features.niri = true;
+      systemConfig.services.displayManager.gdm.enable = lib.mkDefault true;
+      message = "cannot both own the login screen";
+    }
+    {
       name = "two-login-managers";
       features = {
         gnome = true;

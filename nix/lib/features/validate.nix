@@ -125,6 +125,12 @@ let
         name:
         fields "choices.${name}" [ "providers" "empty" ] {
           platforms = platformList;
+          source =
+            value:
+            fields "source" [ "feature" "option" ] {
+              feature = identifier;
+              option = identifier;
+            } value == [ ];
           providers =
             v:
             builtins.isAttrs v
@@ -137,7 +143,8 @@ let
             builtins.isAttrs value
             && lib.all (
               session:
-              fields "session" [ "loginManager" "command" ] {
+              fields "session" [ "loginManager" "command" "activation" ] {
+                activation = v: strings v && v != [ ];
                 loginManager = builtins.isString;
                 command = value: value == null || builtins.isString value;
               } session == [ ]
@@ -198,6 +205,12 @@ let
             key: features: lib.concatMap (reference "choices.${name}.providers.${key}") (lib.toList features)
           ) rule.providers
         )
+        ++ lib.optionals (rule ? source) (
+          reference "choices.${name}.source" rule.source.feature
+          ++ lib.optional (
+            !(builtins.hasAttr rule.source.option (catalog.features.${rule.source.feature}.options or { }))
+          ) "choices.${name}.source must reference a declared feature option."
+        )
         ++ lib.optional (
           rule.empty != null && !(builtins.elem rule.empty (rule.alternatives or [ ]))
         ) "choices.${name}.empty must be null or an alternative."
@@ -212,13 +225,39 @@ let
         ) "choices.${name}.sessions must describe every desktop provider exactly once."
       ) catalog.choices
     );
+  sourcedChoices = lib.filterAttrs (_: rule: rule ? source) catalog.choices;
+  choiceDependencies =
+    key:
+    lib.concatMap (
+      rule:
+      lib.optional (lib.any (features: builtins.elem key (lib.toList features)) (
+        builtins.attrValues rule.providers
+      )) rule.source.feature
+    ) (builtins.attrValues sourcedChoices);
+  choiceErrors = lib.concatLists (
+    lib.mapAttrsToList (
+      name: rule:
+      let
+        owner = catalog.features.${rule.source.feature};
+        spec = owner.options.${rule.source.option};
+      in
+      lib.optional (
+        spec.default != null
+        || !(spec.type.check null)
+        || !(lib.all spec.type.check (builtins.attrNames rule.providers))
+      ) "choices.${name}.source must accept null and every provider, with a null default."
+
+    ) sourcedChoices
+  );
   visit =
     trail: key:
     if builtins.elem key trail then
       [ "dependency cycle: ${lib.concatStringsSep " -> " (trail ++ [ key ])}." ]
     else
       lib.concatMap (visit (trail ++ [ key ])) (
-        (catalog.features.${key}.requires or [ ]) ++ (catalog.features.${key}.defaultFrom or [ ])
+        (catalog.features.${key}.requires or [ ])
+        ++ (catalog.features.${key}.defaultFrom or [ ])
+        ++ choiceDependencies key
       );
   inputPaths = lib.concatLists (
     lib.mapAttrsToList (
@@ -288,5 +327,5 @@ map (message: "Feature catalog: ${message}") (
   else if referenceErrors != [ ] then
     referenceErrors
   else
-    pathErrors ++ dependencyErrors ++ integrationErrors ++ portErrors
+    pathErrors ++ choiceErrors ++ dependencyErrors ++ integrationErrors ++ portErrors
 )

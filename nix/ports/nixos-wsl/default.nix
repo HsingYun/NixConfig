@@ -2,12 +2,14 @@
   contracts = [
     "home.gpg"
     "system.printing"
+    "system.avahi"
+    "system.firmware"
     "system.smartcard"
     "system.chrome"
   ];
   managesSystem = true;
+  requiresHardwareConfig = false;
   family = "linux";
-  desktop = false;
   upstreamNixos = true;
   output = "nixosConfigurations";
   builder = "nixos";

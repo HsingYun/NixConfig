@@ -4,7 +4,7 @@
 
 面向 NixOS、WSL、macOS 和 Linux 的声明式系统与用户配置。各机器共享基础配置，独立选择功能并设置差异配置。
 
-- NixOS / Arch 桌面：GNOME 或 Niri + DankMaterialShell；Arch 原生包由 pacman/AUR 提供，配置由 Home Manager 管理。
+- NixOS / Arch 桌面：GNOME 或 Niri + DMS/Noctalia；Arch 原生包由 pacman/AUR 提供，配置由 Home Manager 管理。
 - 应用配置：Git、Zsh、GPG、Ghostty 和 mpv。
 - 开发工具（`devel`）：Clang/LLVM、GCC、GDB/LLDB、构建工具、Python、Go、Node.js/TypeScript、OpenJDK、Rust/Cargo，以及 Git LFS、Protobuf、Abseil、coreutils 和 Telnet。
 - 中文环境：简体中文 locale、CJK 字体、Maple Mono、Fcitx5 + Rime 雾凇拼音。
@@ -18,7 +18,7 @@
 | `darwin` | 通过 nix-darwin 与 Home Manager 管理 macOS |
 | `arch` | 通过 Home Manager 与 Arch 原生适配器管理用户环境 |
 
-`platform = "arch"` 选择 Arch 适配，`system = "x86_64-linux"` 仍表示 Nix 的 CPU/操作系统目标。平台定义统一位于 [nix/lib/platforms/default.nix](nix/lib/platforms/default.nix)，不再接受旧的 `platform = "linux"` 名称。
+`platform = "arch"` 选择 Arch 适配，`system = "x86_64-linux"` 仍表示 Nix 的 CPU/操作系统目标。平台定义统一位于 [nix/lib/platforms/default.nix](nix/lib/platforms/default.nix)。
 
 共享体验定义于 [nix/lib/hosts/profiles.nix](nix/lib/hosts/profiles.nix)，各主机只保留桌面选择和硬件差异：
 
@@ -31,6 +31,8 @@
 | NixOS-WSL | 共享命令行、开发和 GPG/智能卡，使用终端 pinentry；不启用桌面和中文输入法 |
 
 `linuxDesktop` 默认开启 Niri + DMS，配合 greetd。多套 GUI feature 可以共存，默认优先 Niri/greetd，其次 GNOME/GDM；设置 `preferences.desktop = "gnome";` 即可让 GNOME/GDM 整套成为默认，不会关闭其他已开启的桌面。如果要完全替换桌面，PC / Arch 可以关闭 Niri/DMS 后开启 GNOME；Pad 可以关闭 GNOME/屏幕旋转后开启 Niri/DMS。preferences 不负责启停 feature。
+
+Noctalia 在所有默认主机中关闭。Niri 开启后，设置 `features.desktop.niri.shell = "noctalia";` 会自动开启 Noctalia；`"dms"` 同样级联开启 DMS。两套软件及配置可以共存，但只自动启动选中的 Shell。Niri 为优先桌面时，greeter 随选中的 Shell 配套。`shell = null` 从已开启的 Shell 中选择，DMS 优先。详见 [Noctalia 配置](docs/features.md#noctalia)。
 
 ## 使用
 
@@ -74,7 +76,7 @@ features = {
 
 功能默认值与平台支持见[功能目录](nix/lib/features/catalog.nix)，仅需声明与默认值不同的开关。关闭功能会撤去本仓库的对应定制，不阻止其他模块提供同一能力，也不删除应用数据。
 
-`features` 使用层级结构，每个功能通过 `.enable` 控制，功能参数放在同一节点下。桌面功能位于 `features.desktop`，包括 `gnome`、`niri`、`dms`、`keyring`、`launcher`、`wallpaper`、`printing`、`firmware` 和 `screenRotate`；GPG SSH 支持位于 `features.gpg.sshSupport`。分组节点没有总开关。共享默认值与主机配置按字段合并，显式的 `false` 和空列表会覆盖共享值。旧的 `features.niri = true` 等写法已迁移为 `features.desktop.niri.enable = true`。
+`features` 使用层级结构，每个功能通过 `.enable` 控制，功能参数放在同一节点下。桌面功能位于 `features.desktop`，包括 `gnome`、`niri`、`dms`、`keyring`、`launcher`、`wallpaper`、`printing`、`firmware` 和 `screenRotate`；GPG SSH 支持位于 `features.gpg.sshSupport`。分组节点没有总开关。共享默认值与主机配置按字段合并，显式的 `false` 和空列表会覆盖共享值。
 
 例如，启用 Chrome 并清空默认扩展列表：
 
@@ -103,7 +105,7 @@ features = {
 
 NixOS/WSL 默认使用 Nix；Darwin 默认优先 Homebrew，缺少可用实现或不能满足功能能力时回退 Nix。Arch 默认使用 `pacman`，AUR 包由 yay 安装。`apt` 等尚未实现的后端会明确报错。选择依据来自软件目录，不依赖本机安装状态。
 
-Feature 同时声明配置与软件需求，依赖自动合并去重。例如 Ghostty 需要 Maple Mono；关闭 Ghostty 后，中文功能仍可保留同一字体。Niri 通过 `xdg-terminal-exec` 启动终端，不再隐式选择 Ghostty。
+Feature 同时声明配置与软件需求，依赖自动合并去重。例如 Ghostty 需要 Maple Mono；关闭 Ghostty 后，中文功能仍可保留同一字体。Niri 通过 `xdg-terminal-exec` 启动用户选择的终端。
 
 功能参数和示例统一见英文文档 [Configuring features](docs/features.md)。
 软件归属、包覆盖、可写设置和清理行为见 [Software architecture](docs/software.md)；

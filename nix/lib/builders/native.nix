@@ -53,7 +53,7 @@ let
           };
           config = {
             hostSystem = systemEvaluation.config;
-            _module.args.hostSystem = systemEvaluation.config;
+            _module.args.osConfig = systemEvaluation.config;
             software.externalPlan = systemEvaluation.config.software.plan;
             software.hostContext = {
               inherit (systemEvaluation.config.software) platform packageManager nativePrefix;

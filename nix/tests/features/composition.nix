@@ -105,6 +105,7 @@ let
     case.name;
 in
 {
+  finalState = import ./final-state.nix { inherit inputs; };
   profiles = import ./profiles.nix { inherit lib; };
   platformContracts = import ../ports/platform-contracts.nix { inherit lib mkHost; };
   combinations = map verify cases;

@@ -1,6 +1,5 @@
 {
   lib,
-  software,
   ...
 }:
 
@@ -13,7 +12,6 @@
   gtk = {
     enable = lib.mkDefault true;
     iconTheme = {
-      package = lib.mkDefault software.tela.package;
       name = lib.mkDefault "Tela";
     };
   };

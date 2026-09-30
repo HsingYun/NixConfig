@@ -27,8 +27,14 @@ lib.foldl'
     ) catalog profile
   )
   {
+    accountsservice = {
+      pacman = pacman "accountsservice";
+    };
     avahi = {
       pacman = pacman "avahi";
+    };
+    bubblewrap = {
+      pacman = pacman "bubblewrap";
     };
     bluez = {
       pacman = pacman "bluez";
@@ -112,7 +118,6 @@ lib.foldl'
         ++ lib.optionals pkgs.stdenv.hostPlatform.isLinux [ "systemd-service" ];
       };
       homebrew = cask "ghostty";
-      dependencies = [ "maple-mono" ];
       pacman = pacman "ghostty";
     };
     gnome-color-manager = {
@@ -252,6 +257,14 @@ lib.foldl'
     nh = {
       nix = nix pkgs.nh;
     };
+    noctalia-greeter = {
+      nix = nix pkgs.noctalia-greeter;
+      pacman = aur "noctalia-greeter";
+    };
+    noctalia = {
+      nix = nix pkgs.noctalia;
+      pacman = pacman "noctalia";
+    };
     niri = {
       pacman = pacman "niri";
     };
@@ -343,7 +356,6 @@ lib.foldl'
     };
     vscode = {
       nix = nix pkgs.vscode;
-      dependencies = [ "maple-mono" ];
       pacman = aur "visual-studio-code-bin";
       homebrew = cask "visual-studio-code";
     };

@@ -24,7 +24,6 @@ in
     # Let the official Home Manager module maintain Nix runtime integration.
     services.gnome-keyring = lib.mkIf usesNixPackage {
       enable = lib.mkDefault true;
-      package = keyring.package;
       components = [
         "pkcs11"
         "secrets"

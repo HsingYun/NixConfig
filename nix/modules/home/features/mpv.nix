@@ -14,35 +14,18 @@ let
 in
 {
   software = {
-    bindings.mpv = {
-      enableOption = [
-        "programs"
-        "mpv"
-        "enable"
-      ];
-      packageOption = [
-        "programs"
-        "mpv"
-        "package"
-      ];
-      runtimePackageOption = [
-        "programs"
-        "mpv"
-        "finalPackage"
-      ];
-    };
     requirements = {
       # Nix uses HM's wrapper; Arch loads scripts from the user configuration.
       mpv = {
-        installNix = false;
+        scopes = [ ];
       };
       mpv-modernx = {
         capabilities = [ "store-package" ];
-        installNix = !usesNixPackage;
+        scopes = lib.optionals (!usesNixPackage) [ "home" ];
       };
       mpv-thumbfast = {
         capabilities = [ "store-package" ];
-        installNix = !usesNixPackage;
+        scopes = lib.optionals (!usesNixPackage) [ "home" ];
       };
       source-han-sans = { };
     };
@@ -56,8 +39,6 @@ in
     )
   );
   programs.mpv = {
-    package = lib.mkDefault software.mpv.package;
-
     enable = lib.mkDefault true;
     defaultProfiles = lib.mkDefault [ "high-quality" ];
     scripts = lib.mkDefault (lib.optionals usesNixPackage scripts);

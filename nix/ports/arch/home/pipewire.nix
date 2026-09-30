@@ -1,7 +1,7 @@
 {
   config,
   lib,
-  hostSystem,
+  osConfig,
   ...
 }:
 let
@@ -10,14 +10,14 @@ let
     "pipewire.socket" = [ "sockets.target" ];
     "wireplumber.service" = [ "pipewire.service" ];
   }
-  // lib.optionalAttrs hostSystem.services.pipewire.pulse.enable {
+  // lib.optionalAttrs osConfig.services.pipewire.pulse.enable {
     "pipewire-pulse.service" = [ "default.target" ];
     "pipewire-pulse.socket" = [ "sockets.target" ];
   };
   link = name: config.lib.file.mkOutOfStoreSymlink "/usr/lib/systemd/user/${name}";
 in
 {
-  config = lib.mkIf (hostSystem.services.pipewire.enable) {
+  config = lib.mkIf (osConfig.services.pipewire.enable) {
     systemd.user.startServices = lib.mkDefault true;
     xdg.configFile =
       lib.concatMapAttrs (

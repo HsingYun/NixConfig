@@ -18,7 +18,7 @@ Declarative system and user configurations for NixOS, WSL, macOS, and Linux. Hos
 | `darwin` | macOS through nix-darwin and Home Manager |
 | `arch` | Arch user environment through Home Manager and native adapters |
 
-`platform = "arch"` selects Arch integration; `system = "x86_64-linux"` still selects the Nix CPU/OS target. Platform definitions live in [nix/lib/platforms/default.nix](nix/lib/platforms/default.nix). The old `platform = "linux"` name is not supported.
+`platform = "arch"` selects Arch integration; `system = "x86_64-linux"` still selects the Nix CPU/OS target. Platform definitions live in [nix/lib/platforms/default.nix](nix/lib/platforms/default.nix).
 
 Shared experience is defined in [nix/lib/hosts/profiles.nix](nix/lib/hosts/profiles.nix):
 
@@ -31,6 +31,8 @@ Shared experience is defined in [nix/lib/hosts/profiles.nix](nix/lib/hosts/profi
 | NixOS-WSL | Shared CLI/development/GPG/smart-card tools, terminal pinentry; no desktop or Chinese IME |
 
 The `linuxDesktop` preset enables Niri + DMS, with greetd. Multiple GUI features can coexist: Niri/greetd takes priority over GNOME/GDM, and `preferences.desktop = "gnome";` selects the GNOME/GDM pair instead. Preferences do not enable or disable features. To replace a desktop entirely, disable its feature and dependents: PC/Arch can disable Niri/DMS and enable GNOME; Pad can disable GNOME/screen rotation and enable Niri/DMS.
+
+Noctalia is disabled on all default hosts. For an enabled Niri feature, `features.desktop.niri.shell = "noctalia";` automatically enables Noctalia; `"dms"` does the same for DMS. Both packages and configurations can coexist, but only the selected shell autostarts. When Niri is the preferred desktop, its greeter follows the selected shell. With `shell = null`, selection uses already enabled shells, preferring DMS. See [Noctalia configuration](docs/features.md#noctalia).
 
 ## Usage
 
@@ -74,7 +76,7 @@ features = {
 
 Feature defaults and platform support are defined in the [feature catalog](nix/lib/features/catalog.nix). Declare only changes to the defaults. Disabling a feature removes this repository's customization without blocking other modules or deleting application data.
 
-`features` is hierarchical: each feature has an `.enable` switch with its settings alongside it. Desktop features are grouped under `features.desktop`, including `gnome`, `niri`, `dms`, `keyring`, `launcher`, `wallpaper`, `printing`, `firmware`, and `screenRotate`; GPG SSH support is under `features.gpg.sshSupport`. Groups have no master switch. Shared defaults and host overrides merge by field; explicit `false` and empty lists replace inherited values. Boolean declarations such as `features.niri = true` have been migrated to `features.desktop.niri.enable = true`.
+`features` is hierarchical: each feature has an `.enable` switch with its settings alongside it. Desktop features are grouped under `features.desktop`, including `gnome`, `niri`, `dms`, `noctalia`, `keyring`, `launcher`, `wallpaper`, `printing`, `firmware`, and `screenRotate`; GPG SSH support is under `features.gpg.sshSupport`. Groups have no master switch. Shared defaults and host overrides merge by field; explicit `false` and empty lists replace inherited values.
 
 For example, enable Chrome with no default extensions:
 

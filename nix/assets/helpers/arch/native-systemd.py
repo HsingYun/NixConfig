@@ -10,6 +10,8 @@ import os
 from pathlib import Path
 import sys
 import re
+import shutil
+import tempfile
 import subprocess
 
 # Keep shared filesystem safety in one implementation across ports.
@@ -21,6 +23,15 @@ from safe_files import read, write, lock
 UNIT = re.compile(r"[A-Za-z0-9_@.+:-]+\.(service|socket|timer|path)\Z")
 
 
+def link_unit(name, target):
+    """Identify an installed instance even when its file is a template."""
+    unit = Path(target).name
+    linked = Path(name).name
+    if "@." in unit and "@" in linked:
+        unit = unit.replace("@.", "@" + linked.split("@", 1)[1].rsplit(".", 1)[0] + ".", 1)
+    return unit
+
+
 def save(path, state):
     serialized = (json.dumps(state, sort_keys=True) + "\n").encode()
     if read(path) != serialized:
@@ -28,9 +39,12 @@ def save(path, state):
 
 
 class Systemd:
-    def __init__(self, command="/usr/bin/systemctl", directory="/etc/systemd/system"):
+    def __init__(self, command="/usr/bin/systemctl", directory="/etc/systemd/system",
+                 unshare="/usr/bin/unshare", mount="/usr/bin/mount"):
         self.command = command
         self.directory = Path(directory)
+        self.unshare = unshare
+        self.mount = mount
 
     def query(self, *args):
         result = subprocess.run([self.command, *args], text=True, capture_output=True)
@@ -58,15 +72,66 @@ class Systemd:
             return True
         raise RuntimeError(f"Cannot manage {unit}: unknown active state {state!r}")
 
-    def referenced(self, unit, retired):
-        # Re-evaluate the live reverse graph, rather than encoding dependencies
-        # from a particular package version. Foreign active consumers win.
-        consumers = self.query(
-            "show", "--value", "--property=RequiredBy", "--property=WantedBy",
-            "--property=BoundBy", "--property=UpheldBy", "--property=TriggeredBy",
-            "--", unit,
+    # These are systemd's live stop-propagation relations, not package metadata.
+    stop_relations = ("RequiredBy", "RequisiteOf", "BoundBy", "ConsistsOf", "PropagatesStopTo")
+    keep_relations = ("WantedBy", "UpheldBy", "TriggeredBy")
+
+    def relationships(self, unit):
+        properties = ("Id",) + self.stop_relations + self.keep_relations
+        values = dict(line.split("=", 1) for line in self.query(
+            "show", "--all", "--property=" + ",".join(properties), "--", unit,
+        ).splitlines())
+        if not all(name in values for name in properties) or not values["Id"]:
+            raise RuntimeError(f"Incomplete systemd dependency information for {unit}")
+        return (
+            values["Id"],
+            set(" ".join(values[name] for name in self.stop_relations).split()),
+            set(" ".join(values[name] for name in self.keep_relations).split()),
         )
-        return any(self.active(name) for name in set(consumers.split()) - set(retired))
+
+    def referenced(self, unit, retired):
+        allowed = {self.relationships(name)[0] for name in retired}
+        pending, visited = [unit], set()
+        while pending:
+            current, propagated, users = self.relationships(pending.pop())
+            if current in visited:
+                continue
+            visited.add(current)
+            for consumer in propagated | users:
+                canonical = self.relationships(consumer)[0]
+                if canonical not in allowed and self.active(canonical):
+                    return True
+            # An inactive intermediate unit can still propagate a stop job.
+            pending.extend(propagated - visited)
+        return False
+
+    def enable_plan(self, units, owned):
+        if not units:
+            return {}
+        if self.directory.resolve() != self.directory.absolute():
+            raise RuntimeError(f"Refusing symlinked systemd directory: {self.directory}")
+        for directory, children, _ in os.walk(self.directory, followlinks=False):
+            for child in children:
+                path = Path(directory) / child
+                if path.is_symlink():
+                    raise RuntimeError(f"Refusing symlinked systemd directory: {path}")
+        # Let the installed systemd interpret Also=, Alias=, templates and
+        # drop-ins. A private mount namespace keeps both PID 1 and host files
+        # untouched: systemctl installs its links in the disposable copy.
+        with tempfile.TemporaryDirectory(prefix="nixconfig-systemd-") as temporary:
+            shadow = Path(temporary) / "system"
+            shutil.copytree(self.directory, shadow, symlinks=True)
+            snapshot = Systemd(directory=shadow)
+            for name, target in owned.items():
+                snapshot.remove_link(name, target)
+            before = snapshot.links()
+            subprocess.run([
+                self.unshare, "--mount", "--propagation", "private", "--",
+                sys.executable, str(Path(__file__).with_name("systemd-enable-plan.py")),
+                self.mount, str(shadow), str(self.directory), self.command, *sorted(units),
+            ], check=True)
+            return {name: target for name, target in snapshot.links().items()
+                    if name not in before}
 
     def change(self, *args):
         subprocess.run([self.command, *args], check=True)
@@ -76,7 +141,7 @@ class Systemd:
         for directory, _, files in os.walk(self.directory, followlinks=False):
             for name in files:
                 path = Path(directory) / name
-                if path.is_symlink() and (units is None or path.resolve().name in units):
+                if path.is_symlink() and (units is None or link_unit(name, str(path.resolve())) in units):
                     result[str(path.relative_to(self.directory))] = os.readlink(path)
         return result
 
@@ -94,18 +159,21 @@ class Systemd:
 def reconcile(state_path, owner, desired, systemd, enable_only=()):
     raw = read(state_path)
     state = json.loads(raw) if raw is not None else {
-        "version": 1, "owners": {}, "units": {}, "pending": None, "reload": False
+        "version": 2, "owners": {}, "units": {}, "links": {}, "pending": None, "reload": False
     }
-    if state["version"] != 1:
+    if state["version"] not in {1, 2}:
         raise RuntimeError("Unsupported native-systemd state version")
 
     for units in state["owners"].values():
         if not isinstance(units, list) or not all(isinstance(u, str) and UNIT.fullmatch(u) for u in units):
             raise ValueError("Invalid native-systemd owner record")
+    link_records = [state.get("links", {}), state.get("pending") or {}]
     for unit, record in state["units"].items():
         if not UNIT.fullmatch(unit):
             raise ValueError("Invalid native-systemd unit record")
-        for name, target in record["links"].items():
+        link_records.append(record.get("links", {}))
+    for links in link_records:
+        for name, target in links.items():
             parts = Path(name).parts
             if not parts or Path(name).is_absolute() or ".." in parts or not isinstance(target, str):
                 raise ValueError("Invalid native-systemd link record")
@@ -113,19 +181,34 @@ def reconcile(state_path, owner, desired, systemd, enable_only=()):
     def persist():
         save(state_path, state)
 
+    # Recover the old journal before migrating its evidence. Unknown old
+    # effects are deliberately not adopted as our property.
+    if state["version"] == 1:
+        if state["pending"] is not None:
+            state["reload"] = True
+            for name, target in systemd.links(state["units"]).items():
+                if name not in state["pending"]:
+                    unit = link_unit(name, str((systemd.directory / name).resolve()))
+                    state["units"][unit]["links"][name] = target
+        state["links"] = {
+            name: target for record in state["units"].values()
+            for name, target in record.pop("links").items()
+        }
+        state["pending"] = None
+        state["version"] = 2
+
     def finish_enable():
-        before = state["pending"]
-        if before is None:
+        expected = state["pending"]
+        if expected is None:
             return
-        for name, target in systemd.links(state["units"]).items():
-            if name not in before:
-                unit = (systemd.directory / name).resolve().name
-                state["units"][unit]["links"][name] = target
+        actual = systemd.links()
+        for name, target in expected.items():
+            if actual.get(name) == target:
+                state["links"][name] = target
         state["pending"] = None
         persist()
 
-    # The journal precedes enable, so a process killed after creating links can
-    # retry without adopting those links as pre-existing host configuration.
+    # Claim only planned, previously absent links, including implicit peers.
     finish_enable()
     state.setdefault("starts", {name: list(units) for name, units in state["owners"].items()})
     start_units = sorted(set(desired))
@@ -144,42 +227,54 @@ def reconcile(state_path, owner, desired, systemd, enable_only=()):
             if enabled not in {"enabled", "enabled-runtime", "disabled", "indirect", "linked", "linked-runtime"}:
                 raise RuntimeError(f"Cannot manage {unit}: unit state is {enabled!r}; no automatic unmasking")
             state["units"][unit] = {
-                "enabled": enabled, "active": systemd.active(unit), "links": {}
+                "enabled": enabled, "active": systemd.active(unit)
             }
-    # Snapshot every unit before enabling any: [Install] Also= may enable peers.
+    # Runtime ownership belongs only to explicit requests. Enablement effects
+    # have independent ownership, shared by the union of all users' plans.
+    plan = systemd.enable_plan(wanted, state["links"])
+    peers = {link_unit(name, target) for name, target in plan.items()}
+    peers = {unit for unit in peers if UNIT.fullmatch(unit)}
+    for unit in sorted(peers - set(state["units"])):
+        state["units"][unit] = {
+            "enabled": systemd.enabled(unit), "active": systemd.active(unit), "explicit": False,
+        }
+    for unit in wanted:
+        state["units"][unit]["explicit"] = True
     persist()
-    for unit in sorted(wanted):
-        if systemd.enabled(unit) != "enabled":
-            state["pending"] = systemd.links(state["units"])
-            persist()
-            try:
-                systemd.change("enable", "--", unit)
-            finally:
-                finish_enable()
-        if unit in start_wanted and not systemd.active(unit):
-            systemd.change("start", "--", unit)
-
-    retired = sorted(set(state["units"]) - wanted)
-    for unit in retired:
-        for name, target in state["units"][unit]["links"].items():
-            target_unit = Path(target).name
-            if target_unit in wanted:
-                # A formerly implicit peer is now explicitly required elsewhere.
-                state["units"][target_unit]["links"][name] = target
-                continue
-            # Mark reload before unlinking so interrupted cleanup is retryable.
+    for name, target in list(state["links"].items()):
+        if plan.get(name) != target:
             state["reload"] = True
             persist()
             systemd.remove_link(name, target)
+            del state["links"][name]
+            persist()
+
+    actual = systemd.links()
+    missing = {name: target for name, target in plan.items() if name not in actual}
+    if missing or any(systemd.enabled(unit) != "enabled" for unit in wanted):
+        state["pending"] = missing
+        # An interrupted --no-reload enable must still reload on its next run.
+        state["reload"] = True
+        persist()
+        try:
+            systemd.change("enable", "--no-reload", "--", *sorted(wanted))
+        finally:
+            finish_enable()
     if state["reload"]:
         systemd.change("daemon-reload")
         state["reload"] = False
         persist()
+    for unit in sorted(start_wanted):
+        if not systemd.active(unit):
+            systemd.change("start", "--", unit)
+
+    retired = sorted(set(state["units"]) - wanted - peers)
     # Retired units may still belong to the host. Only ignore consumers that
     # will actually stop, and propagate protection through the entire graph.
     stoppable = {
         unit for unit in retired
-        if not state["units"][unit]["active"]
+        if state["units"][unit].get("explicit", True)
+        and not state["units"][unit]["active"]
         and state["units"][unit]["enabled"] not in {"enabled", "enabled-runtime"}
         and not systemd.links([unit]) and systemd.active(unit)
     }

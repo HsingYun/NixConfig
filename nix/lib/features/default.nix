@@ -18,8 +18,8 @@ let
       preferences
       ;
   };
-  desktopSession = import ./desktop-session.nix {
-    inherit (resolved) selected enabled;
+  desktopDefaults = import ./desktop-defaults.nix {
+    inherit (resolved) selected;
     sessions = catalog.choices.desktop.sessions;
   };
   active = lib.filterAttrs (key: _: resolved.enabled.${key}) catalog.features;
@@ -66,13 +66,20 @@ assert lib.assertMsg (resolved.errors == [ ]) (lib.concatStringsSep "\n" resolve
   homeModules = lib.concatMap (entry: entry.homeModules or [ ]) entries ++ [
     {
       features = resolved.config;
-      _module.args = { inherit desktopSession; };
       software.requirements = lib.genAttrs (lib.unique (
         lib.concatMap (entry: entry.software or [ ]) entries
       )) (_: { });
     }
 
     (contractCheck "home")
+    (lib.optionalAttrs
+      (lib.any (
+        name: builtins.elem "system.${name}" port.contracts && builtins.elem "home.${name}" port.contracts
+      ) (builtins.attrNames (import ./desktop-shells.nix)))
+      {
+        imports = [ (import ../../modules/home/shared/desktop-shells.nix { inherit (port) contracts; }) ];
+      }
+    )
     dependencyChecks.homeModule
     (import ../../modules/home/integrations/user-resources.nix {
       inherit (resolved) enabled;
@@ -84,13 +91,13 @@ assert lib.assertMsg (resolved.errors == [ ]) (lib.concatStringsSep "\n" resolve
     )
     ++ [
       dependencyChecks.systemModule
-      { _module.args = { inherit desktopSession; }; }
       (contractCheck "system")
     ]
-    ++ lib.optional (port ? systemPolicy) (
-      import port.systemPolicy {
-        inherit desktopSession;
-        inherit (resolved) enabled;
+    ++ lib.optional (builtins.elem "system.session" port.contracts) (
+      import ../../modules/system/shared/desktop-policy.nix {
+        inherit desktopDefaults;
+        inherit (port) contracts;
       }
-    );
+    )
+    ++ lib.optional (port ? systemPolicy) (import port.systemPolicy { inherit (resolved) enabled; });
 }

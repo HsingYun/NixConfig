@@ -2,16 +2,29 @@
   contracts = [
     "home.gpg"
     "home.dms"
+    "home.noctalia"
+    "system.noctalia"
+    "system.noctalia-greeter"
     "home.niri"
     "home.input-method"
     "system.printing"
+    "system.avahi"
+    "system.firmware"
     "system.smartcard"
     "system.chrome"
-    "system.desktop"
+    "system.gnome"
+    "system.niri"
+    "system.dms"
+    "system.session"
+    "system.network"
+    "system.audio"
+    "system.bluetooth"
+    "system.power"
+    "system.storage"
   ];
   managesSystem = true;
+  requiresHardwareConfig = true;
   family = "linux";
-  desktop = true;
   upstreamNixos = true;
   output = "nixosConfigurations";
   builder = "nixos";
@@ -22,7 +35,9 @@
   homeModules = [
     ./home/keyring.nix
     ./home/launcher.nix
+    ./home/capabilities/niri.nix
     ./home/capabilities/dms.nix
+    ../../modules/home/software/noctalia-consumer.nix
   ];
   features = {
     network.systemModules = [ ./system/network.nix ];
@@ -35,12 +50,12 @@
       systemModules = [ ./system/chinese.nix ];
       homeModules = [ ./home/chinese.nix ];
     };
+    noctalia.systemModules = [ ./system/noctalia.nix ];
     dms = {
       homeModules = [ ./home/dms.nix ];
       systemModules = [ ./system/dms.nix ];
     };
     niri = {
-      homeModules = [ ./home/niri.nix ];
       systemModules = [ ./system/niri.nix ];
     };
     gnome = {

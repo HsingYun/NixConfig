@@ -8,8 +8,10 @@ let
 in
 {
   imports = [
-    ../../../../contracts/system/services/desktop.nix
-    ../../../../contracts/system/services/display-manager.nix
+    ../../../../contracts/system/services/gnome.nix
+    ../../../../contracts/system/services/niri.nix
+    ../../../../contracts/system/services/dms.nix
+    ../../../../contracts/system/services/session.nix
   ];
   config = lib.mkMerge [
     (lib.mkIf cfg.services.desktopManager.gnome.enable {
@@ -50,12 +52,12 @@ in
       );
       assertions = [
         {
-          assertion = !(cfg.services.displayManager.gdm.enable && cfg.services.greetd.enable);
-          message = "GDM and greetd cannot both own the login screen. Select the preferred desktop or override one manager.";
-        }
-        {
           assertion = !cfg.services.displayManager.dms-greeter.enable || cfg.services.greetd.enable;
           message = "DMS greeter requires greetd.";
+        }
+        {
+          assertion = !cfg.services.displayManager.dms-greeter.enable || cfg.programs.niri.enable;
+          message = "The Arch DMS greeter requires its Niri compositor to be enabled through programs.niri.enable.";
         }
         {
           assertion = !cfg.programs.dms-shell.enable || cfg.programs.niri.enable;

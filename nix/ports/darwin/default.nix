@@ -3,8 +3,8 @@
     "home.gpg"
   ];
   managesSystem = true;
+  requiresHardwareConfig = false;
   family = "darwin";
-  desktop = false;
   upstreamNixos = false;
   output = "darwinConfigurations";
   builder = "darwin";

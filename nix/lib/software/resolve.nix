@@ -66,7 +66,6 @@ let
               capabilities = [ ];
               providedCapabilities = source.capabilities or [ ];
               scopes = [ "home" ];
-              installNix = true;
             }
             // externalBackend.resolve source
           ) (lib.unique names)
@@ -83,11 +82,7 @@ let
       else
         lib.concatMap (
           provider:
-          if provider == "dependencies" then
-            lib.optional (
-              !(builtins.isList entry.dependencies && lib.all builtins.isString entry.dependencies)
-            ) "${name}: dependencies must be software identifiers"
-          else if !(providers ? ${provider}) then
+          if !(providers ? ${provider}) then
             [ "${name}: unknown provider '${provider}'" ]
           else
             let
@@ -111,25 +106,10 @@ let
       providers.${preferred}.platforms
     ) "Software: package manager '${preferred}' does not support platform '${platform}'.";
     true;
-  visit =
-    trail: name:
-    assert lib.assertMsg (catalog ? ${name}) "Software: unknown software '${name}'.";
-    assert lib.assertMsg (!(builtins.elem name trail))
-      "Software: dependency cycle ${lib.concatStringsSep " -> " (trail ++ [ name ])}.";
-    [ name ] ++ lib.concatMap (visit (trail ++ [ name ])) (catalog.${name}.dependencies or [ ]);
-  closures = lib.mapAttrs (name: _: visit [ ] name) requirements;
-  names = lib.unique (lib.concatLists (builtins.attrValues closures));
-  # Dependencies inherit installation scopes, but have their own capabilities.
-  scopesFor =
-    name:
-    lib.unique (
-      lib.concatMap (
-        root:
-        lib.optionals (builtins.elem name closures.${root}) (requirements.${root}.scopes or [ "home" ])
-      ) (builtins.attrNames requirements)
-    );
+  names = builtins.attrNames requirements;
   select =
     name:
+    assert lib.assertMsg (catalog ? ${name}) "Software: unknown software '${name}'.";
     let
       entry = catalog.${name};
       request = requirements.${name} or { };
@@ -170,8 +150,7 @@ let
     {
       inherit provider capabilities;
       providedCapabilities = source.capabilities or [ ];
-      scopes = scopesFor name;
-      installNix = request.installNix or true;
+      scopes = lib.unique (request.scopes or [ "home" ]);
       reason =
         if overridden then
           "explicit package override"
@@ -221,12 +200,13 @@ let
   # Upstream wrappers are only owners once materialization confirms that the
   # module actually installs them. Unbound resources cannot satisfy extras.
   installedOwners = lib.filter (
-    name: resolved.${name}.provider != "nix" || resolved.${name}.installNix
+    name: resolved.${name}.provider != "nix" || resolved.${name}.scopes != [ ]
   ) names;
   planInstallations =
     {
       installedOwners,
       runtimePackages ? { },
+      runtimeScopes ? { },
     }:
     let
       reconciledExtras = map (
@@ -262,7 +242,21 @@ let
           packages = map (lib.setPrio externalPriority) extra.packages;
         }
       ) (lib.filter (extra: extra.owners == [ ]) reconciledExtras);
-      values = builtins.attrValues resolved ++ externalEntries;
+      values =
+        lib.mapAttrsToList (
+          name: entry:
+          let
+            runtime = runtimePackages.${name} or null;
+          in
+          entry
+          // lib.optionalAttrs (entry.provider == "nix" && runtime != null) {
+            # Reuse the upstream wrapper in any additional requested scope.
+            # Its producing module already installs it in runtimeScopes.
+            packages = [ runtime ];
+            scopes = lib.subtractLists (runtimeScopes.${name} or [ ]) entry.scopes;
+          }
+        ) resolved
+        ++ externalEntries;
       # Explicit providers need their command directories even when they are
       # not the host default (e.g. Homebrew cask links with a Nix default).
       activeProviders = lib.unique ([ preferred ] ++ map (entry: entry.provider) values);

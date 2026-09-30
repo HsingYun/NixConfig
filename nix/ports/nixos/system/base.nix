@@ -1,7 +1,10 @@
 { lib, user, ... }:
 
 {
-  imports = [ ./user-profile.nix ];
+  imports = [
+    ./software-consumers.nix
+    ./user-profile.nix
+  ];
 
   i18n.defaultLocale = lib.mkDefault "en_US.UTF-8";
 

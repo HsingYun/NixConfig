@@ -19,6 +19,13 @@ let
       map normalize value
     else
       value;
+  optionalFile =
+    name: format: value:
+    lib.optionalAttrs (value != { }) {
+      "fcitx5/${name}".source = format.generate "fcitx5-${builtins.replaceStrings [ "/" ] [ "-" ] name}" (
+        normalize value
+      );
+    };
   packages = [
     "fcitx5"
     "fcitx5-rime"
@@ -46,18 +53,10 @@ in
       gtk4.extraConfig.gtk-im-module = lib.mkDefault "fcitx";
     };
     software.requirements = lib.genAttrs packages (_: { });
-    xdg.configFile = {
-      "fcitx5/profile".source = ini.generate "fcitx5-profile" (normalize settings.inputMethod);
-      "fcitx5/config" = lib.mkIf (settings.globalOptions != { }) {
-        source = ini.generate "fcitx5-config" (normalize settings.globalOptions);
-      };
-    }
-    // lib.mapAttrs' (
-      name: value:
-      lib.nameValuePair "fcitx5/conf/${name}.conf" {
-        source = addonIni.generate "fcitx5-${name}" (normalize value);
-      }
-    ) settings.addons;
+    xdg.configFile =
+      optionalFile "profile" ini settings.inputMethod
+      // optionalFile "config" ini settings.globalOptions
+      // lib.concatMapAttrs (name: optionalFile "conf/${name}.conf" addonIni) settings.addons;
     assertions = [
       {
         assertion = lib.all (name: config.software.resolved.${name}.provider == "pacman") packages;

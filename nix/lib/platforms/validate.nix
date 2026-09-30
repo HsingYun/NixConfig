@@ -29,8 +29,8 @@ let
   required = [
     "contracts"
     "managesSystem"
+    "requiresHardwareConfig"
     "family"
-    "desktop"
     "upstreamNixos"
     "output"
     "builder"
@@ -42,13 +42,13 @@ let
   schema = {
     contracts = uniqueStrings;
     managesSystem = builtins.isBool;
+    requiresHardwareConfig = builtins.isBool;
     family =
       v:
       builtins.elem v [
         "linux"
         "darwin"
       ];
-    desktop = builtins.isBool;
     upstreamNixos = builtins.isBool;
     output =
       v:

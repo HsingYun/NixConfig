@@ -15,7 +15,15 @@ in
         || config.homebrew.enable;
       message = "Software: the installation plan requires Homebrew, but its backend is disabled.";
     }
-  ];
+  ]
+  ++ (import ../../../lib/software/check-manifest.nix { inherit lib; } {
+    provider = "homebrew";
+    requested = plan.installations.homebrew;
+    actual = {
+      brews = map (entry: entry.name) config.homebrew.brews;
+      casks = map (entry: entry.name) config.homebrew.casks;
+    };
+  });
   software.nativePrefix = config.homebrew.prefix;
   # After Nix profiles (1000), before the OS defaults (1200).
   environment.systemPath = lib.mkOrder 1100 plan.binPaths;

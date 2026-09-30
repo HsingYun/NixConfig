@@ -51,11 +51,6 @@
               );
               default = [ "home" ];
             };
-            installNix = lib.mkOption {
-              type = lib.types.bool;
-              default = true;
-              description = "Install the Nix package centrally; false when an upstream module installs a customized package.";
-            };
           };
         }
       );
@@ -71,10 +66,33 @@
       internal = true;
       description = "Host-owned plan shared with the home scope.";
     };
-    runtimePackages = lib.mkOption {
-      type = lib.types.attrsOf (lib.types.nullOr lib.types.package);
+    consumers = lib.mkOption {
+      type = lib.types.attrsOf lib.types.raw;
       default = { };
       internal = true;
+      description = "Registered upstream consumer declarations, exposed for auditing and conformance tests.";
+    };
+    runtimeArtifacts = lib.mkOption {
+      type = lib.types.attrsOf (
+        lib.types.submodule {
+          options = {
+            software = lib.mkOption { type = lib.types.str; };
+            package = lib.mkOption { type = lib.types.package; };
+            scopes = lib.mkOption {
+              type = lib.types.listOf (
+                lib.types.enum [
+                  "home"
+                  "system"
+                ]
+              );
+              default = [ ];
+            };
+          };
+        }
+      );
+      default = { };
+      internal = true;
+      description = "Final packages and installation scopes contributed by active upstream consumers.";
     };
     migration.removeReplaced = lib.mkOption {
       type = lib.types.listOf lib.types.str;

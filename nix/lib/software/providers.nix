@@ -26,9 +26,7 @@ let
   packagesFor =
     scope: entries:
     lib.unique (
-      lib.concatMap (
-        entry: lib.optionals (entry.installNix && builtins.elem scope entry.scopes) entry.packages
-      ) entries
+      lib.concatMap (entry: lib.optionals (builtins.elem scope entry.scopes) entry.packages) entries
     );
 in
 {

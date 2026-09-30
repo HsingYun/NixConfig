@@ -7,6 +7,8 @@
 }:
 let
   desktop = config.services.displayManager.defaultSession;
+  stacks = import ../../../lib/features/desktop-stacks.nix;
+  sessionCommand = if desktop == null then null else stacks.${desktop}.command or null;
   manager =
     if config.services.displayManager.gdm.enable then
       "gdm"
@@ -15,23 +17,44 @@ let
     else
       "none";
   greetd = manager == "greetd";
+  useNoctaliaGreeter = config.services.displayManager.noctalia-greeter.enable;
+  noctaliaGreeter = config.services.displayManager.noctalia-greeter;
   useDmsGreeter = config.services.displayManager.dms-greeter.enable;
-  greeter = if useDmsGreeter then "dms-greeter" else "tuigreet";
-  dmsGreeter = import ../../../assets/helpers/common/greeter-session.nix { inherit lib pkgs; } {
-    command = "/usr/bin/dms-greeter";
-    cacheDir = "/var/cache/dms-greeter";
-    inherit desktop;
-  };
+  greeter =
+    if useDmsGreeter then
+      "dms-greeter"
+    else if useNoctaliaGreeter then
+      "noctalia-greeter"
+    else
+      "tuigreet";
+  dmsGreeter =
+    if desktop == null then
+      null
+    else
+      import ../../../assets/helpers/common/greeter-session.nix { inherit lib pkgs; } {
+        command = "/usr/bin/dms-greeter";
+        cacheDir = "/var/cache/dms-greeter";
+        inherit desktop;
+      };
   greeterCommand =
     if useDmsGreeter then
-      "${dmsGreeter}/bin/dms-greeter --command niri --cache-dir /var/cache/dms-greeter -C /etc/greetd/nixconfig-niri.kdl"
+      "${
+        if dmsGreeter == null then "/usr" else dmsGreeter
+      }/bin/dms-greeter --command niri --cache-dir /var/cache/dms-greeter -C /etc/greetd/nixconfig-niri.kdl"
+    else if useNoctaliaGreeter then
+      (lib.optionalString (noctaliaGreeter.settings != { })
+        "/usr/bin/bwrap --die-with-parent --bind / / --dev-bind /dev /dev --ro-bind /etc/greetd/nixconfig-noctalia.toml /var/lib/noctalia-greeter/greeter.toml -- "
+      )
+      + "/usr/bin/noctalia-greeter-session ${lib.escapeShellArgs noctaliaGreeter.extraArgs}"
+    else if sessionCommand != null then
+      "/usr/bin/tuigreet --time --cmd ${lib.escapeShellArg sessionCommand}"
     else
-      "/usr/bin/tuigreet --time --cmd ${
-        lib.escapeShellArg (if desktop == "niri" then "niri-session" else "gnome-session")
-      }";
+      null;
   greetdConfig =
     (pkgs.formats.toml { }).generate "greetd-nixconfig.toml"
       config.services.greetd.settings;
+  # The greeter command binds its declared config inside its own process
+  # namespace. greetd and the desktop it launches retain the host filesystem.
   greetdUnit = pkgs.writeText "greetd-nixconfig.conf" ''
     [Service]
     ExecStart=
@@ -46,14 +69,33 @@ let
 in
 {
   config = {
+    assertions = [
+      {
+        assertion = !greetd || (config.services.greetd.settings.default_session.command or "") != "";
+        message = "Arch greetd requires a known default desktop or an explicit services.greetd.settings.default_session.command.";
+      }
+    ];
     services.greetd.settings = lib.mkIf greetd {
       terminal.vt = lib.mkDefault 1;
       default_session = {
-        command = lib.mkDefault greeterCommand;
+        command = lib.mkIf (greeterCommand != null) (lib.mkDefault greeterCommand);
         user = lib.mkDefault "greeter";
       };
     };
     native.requiredPackages = lib.optional (manager != "none") manager ++ lib.optional greetd greeter;
+    native.activation.checkNativeGreeter =
+      lib.mkIf (greetd && useNoctaliaGreeter && noctaliaGreeter.settings != { })
+        (
+          lib.hm.dag.entryBetween [ "linkGeneration" ] [ "installNativePackages" ] ''
+            # Verify the actual greeter account can create its config namespace
+            # before changing the login manager. Never relax host namespace policy.
+            run /usr/bin/sudo -u ${lib.escapeShellArg config.services.greetd.settings.default_session.user} \
+              /usr/bin/bwrap --bind / / -- /usr/bin/true || {
+              echo "Noctalia Greeter requires user namespaces for its declarative configuration." >&2
+              exit 1
+            }
+          ''
+        );
     native.activation.selectNativeLoginManager =
       lib.hm.dag.entryAfter [ "installNativePackages" "linkGeneration" ]
         (
@@ -71,6 +113,12 @@ in
                   destination = "/etc/systemd/system/greetd.service.d/nixconfig.conf";
                 }
               ]
+              ++ lib.optional (useNoctaliaGreeter && noctaliaGreeter.settings != { }) {
+                source = toString (
+                  (pkgs.formats.toml { }).generate "noctalia-greeter.toml" noctaliaGreeter.settings
+                );
+                destination = "/etc/greetd/nixconfig-noctalia.toml";
+              }
               ++ lib.optional useDmsGreeter {
                 source = toString niriConfig;
                 destination = "/etc/greetd/nixconfig-niri.kdl";

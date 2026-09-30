@@ -172,18 +172,31 @@ let
     selection = import ../../lib/software/resolve.nix { inherit lib; } {
       pkgs = compilerPkgs;
       catalog.clang.nix.package = compilerPkgs.llvmPackages.clang;
-      requirements.clang.installNix = false;
+      requirements.clang = {
+        scopes = [
+          "home"
+          "system"
+        ];
+      };
       packageManager = {
         type = "nix";
         extraPkg.nix.packages = [ "gcc" ];
       };
       platform = if pkgs.stdenv.hostPlatform.isDarwin then "darwin" else "arch";
     };
-    runtimePackages.clang = lib.setPrio 40 (compiler "wrapped-clang");
+    runtimeArtifacts.test-clang = {
+      software = "clang";
+      package = lib.setPrio 40 (compiler "wrapped-clang");
+      scopes = [ "home" ];
+    };
   };
   wrappedProfile = pkgs.buildEnv {
     name = "wrapped-compiler-profile";
     paths = wrappedPlan.installations.nix.homePackages ++ wrappedPlan.installations.nix.modulePackages;
+  };
+  wrappedSystemProfile = pkgs.buildEnv {
+    name = "wrapped-system-compiler-profile";
+    paths = wrappedPlan.installations.nix.systemPackages;
   };
   llvmStub =
     label:
@@ -265,5 +278,7 @@ pkgs.runCommand "software-runtime-check" { } ''
     test "$(${wrappedProfile}/bin/cc)" = "$(cc)"
     test "$(gcc)" = gcc
   )
+  test "$(${wrappedSystemProfile}/bin/cc)" = wrapped-clang
+  test "$(${wrappedSystemProfile}/bin/c++)" = wrapped-clang
   touch "$out"
 ''

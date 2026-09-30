@@ -1,5 +1,6 @@
 {
   config,
+  lib,
   user,
   ...
 }:
@@ -12,8 +13,13 @@ in
     requirements = home.software.requirements;
     providerOverrides = home.software.providerOverrides;
     packageOverrides = home.software.packageOverrides;
-    runtimePackages = home.software.runtimePackages;
+    runtimeArtifacts = home.software.runtimeArtifacts;
     migration.removeReplaced = home.software.migration.removeReplaced;
+  };
+  assertions = import ../../lib/software/check-installations.nix { inherit lib; } {
+    scope = "system";
+    packages = config.environment.systemPackages;
+    inherit (config.software) plan runtimeArtifacts;
   };
   environment.systemPackages = config.software.plan.installations.nix.systemPackages;
 }

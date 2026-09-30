@@ -2,16 +2,29 @@
   contracts = [
     "home.gpg"
     "home.dms"
+    "home.noctalia"
+    "system.noctalia"
+    "system.noctalia-greeter"
     "home.niri"
     "home.input-method"
     "system.printing"
+    "system.avahi"
+    "system.firmware"
     "system.smartcard"
     "system.chrome"
-    "system.desktop"
+    "system.gnome"
+    "system.niri"
+    "system.dms"
+    "system.session"
+    "system.network"
+    "system.audio"
+    "system.bluetooth"
+    "system.power"
+    "system.storage"
   ];
   managesSystem = true;
+  requiresHardwareConfig = false;
   family = "linux";
-  desktop = true;
   upstreamNixos = false;
   output = "homeConfigurations";
   builder = "native";
@@ -19,20 +32,19 @@
   defaultSystem = "x86_64-linux";
   systemModules = [
     ./system
-    ./system/desktop-policy.nix
   ];
   homeModules = [ ./home ];
   features = {
+    noctalia.systemModules = [ ../../modules/system/features/noctalia.nix ];
     dms = {
-      systemModules = [ ../../modules/system/features/desktop-session.nix ];
+      systemModules = [ ../../modules/system/features/dms.nix ];
     };
     niri = {
-      homeModules = [ ./home/niri.nix ];
-      systemModules = [ ../../modules/system/features/desktop-session.nix ];
+      systemModules = [ ../../modules/system/features/niri.nix ];
     };
     gnome = {
       homeModules = [ ./home/gnome.nix ];
-      systemModules = [ ../../modules/system/features/desktop-session.nix ];
+      systemModules = [ ../../modules/system/features/gnome.nix ];
     };
   };
   integrations = {
