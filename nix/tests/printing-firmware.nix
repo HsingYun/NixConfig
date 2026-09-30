@@ -39,15 +39,15 @@ assert lib.all (name: printing.software.resolved.${name}.provider == "pacman") [
   "libusb"
   "avahi"
 ];
-assert builtins.elem "cups.socket" printing.nativeSystemd.units;
-assert builtins.elem "avahi-daemon.service" printing.nativeSystemd.units;
-assert builtins.elem "avahi-daemon.socket" printing.nativeSystemd.units;
+assert builtins.elem "cups.socket" printing.hostSystem.native.systemd.units;
+assert builtins.elem "avahi-daemon.service" printing.hostSystem.native.systemd.units;
+assert builtins.elem "avahi-daemon.socket" printing.hostSystem.native.systemd.units;
 assert !(printing.software.resolved ? fwupd);
 assert firmware.software.resolved.fwupd.provider == "pacman";
 assert firmware.software.resolved.gnome-firmware.provider == "pacman";
-assert firmware.nativeSystemd.units == [ "fwupd-refresh.timer" ];
+assert firmware.hostSystem.native.systemd.units == [ "fwupd-refresh.timer" ];
 assert !(firmware.software.resolved ? cups);
-assert disabled.nativeSystemd.units == [ ];
+assert disabled.hostSystem.native.systemd.units == [ ];
 assert disabled.home.activation ? nativeSystemd;
 assert !(disabled.software.resolved ? cups) && !(disabled.software.resolved ? fwupd);
 assert lib.all

@@ -5,30 +5,11 @@
   platform,
   defaults,
   overrides,
+  modules ? [ ],
 }:
 let
   pathFor = key: catalog.features.${key}.path or [ key ];
   supported = entry: builtins.elem platform entry.platforms;
-  # Annotate shared leaves with mkDefault without evaluating conditions or
-  # merging values. Preserve explicit priorities; all evaluation stays in the
-  # upstream module system, including inside conditional/merged definitions.
-  profileDefaults =
-    value:
-    if (value._type or "") == "if" then
-      lib.mkIf value.condition (profileDefaults value.content)
-    else if (value._type or "") == "merge" then
-      lib.mkMerge (map profileDefaults value.contents)
-    else if (value._type or "") == "definition" then
-      lib.mkDefinition {
-        inherit (value) file;
-        value = profileDefaults value.value;
-      }
-    else if (value._type or "") == "override" then
-      value
-    else if builtins.isAttrs value && !(value ? _type) then
-      lib.mapAttrs (_: profileDefaults) value
-    else
-      lib.mkDefault value;
   evaluation = lib.evalModules {
     modules = [
       ({ config, ... }: {
@@ -57,7 +38,7 @@ let
       })
       {
         _file = "Host ${name}: shared feature defaults";
-        config.features = profileDefaults defaults;
+        config.features = lib.mkDefault defaults;
       }
       {
         _file = "Host ${name}: features";
@@ -75,7 +56,8 @@ let
           ) catalog.features
         );
       }
-    ];
+    ]
+    ++ modules;
   };
 in
 evaluation.config.features

@@ -28,9 +28,10 @@ in
       homeModules = [ ../../modules/home/features/efi-tools.nix ];
     };
     chrome = {
+      contracts = [ "system.chrome" ];
       platforms = all;
       software = [ "chrome" ];
-      systemPlatforms = nixos;
+      systemPlatforms = linux;
       systemModules = [ ../../modules/system/features/chrome.nix ];
       options.extensions = {
         default = [ "nngceckbapebfimnlniiiahkandclblb" ]; # Bitwarden
@@ -95,12 +96,12 @@ in
 
     plymouth = {
       platforms = [ "nixos" ];
-      systemModules = [ ../../modules/system/features/plymouth.nix ];
+      systemModules = [ ../../ports/nixos/system/plymouth.nix ];
     };
     network = {
       default = true;
       platforms = [ "nixos" ];
-      systemModules = [ ../../modules/system/features/network.nix ];
+      systemModules = [ ../../ports/nixos/system/network.nix ];
     };
     xdg = {
       default = true;
@@ -121,9 +122,11 @@ in
       default = true;
       platforms = all;
       homeModules = [ ../../modules/home/features/shell.nix ];
+      systemPlatforms = nixos ++ [ "darwin" ];
       systemModules = [ ../../modules/system/features/shell.nix ];
     };
     gpg = {
+      contracts = [ "home.gpg" ];
       default = true;
       platforms = all;
       activation = {
@@ -164,6 +167,7 @@ in
       homeModules = [ ../../modules/home/features/devel.nix ];
     };
     smartcard = {
+      contracts = [ "system.smartcard" ];
       default = true;
       defaultPlatforms = nixos ++ [ "darwin" ];
       platforms = all;
@@ -173,15 +177,20 @@ in
         description = "allow this account's PC/SC clients outside an active desktop session (WSL/SSH)";
       };
       homeModules = [ ../../modules/home/features/smartcard.nix ];
-      systemPlatforms = nixos;
+      systemPlatforms = linux;
       systemModules = [ ../../modules/system/features/smartcard.nix ];
     };
     nixLd = {
       default = true;
       platforms = nixos;
-      systemModules = [ ../../modules/system/features/nix-ld.nix ];
+      systemModules = [ ../../ports/nixos/system/nix-ld.nix ];
     };
     gnome = {
+      contracts = [ "system.desktop" ];
+      portScopes = [
+        "home"
+        "system"
+      ];
       options = {
         settings = settingsOption "GNOME dconf settings keyed by schema path";
         flatAppGrid = {
@@ -204,25 +213,19 @@ in
         ];
       };
       platforms = desktops;
-      systemPlatforms = [ "nixos" ];
+      systemPlatforms = desktops;
       homeModules = [ ../../modules/home/features/gnome.nix ];
-      homeModulesByPlatform = {
-        arch = [ ../../modules/home/platforms/arch/gnome.nix ];
-        nixos = [ ../../modules/home/platforms/nixos/gnome.nix ];
-      };
-      systemModules = [ ../../modules/system/features/gnome.nix ];
     };
     niri = {
+      contracts = [
+        "home.niri"
+        "system.desktop"
+      ];
+      portScopes = [
+        "home"
+        "system"
+      ];
       options.settings = settingsOption "structured Niri KDL settings";
-      activationByPlatform.arch = {
-        scope = "home";
-        option = [
-          "wayland"
-          "windowManager"
-          "niri"
-          "enable"
-        ];
-      };
       path = [
         "desktop"
         "niri"
@@ -236,26 +239,21 @@ in
         ];
       };
       platforms = desktops;
-      systemPlatforms = [ "nixos" ];
+      systemPlatforms = desktops;
       homeModules = [ ../../modules/home/features/niri.nix ];
-      homeModulesByPlatform = {
-        arch = [ ../../modules/home/platforms/arch/niri.nix ];
-        nixos = [ ../../modules/home/platforms/nixos/niri.nix ];
-      };
-      systemModules = [ ../../modules/system/features/niri.nix ];
     };
     dms = {
+      contracts = [
+        "home.dms"
+        "system.desktop"
+      ];
+      portScopes = [
+        "home"
+        "system"
+      ];
       options = {
         settings = settingsOption "DMS settings.json attributes";
         session = settingsOption "DMS session.json attributes";
-      };
-      activationByPlatform.arch = {
-        scope = "home";
-        option = [
-          "programs"
-          "dank-material-shell"
-          "enable"
-        ];
       };
       path = [
         "desktop"
@@ -270,14 +268,9 @@ in
         ];
       };
       platforms = desktops;
-      systemPlatforms = [ "nixos" ];
+      systemPlatforms = desktops;
       requires = [ "niri" ];
       homeModules = [ ../../modules/home/features/dms.nix ];
-      homeModulesByPlatform = {
-        nixos = [ ../../modules/home/platforms/nixos/dms.nix ];
-        arch = [ ../../modules/home/platforms/arch/dms.nix ];
-      };
-      systemModules = [ ../../modules/system/features/dms.nix ];
     };
     fileManager = {
       path = [
@@ -307,6 +300,7 @@ in
           };
     };
     printing = {
+      contracts = [ "system.printing" ];
       path = [
         "desktop"
         "printing"
@@ -317,10 +311,11 @@ in
         "niri"
         "dms"
       ];
-      systemPlatforms = [ "nixos" ];
+      systemPlatforms = desktops;
       systemModules = [ ../../modules/system/features/printing.nix ];
     };
     firmware = {
+      contracts = [ "system.printing" ];
       path = [
         "desktop"
         "firmware"
@@ -332,7 +327,7 @@ in
         "dms"
       ];
       homeModules = [ ../../modules/home/features/firmware.nix ];
-      systemPlatforms = [ "nixos" ];
+      systemPlatforms = desktops;
       systemModules = [ ../../modules/system/features/firmware.nix ];
     };
     keyring = {
@@ -425,6 +420,8 @@ in
       homeModules = [ ../../modules/home/features/mpv.nix ];
     };
     chinese = {
+      contracts = [ "home.input-method" ];
+      portScopes = [ "home" ];
       platforms = desktops;
       options = {
         settings = settingsOption "Fcitx settings: inputMethod, globalOptions and addons";
@@ -435,12 +432,8 @@ in
         };
       };
       homeModules = [ ../../modules/home/features/chinese.nix ];
-      homeModulesByPlatform = {
-        arch = [ ../../modules/home/platforms/arch/chinese.nix ];
-        nixos = [ ../../modules/home/platforms/nixos/chinese.nix ];
-      };
       systemPlatforms = [ "nixos" ];
-      systemModules = [ ../../modules/system/features/chinese.nix ];
+      systemModules = [ ../../ports/nixos/system/chinese.nix ];
     };
   };
 
@@ -450,26 +443,15 @@ in
         "arch"
         "nixos"
       ];
-      providers = {
-        gnome = "gnome";
-        niri = "niri";
-      };
-      empty = null;
-    };
-    loginManager = {
-      platforms = [
-        "arch"
-        "nixos"
+      providers = builtins.mapAttrs (_: stack: stack.features) (import ./desktop-stacks.nix);
+      sessions = builtins.mapAttrs (_: stack: builtins.removeAttrs stack [ "features" ]) (
+        import ./desktop-stacks.nix
+      );
+      priority = [
+        "niri"
+        "gnome"
       ];
-      providers = {
-        gdm = "gnome";
-        greetd = [
-          "niri"
-          "dms"
-        ];
-      };
-      empty = "none";
-      alternatives = [ "none" ];
+      empty = null;
     };
   };
 
@@ -489,20 +471,14 @@ in
       homeModules = [ ../../modules/integrations/smartcard.nix ];
     };
     gnome-chinese = {
+      portScopes = [ "home" ];
       platforms = desktops;
       owners = [ "chinese" ];
-      homeModulesByPlatform = {
-        arch = [ ../../modules/home/platforms/arch/gnome-chinese.nix ];
-        nixos = [ ../../modules/home/platforms/nixos/gnome-chinese.nix ];
-      };
     };
     niri-dms = {
+      portScopes = [ "home" ];
       platforms = desktops;
       owners = [ "niri" ];
-      homeModulesByPlatform = {
-        arch = [ ../../modules/home/platforms/arch/niri-dms.nix ];
-        nixos = [ ../../modules/home/platforms/nixos/niri-dms.nix ];
-      };
     };
   };
 }

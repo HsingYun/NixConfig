@@ -53,14 +53,6 @@ in
   };
 
   config = {
-    # On NixOS the complete set is known at build time: use HM's declarative
-    # links, without an imperative scan of the native filesystem.
-    xdg.dataFile."applications" =
-      lib.mkIf (config.software.platform == "nixos" && cfg.hiddenEntries != [ ])
-        {
-          source = "${entries}/share/applications";
-          recursive = true;
-        };
     desktop = {
       launcher = {
         packageRoots = lib.mkBefore [ config.home.path ];

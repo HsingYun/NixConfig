@@ -2,30 +2,45 @@
 let
   # Generate the state through the pinned upstream module, so format changes
   # cannot silently leave a fixture-only test green.
-  generation =
+  home =
     settings: databases:
-    let
-      home =
-        (inputs.home-manager.lib.homeManagerConfiguration {
-          inherit pkgs;
-          modules = [
-            {
-              home = {
-                username = "test";
-                homeDirectory = if pkgs.stdenv.hostPlatform.isDarwin then "/Users/test" else "/home/test";
-                stateVersion = "26.05";
+
+    (inputs.home-manager.lib.homeManagerConfiguration {
+      pkgs = testPkgs;
+      modules = [
+        # Exercise the Linux cleanup hook on both native CI runners.
+        (
+          { lib, ... }:
+          import ../modules/home/shared/dconf.nix {
+            inherit lib;
+            pkgs = testPkgs // {
+              stdenv = pkgs.stdenv // {
+                hostPlatform = pkgs.stdenv.hostPlatform // {
+                  isLinux = true;
+                };
               };
-              dconf = {
-                enable = true;
-                inherit settings databases;
-              };
-            }
-          ];
-        }).config;
-    in
+            };
+          }
+        )
+        {
+          home = {
+            username = "test";
+            homeDirectory = if pkgs.stdenv.hostPlatform.isDarwin then "/Users/test" else "/home/test";
+            stateVersion = "26.05";
+          };
+          dconf = {
+            enable = true;
+            inherit settings databases;
+          };
+        }
+      ];
+    }).config;
+  generationFor =
+    config:
     pkgs.runCommand "upstream-dconf-generation" { } (
-      "mkdir -p $out\n" + home.home.extraBuilderCommands
+      "mkdir -p $out\n" + config.home.extraBuilderCommands
     );
+  generation = settings: databases: generationFor (home settings databases);
   old = generation { "org/gnome/terminal/legacy/profiles:/:test".visible-name = "Test"; } {
     secondary.example.value = true;
     kept.example.retained = true;
@@ -40,18 +55,48 @@ let
       profile=$(cat "$DCONF_PROFILE")
     fi
     printf '%s %s %s\n' "$profile" "$1" "$2" >> "$DCONF_TEST_LOG"
-    [[ ''${DCONF_TEST_FAIL:-0} == 0 ]]
+    [[ ''${DCONF_TEST_FAIL:-0} == 0 ]] || exit 1
+    if [[ $1 == load ]]; then
+      cat > "$DCONF_TEST_VALUE"
+    elif [[ -n ''${DCONF_TEST_VALUE:-} ]]; then
+      echo reset > "$DCONF_TEST_VALUE"
+    fi
   '';
   dbus = pkgs.writeShellScriptBin "dbus-run-session" ''
     shift
     exec "$@"
   '';
-  cleanup = import ../assets/helpers/dconf-removed-databases.nix {
-    pkgs = pkgs // {
+  testPkgs = pkgs.extend (
+    _: _: {
       dconf = recorder;
       inherit dbus;
-    };
-  };
+    }
+  );
+  cleanup = import ../assets/helpers/common/dconf-removed-databases.nix { pkgs = testPkgs; };
+  defaultDatabase = home { example.value = true; } { };
+  namedDatabase = home { } { user.example.value = true; };
+  transition =
+    from: to:
+    let
+      # Sort the actual upstream DAG; running helpers in a handcrafted order
+      # would miss a regression in the module's activation dependencies.
+      nodes = pkgs.lib.filterAttrs (
+        name: _:
+        builtins.elem name [
+          "dconfRemovedDatabases"
+          "dconfSettings"
+        ]
+      ) to.home.activation;
+      ordered = inputs.home-manager.lib.hm.dag.topoSort nodes;
+    in
+    pkgs.writeShellScript "dconf-transition" (
+      ''
+        set -euo pipefail
+        run() { "$@"; }
+        export oldGenPath=${generationFor from} newGenPath=${generationFor to}
+      ''
+      + pkgs.lib.concatMapStringsSep "\n" (node: node.data) ordered.result
+    );
 in
 pkgs.runCommand "dconf-removed-databases-check" { } ''
   export DCONF_TEST_LOG="$TMPDIR/commands"
@@ -59,9 +104,8 @@ pkgs.runCommand "dconf-removed-databases-check" { } ''
   ln -s ${old} old
   ln -s ${new} new
   ln -s ${empty} empty
-  # A stale inherited profile must not redirect the default database cleanup.
-  echo user-db:wrong > inherited-profile
-  export DCONF_PROFILE="$PWD/inherited-profile" DBUS_SESSION_BUS_ADDRESS=test
+  unset DCONF_PROFILE
+  export DBUS_SESSION_BUS_ADDRESS=test
   ${cleanup}/bin/dconf-removed-databases "$PWD/old" "$PWD/new"
   cat > expected <<'TEXT'
   default reset /org/gnome/terminal/legacy/profiles:/:test/visible-name
@@ -71,6 +115,14 @@ pkgs.runCommand "dconf-removed-databases-check" { } ''
   sort "$DCONF_TEST_LOG" > actual
   sort expected > wanted
   cmp actual wanted
+  # A custom runtime profile is not recorded in the old manifest. Do not
+  # guess its identity or redirect cleanup into the default database.
+  echo user-db:custom > inherited-profile
+  export DCONF_PROFILE="$PWD/inherited-profile"
+  : > "$DCONF_TEST_LOG"
+  ${cleanup}/bin/dconf-removed-databases "$PWD/old" "$PWD/new"
+  test "$(cat "$DCONF_TEST_LOG")" = 'user-db:secondary reset /example/value'
+  unset DCONF_PROFILE
   # Empty new generation, absent old generation, and a GC'd manifest.
   : > "$DCONF_TEST_LOG"
   unset DBUS_SESSION_BUS_ADDRESS
@@ -90,5 +142,16 @@ pkgs.runCommand "dconf-removed-databases-check" { } ''
     echo 'dconf failure was suppressed' >&2
     exit 1
   fi
+  # Both spellings address user-db:user. New values must survive migration
+  # in either direction; use upstream-generated manifests and load commands.
+  export DCONF_TEST_VALUE="$TMPDIR/value" DBUS_SESSION_BUS_ADDRESS=test
+  for activate in ${transition defaultDatabase namedDatabase} ${transition namedDatabase defaultDatabase}; do
+    : > "$DCONF_TEST_LOG"
+    echo previous > "$DCONF_TEST_VALUE"
+    "$activate"
+    grep -Fx 'value=true' "$DCONF_TEST_VALUE"
+    test "$(head -n1 "$DCONF_TEST_LOG" | cut -d' ' -f2)" = reset
+    test "$(tail -n1 "$DCONF_TEST_LOG" | cut -d' ' -f2)" = load
+  done
   touch "$out"
 ''

@@ -32,7 +32,7 @@ let
           programs.mpv.enable = enabled;
           software.packageManager = {
             type = "nix";
-            externalPkg.packages = [ "mpv" ];
+            extraPkg.nix.packages = [ "mpv" ];
           };
         }
       ]
@@ -119,7 +119,7 @@ let
     platform = if pkgs.stdenv.hostPlatform.isDarwin then "darwin" else "arch";
     packageManager = {
       type = "nix";
-      externalPkg.packages = [ "gcc" ];
+      extraPkg.nix.packages = [ "gcc" ];
     };
     catalog.clang.nix.package = compiler "clang";
     requirements.clang = { };
@@ -134,7 +134,7 @@ let
       clang = compiler "clang";
     };
   };
-  develProfiles = import ../lib/software/profiles.nix { pkgs = compilerPkgs; };
+  develProfiles = import ../lib/software/profile-recipes.nix { pkgs = compilerPkgs; };
   develCompilerPlan = import ../lib/software/resolve.nix { inherit lib; } {
     catalog = { inherit (develProfiles.devel) gcc clang; };
     requirements = {
@@ -175,7 +175,7 @@ let
       requirements.clang.installNix = false;
       packageManager = {
         type = "nix";
-        externalPkg.packages = [ "gcc" ];
+        extraPkg.nix.packages = [ "gcc" ];
       };
       platform = if pkgs.stdenv.hostPlatform.isDarwin then "darwin" else "arch";
     };

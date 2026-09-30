@@ -43,7 +43,7 @@ in
     };
     externalRecipe =
       _: name:
-      assert lib.assertMsg (pkgs != null) "Software: Nix externalPkg requires a package set.";
+      assert lib.assertMsg (pkgs != null) "Software: Nix extraPkg requires a package set.";
       (import ./recipes.nix { inherit pkgs; }).nix (
         lib.attrByPath (lib.splitString "." name) (throw "Software: unknown Nix package '${name}'.") pkgs
       );

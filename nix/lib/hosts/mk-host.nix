@@ -12,6 +12,7 @@ name:
   hostname ? name,
   user ? { },
   features ? { },
+  featureModules ? [ ],
   preferences ? { },
   homeDirectory ? null,
   systemConfig ? null,
@@ -36,13 +37,14 @@ let
       "/Users/${actualUser.username}"
     else
       "/home/${actualUser.username}";
-  featureModules = import ../features {
+  resolvedFeatures = import ../features {
     inherit
       lib
       name
       platform
       preferences
       ;
+    modules = featureModules;
     defaults = settings.features;
     overrides = features;
   };
@@ -51,12 +53,7 @@ let
     homeDirectory = actualHome;
     homeModules =
       selected.homeModules
-      ++ featureModules.homeModules
-      ++ [
-        {
-          software = { inherit platform packageManager; };
-        }
-      ]
+      ++ resolvedFeatures.homeModules
       ++ lib.optional (homeConfig != null) homeConfig;
   };
 in
@@ -87,9 +84,6 @@ in
       )
       "Host ${name}: homeDirectory must be an absolute Unix path string other than '/', without '.' or '..' components.";
     assert lib.assertMsg (
-      selected.managesSystem || systemConfig == null
-    ) "Host ${name}: platform arch only supports homeConfig; it does not manage the host OS.";
-    assert lib.assertMsg (
       platform != "nixos" || hardwareConfig != null
     ) "Host ${name}: platform nixos requires hardwareConfig.";
     assert lib.assertMsg (
@@ -98,7 +92,7 @@ in
     assert lib.assertMsg (lib.hasSuffix (if platform == "darwin" then "-darwin" else "-linux")
       actualSystem
     ) "Host ${name}: system '${actualSystem}' is incompatible with platform '${platform}'.";
-    builtins.seq featureModules (
+    builtins.seq resolvedFeatures (
       builders.${selected.builder} (
         {
           user = actualUser;
@@ -110,7 +104,15 @@ in
           homeDirectory = actualHome;
           systemModules =
             selected.systemModules
-            ++ featureModules.systemModules
+            ++ resolvedFeatures.systemModules
+            ++ [
+              ({ lib, ... }: {
+                software = {
+                  platform = lib.mkDefault platform;
+                  packageManager = lib.mkDefault packageManager;
+                };
+              })
+            ]
             ++ lib.optional (hardwareConfig != null) hardwareConfig
             ++ lib.optional (systemConfig != null) systemConfig;
         }

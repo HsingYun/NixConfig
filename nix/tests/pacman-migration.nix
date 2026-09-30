@@ -32,7 +32,7 @@ let
   activate = pkgs.writeShellScript "migration-test" ''
     set -euo pipefail
     source ${inputs.home-manager}/lib/bash/home-manager.sh
-    ${import ../assets/helpers/pacman-migration.nix { inherit lib; } {
+    ${import ../assets/helpers/arch/pacman-migration.nix { inherit lib; } {
       inherit
         pacman
         sudo

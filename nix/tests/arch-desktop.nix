@@ -22,18 +22,11 @@ let
         home.stateVersion = "26.05";
       };
     }).configuration.config;
-  make =
-    featureConfig:
-    makeWith (lib.optionalAttrs (featureConfig.desktop.niri.enable or false) {
-      desktop = "niri";
-      loginManager = "greetd";
-    }) featureConfig;
+  make = featureConfig: makeWith { } featureConfig;
   niriOnly = makeWith { } { desktop.niri.enable = true; } { };
   gdmBoth = makeWith {
     desktop = "gnome";
-    loginManager = "gdm";
   } { inherit desktop; } { };
-  manual = makeWith { loginManager = "none"; } { desktop.niri.enable = true; } { };
   desktop = {
     gnome.enable = true;
     niri.enable = true;
@@ -119,17 +112,12 @@ assert lib.all (
 ) gnomePackages;
 assert niriOnly.software.resolved.tuigreet.provider == "pacman";
 assert !(niriOnly.software.resolved ? dms-greeter);
-assert !(manual.home.activation ? selectNativeLoginManager);
-assert !(manual.software.resolved ? greetd);
 assert !(gdmBoth.software.resolved ? greetd);
-assert lib.hasInfix "enable --force gdm.service"
-  gdmBoth.home.activation.selectNativeLoginManager.data;
+assert lib.hasInfix "--service gdm.service" gdmBoth.home.activation.selectNativeLoginManager.data;
 assert cfg.software.resolved.greetd.provider == "pacman";
 assert cfg.software.resolved.dms-greeter.provider == "pacman";
-assert lib.hasInfix "enable --force greetd.service"
-  cfg.home.activation.selectNativeLoginManager.data;
-assert lib.hasInfix "enable --force gdm.service"
-  gnomeOnly.home.activation.selectNativeLoginManager.data;
+assert lib.hasInfix "--service greetd.service" cfg.home.activation.selectNativeLoginManager.data;
+assert lib.hasInfix "--service gdm.service" gnomeOnly.home.activation.selectNativeLoginManager.data;
 assert !(builtins.elem "gnome" gnomeOnly.software.plan.installations.pacman.packages);
 assert
   gnomeOnly.home.activation.selectNativeLoginManager.after == [
@@ -206,7 +194,8 @@ assert
 assert disabled.home.activation ? launcherOverrides;
 assert !(disabled.programs.dank-material-shell.session ? wallpaperPath);
 assert !(disabled.dconf.settings ? "org/gnome/desktop/background");
-assert !(builtins.tryEval (builtins.deepSeq broken.assertions true)).success;
+assert lib.all (a: a.assertion) broken.assertions;
+assert broken.hostSystem.programs.niri.enable && !broken.wayland.windowManager.niri.enable;
 {
   nativePackages = native;
   inherit gnomePackages;

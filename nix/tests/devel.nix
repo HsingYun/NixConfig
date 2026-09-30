@@ -4,7 +4,7 @@ let
   software = import ../lib/software/resolve.nix { inherit (pkgs) lib; } {
     catalog = import ../lib/software/catalog.nix { inherit pkgs; };
     requirements = pkgs.lib.genAttrs (builtins.attrNames
-      (import ../lib/software/profiles.nix { inherit pkgs; }).devel
+      (import ../lib/software/profile-recipes.nix { inherit pkgs; }).devel
     ) (_: { });
     inherit pkgs;
     packageManager = "nix";

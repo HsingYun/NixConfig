@@ -1,28 +1,27 @@
 # Shared desktop policy; platform adapters own package paths, units and PAM.
-{ selected, enabled }:
+{
+  selected,
+  enabled,
+  sessions ? builtins.mapAttrs (_: stack: builtins.removeAttrs stack [ "features" ]) (
+    import ./desktop-stacks.nix
+  ),
+}:
 let
-  desktop =
-    if selected.desktop != null then
-      selected.desktop
-    else if enabled.dms then
-      "niri"
-    else
-      null;
-  inherit (selected) loginManager;
+  inherit (selected) desktop;
+  # Select a whole desktop stack. The login manager follows its desktop;
+  # platform adapters retain ownership of upstream/native service settings.
+  loginManager = if desktop == null then "none" else sessions.${desktop}.loginManager;
+
 in
 {
   inherit desktop loginManager;
   greeter =
     if loginManager != "greetd" then
       null
-    else if enabled.dms && desktop == "niri" then
+    else if enabled.dms then
       "dms-greeter"
     else
       "tuigreet";
-  command =
-    { gnomeSession }:
-    if desktop == "gnome" then
-      "env XDG_SESSION_TYPE=wayland XDG_CURRENT_DESKTOP=GNOME ${gnomeSession} --session=gnome"
-    else
-      "niri-session";
+  # GDM discovers GNOME through its upstream session definition.
+  command = if desktop == null then null else sessions.${desktop}.command;
 }

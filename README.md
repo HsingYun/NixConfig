@@ -30,7 +30,7 @@ Shared experience is defined in [nix/lib/hosts/profiles.nix](nix/lib/hosts/profi
 | Darwin | Shared CLI/development/GPG tools, Ghostty, Chrome, VS Code and IINA; native macOS desktop |
 | NixOS-WSL | Shared CLI/development/GPG/smart-card tools, terminal pinentry; no desktop or Chinese IME |
 
-The `linuxDesktop` preset enables only Niri + DMS, with greetd. To switch PC/Arch to GNOME, enable `features.desktop.gnome`, disable `features.desktop.niri` and `features.desktop.dms`, then select `preferences.desktop = "gnome"; preferences.loginManager = "gdm";`. To use Niri on Pad, disable GNOME and screen rotation, enable Niri/DMS, and select Niri/greetd. Preferences select the default session and login manager; they do not enable or disable features.
+The `linuxDesktop` preset enables Niri + DMS, with greetd. Multiple GUI features can coexist: Niri/greetd takes priority over GNOME/GDM, and `preferences.desktop = "gnome";` selects the GNOME/GDM pair instead. Preferences do not enable or disable features. To replace a desktop entirely, disable its feature and dependents: PC/Arch can disable Niri/DMS and enable GNOME; Pad can disable GNOME/screen rotation and enable Niri/DMS.
 
 ## Usage
 
@@ -87,12 +87,12 @@ features.chrome = {
 
 Keep these settings in `hosts/<name>/default.nix`; the resolved tree is shared with Home Manager and system modules.
 
-Software installation is coordinated by one software layer. Hosts select `packageManager` and `features`; host-specific extras belong in `packageManager.externalPkg` using that manager’s native package names:
+Software installation is coordinated by one software layer. Hosts select `packageManager` and `features`; host-specific extras belong in `packageManager.extraPkg` using that manager’s native package names:
 
 ```nix
 packageManager = {
   type = "homebrew";
-  externalPkg.brews = [ "watch" ];
+  extraPkg.homebrew.brews = [ "watch" ];
 };
 features = {
   ghostty.enable = true;
@@ -107,7 +107,7 @@ Features declare both configuration and software requirements. Shared dependenci
 
 Detailed feature settings and examples live in [Configuring features](docs/features.md).
 Package ownership, overrides, writable settings and cleanup behavior are documented
-in [Software architecture](docs/software.md). Deployment prerequisites, including
+in [Software architecture](docs/software.md). Platform implementation and extension points live in [Port contracts](docs/ports.md). Deployment prerequisites, including
 Arch keyring PAM setup, live in [Creating hosts](docs/hosts.md). These English
 references hold the detailed behavior contracts; the READMEs are entry points.
 
@@ -117,7 +117,10 @@ references hold the detailed behavior contracts; the READMEs are entry points.
 flake.nix      Dependencies and shared user settings
 hosts/         Machine configurations
 nix/
-  modules/     System, user, and feature modules
+  contracts/   Stable public platform interfaces
+  ports/       Platform implementations and registration
+  assets/helpers/  Platform helpers and shared common utilities
+  modules/     Shared system, user, feature and software modules
   lib/         Configuration assembly and software resolution
   tests/       Configuration checks
 ```

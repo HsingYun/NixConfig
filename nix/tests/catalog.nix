@@ -21,9 +21,24 @@ let
     };
   cases = [
     {
+      name = "unknown-contract";
+      value = feature { contracts = [ "home.missing" ]; };
+      message = "unknown contract 'home.missing'";
+    }
+    {
+      name = "missing-port-contract";
+      value = feature { contracts = [ "system.desktop" ]; };
+      message = "requires contract 'system.desktop'";
+    }
+    {
+      name = "missing-port-implementation";
+      value = feature { portScopes = [ "home" ]; };
+      message = "requires a home implementation";
+    }
+    {
       name = "platform-module-type";
       value = feature { homeModulesByPlatform.arch = "wrong"; };
-      message = "homeModulesByPlatform has an invalid value";
+      message = "homeModulesByPlatform is unknown";
     }
     {
       name = "platform-module-range";
@@ -31,7 +46,7 @@ let
         platforms = [ "nixos" ];
         homeModulesByPlatform.arch = [ { } ];
       };
-      message = "homeModulesByPlatform keys must be a subset";
+      message = "homeModulesByPlatform is unknown";
     }
     {
       name = "platform-activation-range";
@@ -315,6 +330,32 @@ let
       name = "invalid-empty-choice";
       value = choice { empty = "typo"; };
       message = "empty must be null or an alternative";
+    }
+    {
+      name = "incomplete-priority";
+      value = choice { priority = [ "gnome" ]; };
+      message = "priority must list every provider exactly once";
+    }
+    {
+      name = "duplicate-priority";
+      value = choice {
+        priority = [
+          "niri"
+          "niri"
+          "gnome"
+        ];
+      };
+      message = "priority has an invalid value";
+    }
+    {
+      name = "unknown-priority";
+      value = choice {
+        priority = [
+          "niri"
+          "typo"
+        ];
+      };
+      message = "priority must list every provider exactly once";
     }
     {
       name = "overlapping-choice";

@@ -97,7 +97,11 @@ in
         feature-rules = pkgs.writeText "feature-rules.json" featureRules;
         feature-modules = pkgs.writeText "feature-modules.json" featureModules;
         software = pkgs.writeText "software.json" softwareTests;
+        software-sources = pkgs.writeText "software-sources.json" (
+          builtins.toJSON (import ../tests/software-sources.nix { inherit inputs; })
+        );
         vim-runtime = import ../tests/vim.nix { inherit inputs pkgs; };
+        display-manager-lifecycle = import ../tests/display-manager-lifecycle.nix { inherit pkgs; };
         software-runtime = import ../tests/software-runtime.nix { inherit inputs pkgs; };
         dconf-lifecycle = import ../tests/dconf.nix { inherit inputs pkgs; };
         vscode-settings = import ../tests/vscode-settings.nix { inherit inputs pkgs; };

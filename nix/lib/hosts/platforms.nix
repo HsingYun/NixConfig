@@ -1,52 +1,18 @@
-# Deployment platforms, distinct from Nix CPU/OS systems such as x86_64-linux.
+# Adding a platform requires one registered port; feature families derive here.
 let
-  definitions = rec {
-    arch = {
-      managesSystem = false;
-      output = "homeConfigurations";
-      builder = "homeManager";
-      packageManager = "pacman";
-      defaultSystem = "x86_64-linux";
-      systemModules = [ ];
-      homeModules = [ ../../modules/home/platforms/arch ];
-    };
-    nixos = {
-      managesSystem = true;
-      output = "nixosConfigurations";
-      builder = "nixos";
-      packageManager = "nix";
-      defaultSystem = "x86_64-linux";
-      systemModules = [ ../../modules/system/platforms/nixos.nix ];
-      homeModules = [ ];
-    };
-    nixos-wsl = nixos // {
-      systemModules = [ ../../modules/system/platforms/nixos-wsl.nix ];
-    };
-    darwin = {
-      managesSystem = true;
-      output = "darwinConfigurations";
-      builder = "darwin";
-      packageManager = "homebrew";
-      defaultSystem = "aarch64-darwin";
-      systemModules = [ ../../modules/system/platforms/darwin.nix ];
-      homeModules = [ ];
-    };
+  definitions = {
+    arch = import ../../ports/arch;
+    nixos = import ../../ports/nixos;
+    nixos-wsl = import ../../ports/nixos-wsl;
+    darwin = import ../../ports/darwin;
   };
+  select =
+    predicate: builtins.filter (name: predicate definitions.${name}) (builtins.attrNames definitions);
 in
 {
   inherit definitions;
   all = builtins.attrNames definitions;
-  linux = [
-    "arch"
-    "nixos"
-    "nixos-wsl"
-  ];
-  nixos = [
-    "nixos"
-    "nixos-wsl"
-  ];
-  desktops = [
-    "arch"
-    "nixos"
-  ];
+  linux = select (port: port.family == "linux");
+  nixos = select (port: port.upstreamNixos);
+  desktops = select (port: port.desktop);
 }

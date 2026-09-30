@@ -210,25 +210,25 @@ let
     }).configuration.config;
   mpvExtra = ownershipHost {
     type = "nix";
-    externalPkg.packages = [ "mpv" ];
+    extraPkg.nix.packages = [ "mpv" ];
   } { mpv = true; } { };
   pinentryOverride = ownershipHost {
     type = "nix";
-    externalPkg.packages = [ "pinentry-qt" ];
+    extraPkg.nix.packages = [ "pinentry-qt" ];
   } { gpg = true; } ({ pkgs, ... }: { software.packageOverrides.pinentry = pkgs.pinentry-tty; });
   pinentryBypass = ownershipHost "nix" { gpg = true; } (
     { pkgs, ... }: { services.gpg-agent.pinentry.package = pkgs.pinentry-tty; }
   );
   nativeOverride = ownershipHost {
     type = "pacman";
-    externalPkg.packages = [ "git" ];
+    extraPkg.pacman.packages = [ "git" ];
   } { git = true; } ({ pkgs, ... }: { software.packageOverrides.git = pkgs.gitMinimal; });
   darwinOwnership =
     (mkHost "DarwinOwnership" {
       platform = "darwin";
       packageManager = {
         type = "homebrew";
-        externalPkg.brews = [
+        extraPkg.homebrew.brews = [
           "gnupg"
           "pinentry-mac"
           "aria2"
@@ -265,7 +265,7 @@ let
     requirements.clang = { };
     packageManager = {
       type = "nix";
-      externalPkg.packages = [ "gcc" ];
+      extraPkg.nix.packages = [ "gcc" ];
     };
   };
   off = darwin allOff;
@@ -274,7 +274,7 @@ let
       platform = "arch";
       packageManager = {
         type = "pacman";
-        externalPkg = {
+        extraPkg.pacman = {
           packages = [
             "git"
             "git"
@@ -294,7 +294,7 @@ let
   nativeExternal = plan {
     packageManager = {
       type = "homebrew";
-      externalPkg = {
+      extraPkg.homebrew = {
         brews = [
           "editor"
           "extra"
@@ -307,7 +307,7 @@ let
     platform = "arch";
     packageManager = {
       type = "pacman";
-      externalPkg = {
+      extraPkg.pacman = {
         packages = [ "editor" ];
         aur = [
           "editor-font"
@@ -331,7 +331,7 @@ let
     requirements.vim = { };
     packageManager = {
       type = "nix";
-      externalPkg.packages = [
+      extraPkg.nix.packages = [
         "vim"
         "vim"
       ];
@@ -441,8 +441,10 @@ assert builtins.elem "efibootmgr" (map lib.getName efiNixos.environment.systemPa
 assert !(builtins.elem "efibootmgr" (map lib.getName efiNixosOff.environment.systemPackages));
 assert efiArch.software.resolved.efibootmgr.provider == "pacman";
 assert builtins.elem "efibootmgr" efiArch.software.plan.installations.pacman.packages;
-assert efiArchNix.software.resolved.efibootmgr.scopes == [ "home" ];
-assert builtins.elem "efibootmgr" (map lib.getName efiArchNix.home.packages);
+assert efiArchNix.software.resolved.efibootmgr.scopes == [ "system" ];
+assert builtins.elem "efibootmgr" (
+  map lib.getName efiArchNix.hostSystem.environment.systemPackages
+);
 assert
   nativeExternal.installations.homebrew.brews == [
     "editor"
@@ -482,25 +484,25 @@ assert lib.all (args: !(succeeds (plan args))) [
   {
     packageManager = {
       type = "homebrew";
-      externalPkg.aur = [ "x" ];
+      extraPkg.homebrew.aur = [ "x" ];
     };
   }
   {
     packageManager = {
       type = "homebrew";
-      externalPkg.brews = [ "--bad" ];
+      extraPkg.homebrew.brews = [ "--bad" ];
     };
   }
   {
     packageManager = {
       type = "homebrew";
-      externalPkg.brews = [ "x; touch BAD" ];
+      extraPkg.homebrew.brews = [ "x; touch BAD" ];
     };
   }
   {
     packageManager = {
       type = "homebrew";
-      externalPkg.brews = "wrong";
+      extraPkg.homebrew.brews = "wrong";
     };
   }
   {
@@ -513,14 +515,14 @@ assert lib.all (args: !(succeeds (plan args))) [
     platform = "arch";
     packageManager = {
       type = "pacman";
-      externalPkg.aur = [ "editor" ];
+      extraPkg.pacman.aur = [ "editor" ];
     };
   }
   {
     platform = "arch";
     packageManager = {
       type = "pacman";
-      externalPkg.aur = [ "git" ];
+      extraPkg.pacman.aur = [ "git" ];
     };
   }
 ];

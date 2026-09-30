@@ -5,8 +5,6 @@
 }:
 
 {
-  imports = [ ./network.nix ];
-
   networking.networkmanager.enable = lib.mkDefault true;
 
   security.rtkit.enable = lib.mkDefault true;
@@ -23,9 +21,4 @@
 
   hardware.bluetooth.enable = lib.mkDefault true;
 
-  fonts.packages = with pkgs; [
-    noto-fonts
-    noto-fonts-cjk-sans
-    noto-fonts-color-emoji
-  ];
 }

@@ -14,6 +14,7 @@ assert lib.assertMsg (catalogErrors == [ ]) (lib.concatStringsSep "\n" catalogEr
   defaults ? { },
   overrides ? { },
   preferences ? { },
+  modules ? [ ],
 }:
 
 let
@@ -26,6 +27,7 @@ let
       platform
       defaults
       overrides
+      modules
       ;
   };
   pathFor = key: definitions.${key}.path or [ key ];
@@ -54,11 +56,9 @@ let
     key: rule:
     let
       applicable = !(rule ? platforms) || builtins.elem platform rule.platforms;
-      candidates = builtins.attrNames (
-        lib.filterAttrs (
-          _: features: lib.any (feature: enabled.${feature}) (lib.toList features)
-        ) rule.providers
-      );
+      candidates = lib.filter (
+        provider: lib.any (feature: enabled.${feature}) (lib.toList rule.providers.${provider})
+      ) (rule.priority or (builtins.attrNames rule.providers));
       supplied = preferenceValues.${key} or null;
       valid =
         supplied == null
@@ -72,7 +72,7 @@ let
           rule.empty
         else if supplied != null then
           supplied
-        else if builtins.length candidates == 1 then
+        else if candidates != [ ] && (rule ? priority || builtins.length candidates == 1) then
           builtins.head candidates
         else
           rule.empty;
@@ -87,7 +87,7 @@ let
               lib.concatStringsSep ", " (candidates ++ (rule.alternatives or [ ]))
             }."
           ++
-            lib.optional (supplied == null && builtins.length candidates > 1)
+            lib.optional (!(rule ? priority) && supplied == null && builtins.length candidates > 1)
               "multiple ${key} providers are enabled (${lib.concatStringsSep ", " candidates}); set preferences.${key} explicitly.";
     }
   ) catalog.choices;

@@ -17,10 +17,6 @@ in
       screenRotate.enable = true;
     };
   };
-  preferences = {
-    desktop = "gnome";
-    loginManager = "gdm";
-  };
   hardwareConfig = ./hardware.nix;
   systemConfig = ./system.nix;
   homeConfig = ./home.nix;

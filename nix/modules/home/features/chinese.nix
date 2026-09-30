@@ -60,9 +60,14 @@ in
     };
   };
   gtk.enable = lib.mkDefault true;
-  # The official module owns files when its Nix runtime is enabled. Arch reads
-  # the same settings in its native adapter without enabling that runtime.
-  i18n.inputMethod.fcitx5.settings = settings;
+  i18n.inputMethod = {
+    enable = lib.mkDefault true;
+    type = lib.mkDefault "fcitx5";
+    fcitx5 = {
+      waylandFrontend = lib.mkDefault true;
+      inherit settings;
+    };
+  };
   xdg.dataFile = {
     "fcitx5/rime/default.custom.yaml".text = ''
       patch:

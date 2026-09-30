@@ -7,7 +7,7 @@ let
     pkgs.writeShellScript "chrome-policy-test" ''
       set -euo pipefail
       source ${inputs.home-manager}/lib/bash/home-manager.sh
-      ${import ../assets/helpers/owned-root-file.nix { inherit lib pkgs; } {
+      ${import ../assets/helpers/common/owned-root-file.nix { inherit lib pkgs; } {
         inherit active sudo;
         text = builtins.toJSON { ExtensionSettings.example.installation_mode = "normal_installed"; };
         destination = "test-root/policies/nixconfig-extensions.json";

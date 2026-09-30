@@ -76,55 +76,38 @@ let
     {
       name = "gnome-manual-login";
       features.gnome = true;
-      preferences.loginManager = "none";
+      systemConfig.services.displayManager.gdm.enable = false;
       desktop = "gnome";
       loginManager = "none";
     }
   ]
   ++
-    map
-      (desktop: {
-        name = "both-${desktop}";
-        features = {
-          gnome = true;
-          niri = true;
-        };
-        preferences = {
-          inherit desktop;
-          loginManager = "gdm";
-        };
-        inherit desktop;
-        loginManager = "gdm";
-      })
-      [
-        "gnome"
-        "niri"
-      ]
-  ++
-    map
-      (selection: {
-        name = "all-${selection.desktop}-${selection.loginManager}";
-        features = {
-          gnome = true;
-          niri = true;
-          dms = true;
-          chinese = true;
-        };
-        preferences = selection;
-        inherit (selection) desktop loginManager;
-      })
+    lib.concatMap
       (
-        lib.cartesianProduct {
-          desktop = [
+        dms:
+        map
+          (desktop: {
+            name = "both-${if dms then "dms" else "bare"}-${if desktop == null then "default" else desktop}";
+            features = {
+              gnome = true;
+              niri = true;
+              inherit dms;
+              chinese = true;
+            };
+            preferences = lib.optionalAttrs (desktop != null) { inherit desktop; };
+            desktop = if desktop == null then "niri" else desktop;
+            loginManager = if desktop == "gnome" then "gdm" else "greetd";
+          })
+          [
+            null
             "gnome"
             "niri"
-          ];
-          loginManager = [
-            "gdm"
-            "greetd"
-          ];
-        }
-      );
+          ]
+      )
+      [
+        false
+        true
+      ];
   agentCases =
     map
       (state: {
@@ -190,6 +173,8 @@ let
       "Home assertion failed: ${case.name}\n${
         lib.concatMapStringsSep "\n" (a: a.message) (lib.filter (a: !a.assertion) home.assertions)
       }";
+    assert !(case.features.gnome or false) || cfg.services.desktopManager.gnome.enable;
+    assert !(case.features.niri or false) || cfg.programs.niri.enable;
     assert cfg.services.displayManager.defaultSession == case.desktop;
     assert cfg.services.displayManager.gdm.enable == (case.loginManager == "gdm");
     assert cfg.services.greetd.enable == (case.loginManager == "greetd");
@@ -277,6 +262,43 @@ let
     (import ../lib/features/catalog.nix { inherit lib; }).features
   ) (_: false);
   externalCases = [
+    {
+      name = "upstream-default-session-override";
+      features = allOff // {
+        gnome = true;
+        niri = true;
+      };
+      preferences.desktop = "gnome";
+      systemConfig.services.displayManager.defaultSession = "niri";
+      verify =
+        cfg: cfg.services.displayManager.defaultSession == "niri" && cfg.services.displayManager.gdm.enable;
+    }
+    {
+      name = "no-dconf-consumer";
+      features = allOff;
+      verify = cfg: !cfg.programs.dconf.enable;
+    }
+    {
+      name = "external-dconf-settings";
+      features = allOff;
+      homeConfig.dconf.settings."org/example/test".enabled = true;
+      verify = cfg: cfg.programs.dconf.enable;
+    }
+    {
+      name = "external-dconf-database";
+      features = allOff;
+      homeConfig.dconf.databases.secondary."org/example/test".enabled = true;
+      verify = cfg: cfg.programs.dconf.enable;
+    }
+    {
+      name = "disabled-dconf-consumer";
+      features = allOff;
+      homeConfig.dconf = {
+        enable = false;
+        settings."org/example/test".enabled = true;
+      };
+      verify = cfg: !cfg.programs.dconf.enable;
+    }
     {
       name = "dms-mergeable-configuration";
       features = allOff // {
@@ -589,6 +611,7 @@ let
     case.name;
 in
 {
+  platformContracts = import ./platform-contracts.nix { inherit lib mkHost; };
   combinations = map verify cases;
   rejectedOverrides = map verifyConflict conflictCases;
   externalCapabilities = map verifyExternal externalCases;

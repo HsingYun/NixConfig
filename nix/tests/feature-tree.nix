@@ -10,6 +10,23 @@ let
       }
       // args
     );
+  moduleComposition = check {
+    modules = [
+      {
+        imports = [
+          ({ lib, ... }: {
+            features.vim.enable = lib.mkDefault true;
+            features.chrome.extensions = lib.mkBefore [ "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" ];
+          })
+        ];
+      }
+      ({ lib, ... }: { features.vim.enable = lib.mkForce false; })
+    ];
+    overrides = {
+      vim.enable = true;
+      chrome.extensions = [ "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb" ];
+    };
+  };
   merged = check {
     defaults = {
       desktop.niri.enable = true;
@@ -36,7 +53,6 @@ let
       wallpaper.lockImage = "/shared-lock.png";
       niri.settings.layout = {
         gaps = 12;
-        background-color = "transparent";
       };
     };
     overrides.desktop = {
@@ -48,7 +64,6 @@ let
     platform = "arch";
     preferences = {
       desktop = "niri";
-      loginManager = "greetd";
     };
     overrides.desktop = {
       gnome.enable = true;
@@ -109,6 +124,13 @@ let
     }
   ];
 in
+assert moduleComposition.errors == [ ];
+assert !moduleComposition.config.vim.enable;
+assert
+  moduleComposition.config.chrome.extensions == [
+    "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+  ];
 assert merged.errors == [ ];
 assert merged.config.chrome.enable;
 assert merged.config.chrome.extensions == [ ];
@@ -123,10 +145,8 @@ assert settings.config.desktop.wallpaper.lockImage == "/shared-lock.png";
 assert
   settings.config.desktop.niri.settings.layout == {
     gaps = 20;
-    background-color = "transparent";
   };
-assert
-  arch.errors == [ ] && arch.selected.desktop == "niri" && arch.selected.loginManager == "greetd";
+assert arch.errors == [ ] && arch.selected.desktop == "niri";
 assert arch.config.desktop.launcher.enable && arch.config.desktop.wallpaper.enable;
 assert sharedPlatform.errors == [ ] && !sharedPlatform.config.desktop.gnome.enable;
 assert lib.all (
@@ -147,7 +167,6 @@ assert lib.all
     &&
       result.desktop.niri.settings.layout == {
         gaps = 20;
-        background-color = "transparent";
       }
   )
   [
@@ -167,7 +186,7 @@ assert
     overrides.vim.enable = false;
   }).config.vim.enable;
 assert
-  (check {
+  !(check {
     defaults = lib.mkIf true { vim.enable = lib.mkForce true; };
     overrides.vim.enable = false;
   }).config.vim.enable;

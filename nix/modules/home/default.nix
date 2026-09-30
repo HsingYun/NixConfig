@@ -23,7 +23,7 @@
     in
     lib.genAttrs (builtins.attrNames profiles.user) (_: { })
     // lib.genAttrs (builtins.attrNames profiles.base) (_: {
-      scopes = [ (if platform == "arch" then "home" else "system") ];
+      scopes = [ "system" ];
     });
   programs.home-manager.enable = true;
 }

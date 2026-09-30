@@ -4,7 +4,7 @@ Hosts contain machine-specific choices. Shared experience presets live in
 [`nix/lib/hosts/profiles.nix`](../nix/lib/hosts/profiles.nix); deployment platforms
 are defined in [`nix/lib/hosts/platforms.nix`](../nix/lib/hosts/platforms.nix).
 Feature definitions and package recipes remain in their respective libraries.
-Do not copy platform adapters into a host.
+Do not copy platform adapters into a host. See [Port contracts](ports.md) for platform implementation and extension points.
 
 ## Platform versus CPU architecture
 
@@ -28,7 +28,7 @@ Build the actual target configuration when adding another architecture.
 NixOS uses NixOS service modules and a declarative system generation. Darwin uses
 nix-darwin and Home Manager, with native applications integrated through the
 official Homebrew module. Arch uses Home Manager for user configuration and a
-separate adapter for native packages, owned policy files and systemd services.
+separate system module evaluation for native packages, owned policy files and systemd services. `systemConfig` is supported on Arch as well as on NixOS and Darwin. Arch uses sudo for its privileged system effects; Home Manager is the activation entry point, not the owner of system configuration.
 These Arch activation hooks are not loaded by NixOS or Darwin hosts.
 
 The `linuxDesktop` preset enables one stack: Niri with DMS, resolving to greetd.
@@ -83,17 +83,14 @@ in
   system = "x86_64-linux";
   packageManager = "pacman";
   features = profiles.linuxDesktop;
-  preferences = {
-    desktop = "niri";
-    loginManager = "greetd";
-  };
   homeConfig = ./home.nix;
 }
 ```
 
 This host selects Niri/DMS. To switch to GNOME, enable `desktop.gnome` and
 disable `desktop.niri` and `desktop.dms`, as in the tablet example below.
-Also set `desktop = "gnome"` and `loginManager = "gdm"` in preferences.
+To keep both desktops installed but default to GNOME/GDM, leave both enabled
+and set `preferences.desktop = "gnome";`. Otherwise, Niri/greetd takes priority.
 Preferences do not enable or disable features. One login manager owns the
 boot alias; applying a change does not stop the current desktop session.
 
@@ -107,9 +104,10 @@ Only explicitly required application/capability packages belong in the feature
 catalog. Pacman/yay resolve their current dependency graph, including version
 constraints and providers. Never copy `pacman -Qi` dependency lists into Nix.
 Turning a feature off retains native packages. An explicit
-`software.packageOverrides.<identity> = pkgs.<package>` selects Nix and removes
-the corresponding native application with ordinary `pacman -R` after the Nix
-package is installed. Native reverse dependencies, login shells and active or
+`software.packageOverrides.<identity> = pkgs.<package>` selects Nix. Removing
+the corresponding native application additionally requires
+`software.migration.removeReplaced = [ "<identity>" ];`. This runs ordinary
+`pacman -R` after the Nix replacement is installed. Native reverse dependencies, login shells and active or
 enabled system units can block that migration. Host desktop components such as
 Niri, portals and Keyring must retain their native provider on Arch.
 
@@ -144,7 +142,11 @@ automatic or fingerprint login does not supply a password to unlock it.
 Log out and back in after changing the host PAM configuration, then verify that
 an application can access the login keyring without another password prompt.
 
+PAM integration is a current Arch port limitation, not an implemented contract.
+The hooks above describe a deployment prerequisite in the existing host stack.
 This repository does not overwrite Arch PAM files or infer their control flow.
+To manage this declaratively, extend the system contract and Arch port with an
+explicit PAM interface and tests; do not add ad hoc host activation scripts.
 Follow [ArchWiki GNOME Keyring](https://wiki.archlinux.org/title/GNOME/Keyring#PAM_step)
 for the host's actual login stack. NixOS enables its upstream
 `security.pam.services.greetd.enableGnomeKeyring` integration instead.
@@ -184,7 +186,6 @@ features = profiles.linuxDesktop // {
     screenRotate.enable = true;
   };
 };
-preferences = { desktop = "gnome"; loginManager = "gdm"; };
 ```
 
 Sensor orientation and touchscreen calibration are hardware-specific; inspect

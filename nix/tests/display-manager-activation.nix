@@ -34,13 +34,13 @@ let
       activate = pkgs.writeShellScript "display-manager-activation-test" ''
         set -euo pipefail
         source ${inputs.home-manager}/lib/bash/home-manager.sh
-        ${import ../assets/helpers/display-manager-activation.nix { inherit lib pkgs; } {
+        ${import ../assets/helpers/arch/display-manager-activation.nix { inherit lib pkgs; } {
           inherit
             systemctl
             sudo
             service
             ;
-          cmp = "${pkgs.diffutils}/bin/cmp";
+          stateFile = "test-root/state/display-manager.json";
           files = [
             {
               source = "test-root/source";
@@ -48,7 +48,6 @@ let
               stateFile = "test-root/state/managed.json";
             }
           ];
-          readlink = "${pkgs.coreutils}/bin/readlink";
           displayManagerLink = "test-root/display-manager.service";
         }}
       '';

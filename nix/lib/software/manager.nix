@@ -8,9 +8,9 @@ assert lib.assertMsg (
   && manager ? type
   && builtins.isString manager.type
   && manager.type != ""
-  && lib.subtractLists [ "type" "externalPkg" ] (builtins.attrNames manager) == [ ]
-) "Software: packageManager must be a name or { type = name; externalPkg = { ... }; }.";
+  && lib.subtractLists [ "type" "extraPkg" ] (builtins.attrNames manager) == [ ]
+) "Software: packageManager must be a name or { type = name; extraPkg = { ... }; }.";
 {
   inherit (manager) type;
-  externalPkg = manager.externalPkg or { };
+  extraPkg = manager.extraPkg or { };
 }

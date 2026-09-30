@@ -1,7 +1,7 @@
 { pkgs }:
 pkgs.runCommand "native-input-autostart-check" { nativeBuildInputs = [ pkgs.python3 ]; } ''
   export PYTHONDONTWRITEBYTECODE=1
-  python3 - ${../assets/helpers}/autostart.py <<'PY'
+  python3 - ${../assets/helpers}/arch/autostart.py <<'PY'
   import importlib.util, pathlib, sys, tempfile
   sys.path.insert(0, str(pathlib.Path(sys.argv[1]).parent))
   spec = importlib.util.spec_from_file_location('autostart', sys.argv[1])

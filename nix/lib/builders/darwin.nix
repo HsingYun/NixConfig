@@ -21,7 +21,7 @@ nix-darwin.lib.darwinSystem {
     ../../modules/system
     home-manager.darwinModules.home-manager
 
-    {
+    ({ config, ... }: {
       nixpkgs.hostPlatform = system;
       networking.hostName = hostname;
       users.users.${user.username}.home = homeDirectory;
@@ -33,9 +33,13 @@ nix-darwin.lib.darwinSystem {
           inherit inputs user;
         };
 
-        users.${user.username} = homeModule;
+        users.${user.username} = {
+          imports = [ homeModule ];
+          software.externalPlan = config.software.plan;
+          software.hostContext = { inherit (config.software) platform packageManager nativePrefix; };
+        };
       };
-    }
+    })
   ]
   ++ systemModules;
 }

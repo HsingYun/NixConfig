@@ -154,16 +154,7 @@ let
       result = builtins.tryEval ((check args).errors == [ ]);
     in
     result.success && result.value;
-  expected =
-    platform: f:
-    lib.all (key: !f.${key} || builtins.elem platform support.${key}) names
-    && (
-      !(builtins.elem platform [
-        "arch"
-        "nixos"
-      ])
-      || (!(f.gnome && f.niri) && !(f.gnome && f.dms))
-    );
+  expected = platform: f: lib.all (key: !f.${key} || builtins.elem platform support.${key}) names;
   counts = lib.genAttrs platforms (
     platform:
     lib.foldl'
@@ -246,44 +237,58 @@ let
       "gnome"
       "niri"
     ];
-    loginManager = [
-      null
-      "none"
-      "gdm"
-      "greetd"
-    ];
   };
   checkDesktop =
     c:
     let
-      desktopCount = (if c.gnome then 1 else 0) + (if c.niri then 1 else 0);
-      managerCount = (if c.gnome then 1 else 0) + (if c.niri || c.dms then 1 else 0);
-      expectedValid =
-        (
-          if c.desktop == null then
-            desktopCount <= 1
-          else if c.desktop == "gnome" then
-            c.gnome
-          else
-            c.niri
-        )
-        && (
-          if c.loginManager == null then
-            managerCount <= 1
-          else
-            c.loginManager == "none"
-            || (c.loginManager == "gdm" && c.gnome)
-            || (c.loginManager == "greetd" && (c.niri || c.dms))
-        );
+      expectedValid = c.desktop == null || (if c.desktop == "gnome" then c.gnome else c.niri || c.dms);
+      expectedDesktop =
+        if c.desktop != null then
+          c.desktop
+        else if c.niri || c.dms then
+          "niri"
+        else if c.gnome then
+          "gnome"
+        else
+          null;
     in
     lib.all
       (
         platform:
-        (valid {
-          inherit platform;
-          overrides = { inherit (c) gnome niri dms; };
-          preferences = { inherit (c) desktop loginManager; };
-        }) == expectedValid
+        let
+          result = check {
+            inherit platform;
+            overrides = { inherit (c) gnome niri dms; };
+            preferences = { inherit (c) desktop; };
+          };
+          session = import ../lib/features/desktop-session.nix { inherit (result) selected enabled; };
+        in
+        (result.errors == [ ]) == expectedValid
+        && (
+          !expectedValid
+          || (
+            result.selected.desktop == expectedDesktop
+            && session.desktop == expectedDesktop
+            &&
+              session.loginManager == (
+                if expectedDesktop == "gnome" then
+                  "gdm"
+                else if expectedDesktop == "niri" then
+                  "greetd"
+                else
+                  "none"
+              )
+            &&
+              session.greeter == (
+                if expectedDesktop != "niri" then
+                  null
+                else if c.dms then
+                  "dms-greeter"
+                else
+                  "tuigreet"
+              )
+          )
+        )
       )
       [
         "arch"
@@ -335,14 +340,7 @@ let
         niri = false;
       };
     })
-    (lib.any (lib.hasInfix "preferences.desktop explicitly")
-      (check {
-        overrides = {
-          gnome = true;
-          niri = true;
-        };
-      }).errors
-    )
+    (!(valid { preferences.loginManager = "gdm"; }))
   ];
   conflictCatalog = catalog // {
     features = catalog.features // {

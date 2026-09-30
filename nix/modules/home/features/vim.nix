@@ -44,11 +44,17 @@ let
     neocomplete-vim
     neoformat
   ];
-  customRC = builtins.readFile ../../../assets/vimrc;
+  customRC = ''
+    let g:tagbar_ctags_bin = '${lib.replaceStrings [ "'" ] [ "''" ] (software.ctags.command "ctags")}'
+  ''
+  + builtins.readFile ../../../assets/vimrc;
 in
 {
   software = {
-    requirements.vim.installNix = false;
+    requirements = {
+      vim.installNix = false;
+      ctags = { };
+    };
     bindings.vim = {
       enableOption = [
         "programs"

@@ -9,10 +9,14 @@ for composition and [software architecture](software.md) for ownership and lifec
 ## Desktop selection
 
 `linuxDesktop` selects Niri + DMS with greetd. PC and Arch use that preset; Pad
-replaces it with GNOME + GDM. When switching stacks, explicitly disable the
-previous desktop and its dependent features. `preferences` selects the default
-session and login manager; it does not toggle features. The [GNOME tablet
-example](hosts.md#native-nixos-pc-or-tablet) shows a complete override.
+replaces it with GNOME + GDM. Multiple desktop features may coexist. The default
+stack is selected as a pair: Niri uses greetd, and GNOME uses GDM. Niri has
+priority when both are enabled; `preferences.desktop = "gnome";` selects the
+GNOME/GDM pair instead, while retaining the other enabled desktops. Preferences
+do not enable or disable features. DMS adds the Niri greeter UI rather than
+competing as another desktop. When removing a stack, explicitly disable it and
+its dependent features. The [GNOME tablet example](hosts.md#native-nixos-pc-or-tablet)
+shows a complete override.
 
 Niri settings use structured KDL, GNOME settings use dconf schema paths, and DMS
 settings use JSON attributes. For a Niri desktop:
@@ -81,7 +85,8 @@ user-owned. GNOME uses Kimpanel; Niri retains Wayland input support. See the
   for merging, comments and removal behavior.
 - `vim` uses the shared [vimrc](../nix/assets/vimrc) and pinned plugins. Native
   Vim and the Nix wrapper use the same configuration. Startup does not download
-  plugins. `CodeFormat()` needs `astyle`; failures leave the buffer/file unchanged.
+  plugins. Universal Ctags is supplied automatically for Tagbar through the selected
+  software provider. `CodeFormat()` needs `astyle`; failures leave the buffer/file unchanged.
 - `ghostty` uses [shared terminal settings](../nix/modules/home/features/ghostty.nix)
   with Darwin-specific additions. Its font dependency is supplied automatically.
 - `mpv` configures ModernX and thumbfast. Nix uses the upstream wrapper; native
@@ -90,8 +95,32 @@ user-owned. GNOME uses Kimpanel; Niri retains Wayland input support. See the
 
 `devel` and `commonTools` are software groups defined in
 [profiles.nix](../nix/lib/software/profiles.nix). Shared requirements are deduplicated.
-Use `packageManager.externalPkg` for host-only extras and
-`software.packageOverrides` for a managed application's explicit Nix override.
+Use `packageManager.extraPkg` for host-only extras and
+`software.providerOverrides` for explicit source selection, or
+`software.packageOverrides` for a managed application's custom Nix package.
+The [port contract guide](ports.md) describes where platform implementations live.
 Private Zsh settings belong in `~/.config/zsh/local.zsh`, outside the repository.
 Smart cards and WSL device forwarding are covered in the
 [smart-card guide](software.md#smart-cards).
+
+
+## Reusable feature modules
+
+A host may compose `featureModules = [ ./feature-profile.nix ];` in addition to
+its `features` attribute set. These are ordinary Nix modules whose options live
+under `features`; imports, `mkIf`, `mkDefault`, `mkForce` and merge conflicts are
+handled by upstream `lib.evalModules`. For example:
+
+```nix
+{ lib, ... }:
+{
+  features.desktop.niri.enable = lib.mkDefault true;
+  features.chrome.enable = lib.mkDefault true;
+}
+```
+
+Features contribute settings and requirements. Disabling one contribution does
+not negate another feature's shared requirement. Use explicit upstream options
+in `systemConfig` or `homeConfig` when overriding the resulting behavior; an
+unsatisfied dependency is an evaluation error. Exclusive resources such as the
+login screen use the declared desktop-stack priority instead of definition order.

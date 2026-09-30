@@ -2,7 +2,9 @@
 
 let
   catalog = (import ../lib/features/catalog.nix { inherit lib; }).features;
-  names = builtins.attrNames (lib.filterAttrs (_: entry: !(entry ? software)) catalog);
+  names = builtins.attrNames (
+    lib.filterAttrs (_: entry: builtins.elem "nixos" entry.platforms) catalog
+  );
   allOff = lib.genAttrs (builtins.attrNames catalog) (_: false);
   home = cfg: cfg.home-manager.users.test;
   hasPackage = name: cfg: builtins.elem name (map lib.getName (home cfg).home.packages);
@@ -34,6 +36,27 @@ let
     && hasPackage "tela-icon-theme" cfg
     && (home cfg).dconf.settings."org/gnome/desktop/interface".icon-theme == "Tela";
   checks = {
+    chrome = cfg: cfg.programs.chromium.enable && hasPackage "google-chrome" cfg;
+    vscode =
+      cfg:
+      (home cfg).programs.vscode.enable
+      && (home cfg).programs.vscode.profiles.default.mutableUserSettings;
+    codex = cfg: hasPackage "codex" cfg;
+    mapleMono = cfg: hasPackage "MapleMono-NF-CN" cfg && hasPackage "MapleMono-TTF" cfg;
+    efiTools = cfg: builtins.elem "efibootmgr" (map lib.getName cfg.environment.systemPackages);
+    screenRotate =
+      cfg:
+      cfg.services.desktopManager.gnome.enable
+      && builtins.elem (home cfg).software.resolved.gnome-screen-rotate.package.extensionUuid (
+        map (extension: extension.package.extensionUuid) (home cfg).programs.gnome-shell.extensions
+      );
+    fileManager =
+      cfg:
+      cfg.programs.dconf.enable
+      && (home cfg).dconf.enable
+      && (home cfg).dconf.settings."org/gnome/nautilus/preferences".show-create-link
+      && (home cfg).xdg.mimeApps.defaultApplications."inode/directory" == [ "org.gnome.Nautilus.desktop" ]
+      && hasPackage "nautilus" cfg;
     printing =
       cfg: cfg.services.printing.enable && cfg.services.avahi.enable && !cfg.services.fwupd.enable;
     firmware =
@@ -190,9 +213,8 @@ let
     name:
     let
       cfg = build {
-        features = allOff // {
-          ${name} = true;
-        };
+        features =
+          allOff // { ${name} = true; } // lib.optionalAttrs (name == "screenRotate") { gnome = true; };
       };
       assertions = cfg.assertions ++ (home cfg).assertions;
     in

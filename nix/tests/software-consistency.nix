@@ -10,7 +10,7 @@ let
     ownershipHost
       {
         type = "nix";
-        externalPkg.packages = [ "llvmPackages.llvm.dev" ];
+        extraPkg.nix.packages = [ "llvmPackages.llvm.dev" ];
       }
       { devel = true; }
       (
@@ -48,7 +48,7 @@ let
           platform = if isDarwin then "darwin" else "arch";
           packageManager = {
             type = manager;
-            externalPkg.${if isDarwin then "brews" else "packages"} = [ "mpv" ];
+            extraPkg.${manager}.${if isDarwin then "brews" else "packages"} = [ "mpv" ];
           };
           features = allOff // {
             mpv = true;

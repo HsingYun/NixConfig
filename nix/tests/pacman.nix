@@ -1,7 +1,7 @@
 { pkgs, inputs }:
 let
   inherit (pkgs) lib;
-  render = import ../assets/helpers/pacman-activation.nix { inherit lib; };
+  render = import ../assets/helpers/arch/pacman-activation.nix { inherit lib; };
   pacman = pkgs.writeShellScript "pacman-stub" ''
     if [[ $1 == -Q ]]; then
       printf '%s\n' "$*" >> "$QUERY_LOG"

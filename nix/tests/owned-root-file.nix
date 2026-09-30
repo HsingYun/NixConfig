@@ -7,7 +7,7 @@ let
     pkgs.writeShellScript "owned-root-file-test" ''
       set -euo pipefail
       source ${inputs.home-manager}/lib/bash/home-manager.sh
-      ${import ../assets/helpers/owned-root-file.nix { inherit lib pkgs; } {
+      ${import ../assets/helpers/common/owned-root-file.nix { inherit lib pkgs; } {
         inherit active text sudo;
         destination = "test-root/system/policy.rules";
         stateFile = "test-root/state/policy.json";
@@ -71,7 +71,7 @@ pkgs.runCommand "owned-root-file-check" { } ''
   if ${first}; then exit 1; fi
   ${disabled}
   test "$(cat test-root/system/policy.rules)" = 'first rule'
-  ${pkgs.python3}/bin/python3 - ${../assets/helpers} <<'PY'
+  ${pkgs.python3}/bin/python3 - ${../assets/helpers/common} <<'PY'
   import importlib.util, pathlib, sys, tempfile
   directory = pathlib.Path(sys.argv[1])
   sys.path.insert(0, str(directory))

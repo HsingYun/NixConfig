@@ -30,7 +30,7 @@
 | Darwin | 共享命令行、开发工具、GPG、Ghostty、Chrome、VS Code 和 IINA；保留 macOS 桌面 |
 | NixOS-WSL | 共享命令行、开发和 GPG/智能卡，使用终端 pinentry；不启用桌面和中文输入法 |
 
-`linuxDesktop` 默认只开启 Niri + DMS，配合 greetd。PC / Arch 改用 GNOME 时，开启 `features.desktop.gnome`，关闭 `features.desktop.niri` 和 `features.desktop.dms`，再设置 `preferences.desktop = "gnome"; preferences.loginManager = "gdm";`。Pad 改用 Niri 时，关闭 GNOME 和屏幕旋转，开启 Niri/DMS，并选择 Niri/greetd。preferences 只选择默认会话和登录管理器，不负责启停 feature。
+`linuxDesktop` 默认开启 Niri + DMS，配合 greetd。多套 GUI feature 可以共存，默认优先 Niri/greetd，其次 GNOME/GDM；设置 `preferences.desktop = "gnome";` 即可让 GNOME/GDM 整套成为默认，不会关闭其他已开启的桌面。如果要完全替换桌面，PC / Arch 可以关闭 Niri/DMS 后开启 GNOME；Pad 可以关闭 GNOME/屏幕旋转后开启 Niri/DMS。preferences 不负责启停 feature。
 
 ## 使用
 
@@ -87,12 +87,12 @@ features.chrome = {
 
 这些设置统一放在 `hosts/<机器名>/default.nix`，解析后供 Home Manager 和系统模块使用。
 
-软件安装统一通过软件层处理。Host 选择 `packageManager` 和 `features`；主机独有的软件在 `packageManager.externalPkg` 中使用对应包管理器的原生包名声明：
+软件安装统一通过软件层处理。Host 选择 `packageManager` 和 `features`；主机独有的软件在 `packageManager.extraPkg` 中使用对应包管理器的原生包名声明：
 
 ```nix
 packageManager = {
   type = "homebrew";
-  externalPkg.brews = [ "watch" ];
+  extraPkg.homebrew.brews = [ "watch" ];
 };
 features = {
   ghostty.enable = true;
@@ -107,6 +107,7 @@ Feature 同时声明配置与软件需求，依赖自动合并去重。例如 Gh
 
 功能参数和示例统一见英文文档 [Configuring features](docs/features.md)。
 软件归属、包覆盖、可写设置和清理行为见 [Software architecture](docs/software.md)；
+平台边界与扩展方式见 [Port contracts](docs/ports.md)。
 部署前置条件（包括 Arch Keyring 的 PAM 配置）见 [Creating hosts](docs/hosts.md)。
 README 保留使用入口，详细行为以这些文档为准，避免多处维护造成偏差。
 
@@ -116,6 +117,9 @@ README 保留使用入口，详细行为以这些文档为准，避免多处维�
 flake.nix      依赖与共享用户信息
 hosts/         机器配置
 nix/
+  contracts/   公开的系统与用户能力契约
+  ports/       各平台实现与注册
+  assets/helpers/  按平台分类的辅助实现与 common 共用代码
   modules/     系统、用户与功能模块
   lib/         配置组装与软件来源解析
   tests/       配置检查

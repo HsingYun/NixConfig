@@ -2,7 +2,9 @@
 
 let
   catalog = (import ../lib/features/catalog.nix { inherit lib; }).features;
-  names = builtins.attrNames (lib.filterAttrs (_: entry: !(entry ? software)) catalog);
+  names = builtins.attrNames (
+    lib.filterAttrs (_: entry: builtins.elem "nixos" entry.platforms) catalog
+  );
   allOn = lib.genAttrs (builtins.attrNames catalog) (_: false) // lib.genAttrs names (_: true);
   home = cfg: cfg.home-manager.users.test;
   hasPackage = name: cfg: builtins.elem name (map lib.getName (home cfg).home.packages);
@@ -33,6 +35,46 @@ let
   # Check repository-specific settings, including integrations, rather than
   # assuming that upstream defaults or shared packages disappear.
   checks = {
+    chrome = {
+      on = cfg: cfg.programs.chromium.enable;
+      off = cfg: !cfg.programs.chromium.enable && !((home cfg).software.requirements ? chrome);
+    };
+    vscode = {
+      on = cfg: (home cfg).programs.vscode.enable;
+      off =
+        cfg:
+        !(home cfg).programs.vscode.enable && !((home cfg).home.activation ? vscodeMutableUserSettings);
+    };
+    codex = {
+      on = cfg: hasPackage "codex" cfg;
+      off = cfg: !hasPackage "codex" cfg;
+    };
+    mapleMono = {
+      on = cfg: (home cfg).software.requirements ? maple-mono-plain;
+      # Ghostty/Chinese/VS Code retain the shared NF-CN font.
+      off =
+        cfg:
+        !((home cfg).software.requirements ? maple-mono-plain) && (home cfg).software.resolved ? maple-mono;
+    };
+    efiTools = {
+      on = cfg: builtins.elem "efibootmgr" (map lib.getName cfg.environment.systemPackages);
+      off = cfg: !((home cfg).software.requirements ? efibootmgr);
+    };
+    screenRotate = {
+      on = cfg: (home cfg).software.requirements ? gnome-screen-rotate;
+      off =
+        cfg:
+        !((home cfg).software.requirements ? gnome-screen-rotate)
+        && cfg.services.desktopManager.gnome.enable;
+    };
+    fileManager = {
+      on = cfg: (home cfg).dconf.settings ? "org/gnome/nautilus/preferences";
+      off =
+        cfg:
+        !((home cfg).software.requirements ? nautilus)
+        && !((home cfg).dconf.settings ? "org/gnome/nautilus/preferences")
+        && !((home cfg).wayland.windowManager.niri.settings.binds ? "Mod+E");
+    };
     printing = {
       on = cfg: cfg.services.printing.enable && cfg.services.avahi.enable;
       off =
@@ -230,26 +272,22 @@ let
     features = allOn;
     preferences = {
       desktop = "gnome";
-      loginManager = "gdm";
     };
   };
   verify =
     name:
     let
       cfg = build {
-        features = allOn // {
-          ${name} = false;
-        };
+        features =
+          allOn // { ${name} = false; } // lib.optionalAttrs (name == "gnome") { screenRotate = false; };
         preferences =
           if name == "gnome" then
             {
               desktop = "niri";
-              loginManager = "greetd";
             }
           else
             {
               desktop = "gnome";
-              loginManager = "gdm";
             };
         homeConfig =
           { lib, pkgs, ... }:

@@ -23,7 +23,7 @@ nixpkgs.lib.nixosSystem {
     ../../modules/system
     home-manager.nixosModules.home-manager
 
-    {
+    ({ config, ... }: {
       networking.hostName = hostname;
       users.users.${user.username}.home = homeDirectory;
 
@@ -34,9 +34,13 @@ nixpkgs.lib.nixosSystem {
           inherit inputs user;
         };
 
-        users.${user.username} = homeModule;
+        users.${user.username} = {
+          imports = [ homeModule ];
+          software.externalPlan = config.software.plan;
+          software.hostContext = { inherit (config.software) platform packageManager nativePrefix; };
+        };
       };
-    }
+    })
   ]
   ++ systemModules;
 }

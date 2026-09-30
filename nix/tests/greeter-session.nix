@@ -1,7 +1,7 @@
 { pkgs }:
 pkgs.runCommand "greeter-session-check" { nativeBuildInputs = [ pkgs.python3 ]; } ''
   export PYTHONDONTWRITEBYTECODE=1
-  python3 - ${../assets/helpers}/greeter-session.py <<'PY'
+  python3 - ${../assets/helpers}/common/greeter-session.py <<'PY'
   import importlib.util, json, pathlib, sys, tempfile
   sys.path.insert(0, str(pathlib.Path(sys.argv[1]).parent))
   spec = importlib.util.spec_from_file_location('greeter', sys.argv[1])

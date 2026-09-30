@@ -4,6 +4,7 @@ catalog:
 
 let
   platforms = (import ../hosts/platforms.nix).all;
+  contracts = import ../../contracts;
   strings = value: builtins.isList value && lib.all (v: builtins.isString v && v != "") value;
   uniqueStrings = value: strings value && lib.unique value == value;
   identifier =
@@ -63,10 +64,17 @@ let
     platforms = platformList;
     systemPlatforms = platformList;
     homeModules = modules;
-    homeModulesByPlatform =
-      value:
-      builtins.isAttrs value
-      && lib.all (p: builtins.elem p platforms && modules value.${p}) (builtins.attrNames value);
+    contracts = uniqueStrings;
+    portScopes =
+      v:
+      uniqueStrings v
+      && lib.all (
+        s:
+        builtins.elem s [
+          "home"
+          "system"
+        ]
+      ) v;
     software = uniqueStrings;
     systemModules = modules;
   };
@@ -121,7 +129,18 @@ let
               builtins.attrValues v
             );
           empty = v: v == null || builtins.isString v;
+          sessions =
+            value:
+            builtins.isAttrs value
+            && lib.all (
+              session:
+              fields "session" [ "loginManager" "command" ] {
+                loginManager = builtins.isString;
+                command = value: value == null || builtins.isString value;
+              } session == [ ]
+            ) (builtins.attrValues value);
           alternatives = uniqueStrings;
+          priority = uniqueStrings;
         }
       ) catalog.choices
     );
@@ -141,7 +160,6 @@ let
           )) "${path}.${field} keys must be a subset of platforms."
         )
         [
-          "homeModulesByPlatform"
           "activationByPlatform"
         ]
     ++ lib.optional (lib.any (p: !(builtins.elem p entry.platforms)) (
@@ -183,6 +201,12 @@ let
         ++ lib.optional (
           lib.intersectLists (builtins.attrNames rule.providers) (rule.alternatives or [ ]) != [ ]
         ) "choices.${name}.alternatives must not overlap providers."
+        ++ lib.optional (
+          rule ? priority && lib.sort builtins.lessThan rule.priority != builtins.attrNames rule.providers
+        ) "choices.${name}.priority must list every provider exactly once."
+        ++ lib.optional (
+          name == "desktop" && builtins.attrNames (rule.sessions or { }) != builtins.attrNames rule.providers
+        ) "choices.${name}.sessions must describe every desktop provider exactly once."
       ) catalog.choices
     );
   visit =
@@ -247,6 +271,76 @@ let
       ) entry.owners
     ) catalog.integrations
   );
+  portErrors =
+    let
+      ports = (import ../hosts/platforms.nix).definitions;
+    in
+    lib.concatMap (
+      platform:
+      lib.optional (
+        !uniqueStrings ports.${platform}.contracts
+      ) "Port ${platform}: contracts must be unique names."
+      ++ lib.concatMap (
+        name: lib.optional (!(contracts ? ${name})) "Port ${platform}: unknown contract '${name}'."
+      ) ports.${platform}.contracts
+      ++
+        lib.concatMap
+          (
+            section:
+            let
+              definitions = catalog.${section};
+              registered = ports.${platform}.${section} or { };
+            in
+            lib.concatMap (
+              name:
+              lib.optional (!(definitions ? ${name})) "Port ${platform}: unknown ${section}.${name}."
+              ++ fields "ports.${platform}.${section}.${name}" [ ] {
+                homeModules = modules;
+                systemModules = modules;
+              } registered.${name}
+            ) (builtins.attrNames registered)
+            ++ lib.concatMap (
+              name:
+              let
+                entry = definitions.${name};
+              in
+              lib.optionals (builtins.elem platform entry.platforms) (
+                lib.concatMap (
+                  scope:
+                  lib.optional (
+                    (registered.${name}.${scope + "Modules"} or [ ]) == [ ]
+                  ) "Port ${platform}: ${section}.${name} requires a ${scope} implementation."
+                ) (entry.portScopes or [ ])
+              )
+            ) (builtins.attrNames definitions)
+            ++ lib.concatMap (
+              name:
+              let
+                entry = definitions.${name};
+              in
+              lib.concatMap (
+                contract:
+                if !(contracts ? ${contract}) then
+                  [ "${section}.${name}: unknown contract '${contract}'." ]
+                else
+                  lib.optional (
+                    builtins.elem platform (
+                      if contracts.${contract}.scope == "home" then
+                        entry.platforms
+                      else
+                        entry.systemPlatforms or entry.platforms
+                    )
+                    && !(builtins.elem contract ports.${platform}.contracts)
+                  ) "Port ${platform}: ${section}.${name} requires contract '${contract}'."
+              ) (entry.contracts or [ ])
+            ) (builtins.attrNames definitions)
+          )
+          [
+            "features"
+            "integrations"
+          ]
+    ) (builtins.attrNames ports);
+
 in
 map (message: "Feature catalog: ${message}") (
   if rootErrors != [ ] then
@@ -256,5 +350,5 @@ map (message: "Feature catalog: ${message}") (
   else if referenceErrors != [ ] then
     referenceErrors
   else
-    pathErrors ++ dependencyErrors ++ integrationErrors
+    pathErrors ++ dependencyErrors ++ integrationErrors ++ portErrors
 )

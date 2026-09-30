@@ -6,6 +6,7 @@
   platform,
   pkgs ? null,
   packageOverrides ? { },
+  providerOverrides ? { },
   nativePrefix ? "/opt/homebrew",
 }:
 let
@@ -13,47 +14,65 @@ let
   providers = import ./providers.nix { inherit lib nativePrefix pkgs; };
   preferred = manager.type;
   backend = providers.${preferred};
-  managerBinPaths = backend.managerBinPaths or [ ];
   externalErrors =
-    if !builtins.isAttrs manager.externalPkg then
-      [ "expected an attribute set" ]
+    if !builtins.isAttrs manager.extraPkg then
+      [ "expected provider groups" ]
     else
       lib.concatMap (
-        group:
-        if !(backend.externalGroups ? ${group}) then
-          [ "unknown group '${group}'" ]
-        else if
-          !(
-            builtins.isList manager.externalPkg.${group}
-            && lib.all backend.validName manager.externalPkg.${group}
-          )
-        then
-          [ "${group}: expected a list of package names" ]
+        provider:
+        if !(providers ? ${provider}) then
+          [ "unknown provider '${provider}'" ]
+        else if !(builtins.elem platform providers.${provider}.platforms) then
+          [ "provider '${provider}' is unavailable on '${platform}'" ]
+        else if !builtins.isAttrs manager.extraPkg.${provider} then
+          [ "${provider}: expected package groups" ]
         else
-          [ ]
-      ) (builtins.attrNames manager.externalPkg);
+          lib.concatMap (
+            group:
+            if !(providers.${provider}.externalGroups ? ${group}) then
+              [ "${provider}: unknown group '${group}'" ]
+            else
+              lib.optional (
+                !(
+                  builtins.isList manager.extraPkg.${provider}.${group}
+                  && lib.all providers.${provider}.validName manager.extraPkg.${provider}.${group}
+                )
+              ) "${provider}.${group}: expected valid package names"
+          ) (builtins.attrNames manager.extraPkg.${provider})
+      ) (builtins.attrNames manager.extraPkg);
   externalRequests = lib.concatLists (
     lib.mapAttrsToList (
-      group: names:
-      map (
-        name:
-        let
-          source = backend.externalRecipe backend.externalGroups.${group} name;
-        in
-        assert lib.assertMsg (source.available or true
-        ) "Software: external package '${name}' is unavailable.";
-        {
-          inherit name source;
-          group = group;
-          provider = preferred;
-          capabilities = [ ];
-          providedCapabilities = source.capabilities or [ ];
-          scopes = [ "home" ];
-          installNix = true;
-        }
-        // backend.resolve source
-      ) (lib.unique names)
-    ) manager.externalPkg
+      provider: groups:
+      let
+        externalBackend = providers.${provider};
+      in
+      lib.concatLists (
+        lib.mapAttrsToList (
+          group: names:
+          map (
+            name:
+            let
+              source = externalBackend.externalRecipe externalBackend.externalGroups.${group} name;
+            in
+            assert lib.assertMsg (source.available or true
+            ) "Software: external package '${name}' is unavailable.";
+            {
+              inherit
+                name
+                source
+                group
+                provider
+                ;
+              capabilities = [ ];
+              providedCapabilities = source.capabilities or [ ];
+              scopes = [ "home" ];
+              installNix = true;
+            }
+            // externalBackend.resolve source
+          ) (lib.unique names)
+        ) groups
+      )
+    ) manager.extraPkg
   );
   # Validate recipe structure without forcing unselected Nix derivations.
   recipeErrors = lib.concatLists (
@@ -117,7 +136,12 @@ let
       capabilities = lib.unique (request.capabilities or [ ]);
       overridden = packageOverrides ? ${name};
       candidates =
-        if overridden then [ "nix" ] else lib.unique ([ preferred ] ++ providers.${preferred}.fallback);
+        if overridden then
+          [ "nix" ]
+        else if providerOverrides ? ${name} then
+          [ providerOverrides.${name} ]
+        else
+          lib.unique ([ preferred ] ++ providers.${preferred}.fallback);
       recipes =
         entry
         // lib.optionalAttrs overridden {
@@ -130,7 +154,8 @@ let
         };
       usable =
         provider:
-        builtins.elem platform providers.${provider}.platforms
+        providers ? ${provider}
+        && builtins.elem platform providers.${provider}.platforms
         && recipes ? ${provider}
         && (recipes.${provider}.available or true)
         && lib.all (cap: builtins.elem cap (recipes.${provider}.capabilities or [ ])) capabilities;
@@ -150,6 +175,8 @@ let
       reason =
         if overridden then
           "explicit package override"
+        else if providerOverrides ? ${name} then
+          "explicit provider override"
         else if provider == preferred then
           "preferred"
         else if !(entry ? ${preferred}) then
@@ -171,11 +198,14 @@ let
           entry = catalog.${name};
           selected = resolved.${name};
         in
-        (entry ? ${preferred} && backend.samePackage extra.source entry.${preferred})
+        (
+          entry ? ${extra.provider}
+          && providers.${extra.provider}.samePackage extra.source entry.${extra.provider}
+        )
         || (
-          selected.provider == preferred
-          && backend.samePackage extra.source (
-            if preferred == "nix" then
+          selected.provider == extra.provider
+          && providers.${extra.provider}.samePackage extra.source (
+            if extra.provider == "nix" then
               { package = selected.package; }
             else
               {
@@ -227,16 +257,27 @@ let
       externalEntries = map (
         extra:
         extra
-        // lib.optionalAttrs (preferred == "nix") {
+        // lib.optionalAttrs (extra.provider == "nix") {
           # An extra compiler/tool must not replace feature-owned commands.
           packages = map (lib.setPrio externalPriority) extra.packages;
         }
       ) (lib.filter (extra: extra.owners == [ ]) reconciledExtras);
       values = builtins.attrValues resolved ++ externalEntries;
+      # Explicit providers need their command directories even when they are
+      # not the host default (e.g. Homebrew cask links with a Nix default).
+      activeProviders = lib.unique ([ preferred ] ++ map (entry: entry.provider) values);
+      managerBinPaths = lib.unique (
+        lib.concatMap (provider: providers.${provider}.managerBinPaths or [ ]) activeProviders
+      );
     in
     {
       externalReport = map (extra: {
-        inherit (extra) name group owners;
+        inherit (extra)
+          name
+          group
+          owners
+          provider
+          ;
         status = if extra.owners == [ ] then "external" else "provided-by-feature";
       }) reconciledExtras;
       installations = lib.mapAttrs (
@@ -249,11 +290,22 @@ let
 in
 assert checkManager;
 assert lib.assertMsg (lib.all (name: catalog ? ${name}) (
+  builtins.attrNames providerOverrides
+)) "Software: providerOverrides contains an unknown software identifier.";
+assert lib.assertMsg (lib.all
+  (provider: providers ? ${provider} && builtins.elem platform providers.${provider}.platforms)
+  (builtins.attrValues providerOverrides)
+) "Software: providerOverrides selects an unsupported provider.";
+assert lib.assertMsg (lib.all
+  (name: !(providerOverrides ? ${name}) || providerOverrides.${name} == "nix")
+  (builtins.attrNames packageOverrides)
+) "Software: a package override conflicts with a non-Nix provider override.";
+assert lib.assertMsg (lib.all (name: catalog ? ${name}) (
   builtins.attrNames packageOverrides
 )) "Software: packageOverrides contains an unknown software identifier.";
 assert lib.assertMsg (
   externalErrors == [ ]
-) "Software ${preferred} externalPkg: ${lib.concatStringsSep "; " externalErrors}";
+) "Software ${preferred} extraPkg: ${lib.concatStringsSep "; " externalErrors}";
 assert lib.assertMsg (
   recipeErrors == [ ]
 ) "Software catalog: ${lib.concatStringsSep "; " recipeErrors}";

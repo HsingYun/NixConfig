@@ -21,7 +21,6 @@ let
       };
       preferences = lib.optionalAttrs (featureConfig.desktop.niri.enable or false) {
         desktop = "niri";
-        loginManager = "greetd";
       };
     }).configuration.config;
   chinese = arch {
@@ -45,7 +44,6 @@ let
       };
       preferences = {
         inherit desktop;
-        loginManager = "greetd";
       };
     };
   nativeOverride = arch { desktop.niri.enable = true; } (
@@ -72,6 +70,7 @@ let
     { pkgs, ... }: {
       software.packageOverrides.htop = pkgs.htop;
       software.requirements.htop = { };
+      software.migration.removeReplaced = [ "htop" ];
     }
   );
   inactiveMigration = arch { mpv.enable = true; } (
@@ -125,7 +124,7 @@ assert lib.all
   ];
 assert !(native.xdg.configFile ? fcitx5);
 assert native.xdg.configFile ? "fcitx5/profile";
-assert !native.i18n.inputMethod.enable;
+assert native.i18n.inputMethod.enable;
 assert lib.all (home: !(lib.hasInfix "/dconf.py" home.home.activation.dconfSettings.data)) [
   pc.home-manager.users.test
   pad.home-manager.users.test
@@ -191,8 +190,8 @@ assert lib.all (name: chinese.software.resolved.${name}.provider == "pacman") [
 assert
   lib.toList chinese.systemd.user.services.fcitx5-daemon.Service.ExecStart == [ "/usr/bin/fcitx5" ];
 assert !(chinese.home.sessionVariables ? GTK_IM_MODULE);
-assert builtins.elem "NetworkManager.service" chinese.nativeSystemd.units;
-assert builtins.elem "bluetooth.service" chinese.nativeSystemd.units;
+assert builtins.elem "NetworkManager.service" chinese.hostSystem.native.systemd.units;
+assert builtins.elem "bluetooth.service" chinese.hostSystem.native.systemd.units;
 assert chinese.software.resolved.pipewire-pulse.provider == "pacman";
 assert chinese.xdg.configFile ? "systemd/user/pipewire.service.wants/wireplumber.service";
 assert chinese.home.activation.checkNativeDesktopNetwork.before == [ "writeBoundary" ];
@@ -203,8 +202,8 @@ assert
 assert lib.all
   (
     dms:
-    lib.hasInfix "gnome-session" (allDesktop "gnome" dms)
-    .services.greetd.settings.default_session.command
+    (allDesktop "gnome" dms).services.displayManager.gdm.enable
+    && !(allDesktop "gnome" dms).services.greetd.enable
   )
   [
     false
@@ -228,6 +227,7 @@ assert lib.hasInfix "htop" migration.home.activation.removeReplacedNativePackage
 assert
   migration.home.activation.removeReplacedNativePackages.after == [
     "installPackages"
+    "systemProfile"
     "installNativePackages"
   ];
 assert !(migration.xdg.dataFile ? applications);

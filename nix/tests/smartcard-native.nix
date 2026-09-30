@@ -54,8 +54,8 @@ assert !enabled.features.smartcard.allowBackgroundAccess;
 assert enabled.programs.gpg.scdaemonSettings.disable-ccid;
 assert !(enabled.programs.gpg.scdaemonSettings ? pcsc-driver);
 assert wsl.features.smartcard.allowBackgroundAccess;
-assert builtins.elem "pcscd.socket" enabled.nativeSystemd.units;
-assert disabled.nativeSystemd.units == [ ];
+assert builtins.elem "pcscd.socket" enabled.hostSystem.native.systemd.units;
+assert disabled.hostSystem.native.systemd.units == [ ];
 assert !(disabled.software.resolved ? pcsclite);
 # Cleanup remains available after changing package manager or disabling the feature.
 assert nixOnly.home.activation ? nativeSmartcard;

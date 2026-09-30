@@ -5,7 +5,7 @@ in
   platform = "darwin";
   packageManager = {
     type = "homebrew";
-    externalPkg.brews = [
+    extraPkg.homebrew.brews = [
       "pinentry"
       "watch"
     ];
