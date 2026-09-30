@@ -14,6 +14,7 @@ let
 in
 {
   config = lib.mkIf cfg.enable {
+    software.requirements.gnome-keyring.scopes = [ "home" ];
     assertions = [
       {
         assertion = config.software.packageManager.type != "pacman" || usesPacman;

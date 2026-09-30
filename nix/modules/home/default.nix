@@ -1,5 +1,4 @@
 {
-  config,
   lib,
   pkgs,
   ...
@@ -11,15 +10,13 @@
     ./shared/features.nix
     ./shared/keyring.nix
     ./shared/dconf.nix
-    ./shared/chrome.nix
     ./shared/launcher.nix
     ./software
   ];
 
   software.requirements =
     let
-      profiles = import ../../lib/software/profiles.nix { inherit pkgs; };
-      platform = config.software.platform;
+      profiles = import ../../lib/software/profile-requirements.nix { inherit pkgs; };
     in
     lib.genAttrs (builtins.attrNames profiles.user) (_: { })
     // lib.genAttrs (builtins.attrNames profiles.base) (_: {

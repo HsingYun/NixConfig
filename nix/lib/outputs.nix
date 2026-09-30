@@ -11,55 +11,10 @@ let
     inherit lib builders;
     settings = { inherit user features; };
   };
-  hosts = lib.mapAttrs (name: path: mkHost name (lib.toFunction (import path) { inherit lib; })) (
-    import ../../hosts
-  );
+  hosts = lib.mapAttrs (name: path: mkHost name (import path)) (import ../../hosts);
   select =
     output:
     lib.mapAttrs (_: host: host.configuration) (lib.filterAttrs (_: host: host.output == output) hosts);
-  hostChecks = lib.foldlAttrs (
-    checks: name: host:
-    let
-      cfg = host.configuration;
-      inherit (cfg) pkgs;
-      system = pkgs.stdenv.hostPlatform.system;
-      home =
-        if host.output == "homeConfigurations" then
-          cfg.config
-        else
-          cfg.config.home-manager.users.${host.username};
-      target =
-        if host.output == "nixosConfigurations" then
-          cfg.config.system.build.toplevel
-        else if host.output == "darwinConfigurations" then
-          cfg.system
-        else
-          cfg.activationPackage;
-    in
-    lib.recursiveUpdate checks {
-      ${system} = {
-        "host-${name}" = pkgs.writeText "host-${name}-evaluation.json" (
-          builtins.toJSON {
-            inherit name system;
-            # Force system assertions without building the whole machine.
-            drvPath = builtins.unsafeDiscardStringContext target.drvPath;
-          }
-        );
-        # Evaluation alone cannot catch collisions in buildEnv. Assemble the
-        # actual package set for every host on its native CI runner.
-        "home-profile-${name}" = home.home.path;
-      };
-    }
-  ) { } hosts;
-  testSystems = [
-    "x86_64-linux"
-    "aarch64-darwin"
-  ];
-  # The module scenarios include both platforms; evaluate them once and expose
-  # their reports as native checks on each runner.
-  featureRules = builtins.toJSON (import ../tests/features.nix { inherit lib; });
-  featureModules = builtins.toJSON (import ../tests/modules.nix { inherit inputs; });
-  softwareTests = builtins.toJSON (import ../tests/software.nix { inherit inputs; });
   softwarePlans = lib.mapAttrs (
     _: host:
     let
@@ -87,42 +42,7 @@ in
     }) softwarePlans;
   };
 
-  checks = lib.recursiveUpdate hostChecks (
-    lib.genAttrs testSystems (
-      system:
-      let
-        pkgs = inputs.nixpkgs.legacyPackages.${system};
-      in
-      {
-        feature-rules = pkgs.writeText "feature-rules.json" featureRules;
-        feature-modules = pkgs.writeText "feature-modules.json" featureModules;
-        software = pkgs.writeText "software.json" softwareTests;
-        software-sources = pkgs.writeText "software-sources.json" (
-          builtins.toJSON (import ../tests/software-sources.nix { inherit inputs; })
-        );
-        vim-runtime = import ../tests/vim.nix { inherit inputs pkgs; };
-        display-manager-lifecycle = import ../tests/display-manager-lifecycle.nix { inherit pkgs; };
-        software-runtime = import ../tests/software-runtime.nix { inherit inputs pkgs; };
-        dconf-lifecycle = import ../tests/dconf.nix { inherit inputs pkgs; };
-        vscode-settings = import ../tests/vscode-settings.nix { inherit inputs pkgs; };
-        pacman-activation = import ../tests/pacman.nix { inherit inputs pkgs; };
-      }
-      // lib.optionalAttrs pkgs.stdenv.hostPlatform.isLinux {
-        desktop-boundaries = import ../tests/desktop.nix { inherit inputs pkgs; };
-        native-input-autostart = import ../tests/autostart.nix { inherit pkgs; };
-        pacman-migration = import ../tests/pacman-migration.nix { inherit inputs pkgs; };
-        greeter-session = import ../tests/greeter-session.nix { inherit pkgs; };
-        native-units = import ../tests/native-units.nix { inherit pkgs; };
-        owned-root-file = import ../tests/owned-root-file.nix { inherit inputs pkgs; };
-        launcher-native = import ../tests/launcher-native.nix { inherit pkgs; };
-        feature-devel = import ../tests/devel.nix { inherit pkgs; };
-        chrome-policy = import ../tests/chrome-policy.nix { inherit inputs pkgs; };
-        display-manager-activation = import ../tests/display-manager-activation.nix {
-          inherit inputs pkgs;
-        };
-      }
-    )
-  );
+  checks = import ../tests { inherit inputs hosts; };
 
   formatter = {
     x86_64-linux = inputs.nixpkgs.legacyPackages.x86_64-linux.nixfmt;

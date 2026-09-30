@@ -1,6 +1,4 @@
-let
-  profile = import ../../nix/lib/hosts/profiles.nix;
-in
+{ profile, ... }:
 {
   platform = "darwin";
   packageManager = {

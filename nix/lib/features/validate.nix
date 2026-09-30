@@ -1,9 +1,12 @@
-{ lib }:
+{
+  lib,
+  platformRegistry ? import ../platforms,
+}:
 
 catalog:
 
 let
-  platforms = (import ../hosts/platforms.nix).all;
+  platforms = platformRegistry.all;
   contracts = import ../../contracts;
   strings = value: builtins.isList value && lib.all (v: builtins.isString v && v != "") value;
   uniqueStrings = value: strings value && lib.unique value == value;
@@ -271,75 +274,10 @@ let
       ) entry.owners
     ) catalog.integrations
   );
-  portErrors =
-    let
-      ports = (import ../hosts/platforms.nix).definitions;
-    in
-    lib.concatMap (
-      platform:
-      lib.optional (
-        !uniqueStrings ports.${platform}.contracts
-      ) "Port ${platform}: contracts must be unique names."
-      ++ lib.concatMap (
-        name: lib.optional (!(contracts ? ${name})) "Port ${platform}: unknown contract '${name}'."
-      ) ports.${platform}.contracts
-      ++
-        lib.concatMap
-          (
-            section:
-            let
-              definitions = catalog.${section};
-              registered = ports.${platform}.${section} or { };
-            in
-            lib.concatMap (
-              name:
-              lib.optional (!(definitions ? ${name})) "Port ${platform}: unknown ${section}.${name}."
-              ++ fields "ports.${platform}.${section}.${name}" [ ] {
-                homeModules = modules;
-                systemModules = modules;
-              } registered.${name}
-            ) (builtins.attrNames registered)
-            ++ lib.concatMap (
-              name:
-              let
-                entry = definitions.${name};
-              in
-              lib.optionals (builtins.elem platform entry.platforms) (
-                lib.concatMap (
-                  scope:
-                  lib.optional (
-                    (registered.${name}.${scope + "Modules"} or [ ]) == [ ]
-                  ) "Port ${platform}: ${section}.${name} requires a ${scope} implementation."
-                ) (entry.portScopes or [ ])
-              )
-            ) (builtins.attrNames definitions)
-            ++ lib.concatMap (
-              name:
-              let
-                entry = definitions.${name};
-              in
-              lib.concatMap (
-                contract:
-                if !(contracts ? ${contract}) then
-                  [ "${section}.${name}: unknown contract '${contract}'." ]
-                else
-                  lib.optional (
-                    builtins.elem platform (
-                      if contracts.${contract}.scope == "home" then
-                        entry.platforms
-                      else
-                        entry.systemPlatforms or entry.platforms
-                    )
-                    && !(builtins.elem contract ports.${platform}.contracts)
-                  ) "Port ${platform}: ${section}.${name} requires contract '${contract}'."
-              ) (entry.contracts or [ ])
-            ) (builtins.attrNames definitions)
-          )
-          [
-            "features"
-            "integrations"
-          ]
-    ) (builtins.attrNames ports);
+  portErrors = import ../platforms/validate.nix { inherit lib contracts; } {
+    registry = platformRegistry;
+    inherit catalog;
+  };
 
 in
 map (message: "Feature catalog: ${message}") (

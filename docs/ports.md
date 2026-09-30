@@ -16,7 +16,7 @@ capability. Reuse upstream implementations whenever available.
 | Feature composition | Feature catalog and ordinary Nix modules | Upstream `lib.evalModules` |
 | Exclusive desktop selection | `nix/lib/features/desktop-stacks.nix` and catalog priority | Port login-manager integration |
 | Software identities | Software catalog and profile recipes | Shared resolver and runtime planner |
-| Package installation | `nix/modules/software/backends/` | Nix profiles, nix-darwin Homebrew, pacman/yay |
+| Package installation | Port system/activation modules consume the shared plan | Upstream Nix profiles, nix-darwin Homebrew, pacman/yay |
 | Privileged platform effects | `nix/ports/<platform>/activation/` | Platform tools and shared ownership helpers |
 
 A contract states supported option names, types and scopes. Ports do not silently
@@ -41,16 +41,21 @@ not a claim that every upstream option or operating-system behavior is supported
 ## Platform layout
 
 ```text
+nix/lib/hosts/profiles.nix      Shared feature presets supplied to hosts
 nix/contracts/
-  system/                      Public system capability schemas
+  system/                      Stable contract entry points
+    services/                  Individual service declarations
   home/                        Public home capability schemas
   default.nix                  Contract inventory
   check.nix                    Conformance checks
 nix/ports/
   arch/
     default.nix                Registration, supported contracts, feature adapters
-    system/                    Service implementations and desktop policy
+    system/
+      services/                Individual service implementations
+      desktop-policy.nix       Default desktop and login-manager policy
     home/                      User configuration adaptations
+      capabilities/            Always-loaded option implementations
     activation/                Privileged effects and their lifecycle
   nixos/
     default.nix
@@ -62,7 +67,9 @@ nix/ports/
 nix/assets/helpers/
   common/                      Shared file safety, ownership, dconf and greeter helpers
   arch/                        Arch package, service and desktop activation helpers
-nix/modules/software/          Shared requirements, one plan, installation backends
+nix/modules/software/          Shared requirements and host/home planning
+nix/lib/platforms/             Platform registry and registration validation
+nix/tests/                     Check registration and suites grouped by responsibility
 nix/lib/builders/native.nix     Reusable native-host system/home evaluation
 ```
 
@@ -85,9 +92,25 @@ Do not create empty platform directories. Shared Python dependencies must remain
 available in the Nix store closure; tests execute the packaged helpers as well as
 checking their source behavior.
 
+Common feature metadata references shared modules and capability requirements.
+Platform-specific modules are bound only in port registrations. Shared modules
+must not import platform implementations. Desktop applicability derives from
+the registry's desktop family, rather than a second list of platform names.
+
+Always-loaded capability modules declare and implement options even when their
+feature is off, supporting direct configuration and lifecycle cleanup. Feature
+adapters supply presets; they do not re-register a permanent implementation to
+satisfy a metadata check. For example, Arch's DMS and input-method capabilities
+are loaded once under `home/capabilities/`.
+
+The `system.printing` and `system.desktop` contract IDs remain stable composition
+entry points. Their declarations are split under `contracts/system/services/`;
+Arch translates the same service groups under `system/services/`. This split
+does not introduce new helper contracts or change public option paths.
+
 ## Supported customization
 
-- Host `features` and `featureModules` compose capabilities.
+- Host `features` selects and customizes capabilities; the loader supplies shared presets as `profile`.
 - Host `preferences.desktop` chooses the default enabled GUI stack. Other stacks
   remain installed. Direct service overrides are checked for conflicts.
 - Host `systemConfig` and `homeConfig` use ordinary public upstream-style options.
@@ -116,7 +139,7 @@ or attempt to sandbox trusted Nix modules.
 ## Adding Ubuntu or another platform
 
 1. Create `nix/ports/<platform>/default.nix` and register it in
-   `nix/lib/hosts/platforms.nix`. Declare its family, desktop support, builder,
+   `nix/lib/platforms/default.nix`. Declare its family, desktop support, builder,
    default manager and contract list. Linux/desktop feature families derive from
    those declarations.
 2. Implement or reuse the named contracts under that port. Register every
@@ -151,9 +174,11 @@ no longer requested, and conflicting owners or foreign changes remain visible.
 No cross-resource atomic rollback is claimed for native package managers or
 systemd; failed activations must be inspectable and retryable.
 
-`nix/tests/platform-contracts.nix` checks direct service configuration, explicit
+`nix/tests/ports/platform-contracts.nix` checks direct service configuration, explicit
 overrides, shared consumers and every supported independent Arch/Darwin feature.
-The existing NixOS matrix covers feature independence, disabled contributions,
+The structure suite checks dependency boundaries, platform metadata, and desktop
+selection for a synthetic additional port. Profile regression cases preserve the
+existing hosts' feature sets and default desktops. The existing NixOS matrix covers feature independence, disabled contributions,
 upstream customizations and desktop combinations. `software-sources.nix` checks
 mixed native/Nix/AUR requests. Helper tests exercise ownership, retirement,
 conflicts and interrupted execution without mutating the real machine.

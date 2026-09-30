@@ -1,12 +1,13 @@
+{ profile, ... }:
 {
-  features = (import ../../nix/lib/hosts/profiles.nix).cli // {
-    smartcard = {
-      enable = true;
+  platform = "nixos-wsl";
+  packageManager = "nix";
+  system = "x86_64-linux";
+  features = profile.cli // {
+    smartcard = profile.cli.smartcard // {
       allowBackgroundAccess = true;
     };
   };
-  platform = "nixos-wsl";
-  system = "x86_64-linux";
   systemConfig = ./system.nix;
   homeConfig = ./home.nix;
 }

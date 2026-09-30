@@ -18,7 +18,7 @@ Declarative system and user configurations for NixOS, WSL, macOS, and Linux. Hos
 | `darwin` | macOS through nix-darwin and Home Manager |
 | `arch` | Arch user environment through Home Manager and native adapters |
 
-`platform = "arch"` selects Arch integration; `system = "x86_64-linux"` still selects the Nix CPU/OS target. Platform definitions live in [nix/lib/hosts/platforms.nix](nix/lib/hosts/platforms.nix). The old `platform = "linux"` name is not supported.
+`platform = "arch"` selects Arch integration; `system = "x86_64-linux"` still selects the Nix CPU/OS target. Platform definitions live in [nix/lib/platforms/default.nix](nix/lib/platforms/default.nix). The old `platform = "linux"` name is not supported.
 
 Shared experience is defined in [nix/lib/hosts/profiles.nix](nix/lib/hosts/profiles.nix):
 

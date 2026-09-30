@@ -2,7 +2,7 @@
 {
   options.software = {
     platform = lib.mkOption {
-      type = lib.types.enum (import ../../lib/hosts/platforms.nix).all;
+      type = lib.types.enum (import ../../lib/platforms/default.nix).all;
       default = if pkgs.stdenv.hostPlatform.isDarwin then "darwin" else "arch";
     };
     packageManager = lib.mkOption {

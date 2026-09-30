@@ -1,12 +1,11 @@
 {
   config,
   lib,
-  pkgs,
   ...
 }:
 {
   imports = [
-    ./services.nix
+    ./services/default.nix
     ../activation
   ];
   options.native.requiredPackages = lib.mkOption {

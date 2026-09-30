@@ -104,20 +104,30 @@ Smart cards and WSL device forwarding are covered in the
 [smart-card guide](software.md#smart-cards).
 
 
-## Reusable feature modules
+## Shared feature presets
 
-A host may compose `featureModules = [ ./feature-profile.nix ];` in addition to
-its `features` attribute set. These are ordinary Nix modules whose options live
-under `features`; imports, `mkIf`, `mkDefault`, `mkForce` and merge conflicts are
-handled by upstream `lib.evalModules`. For example:
+The host loader provides `profile` from
+[`nix/lib/hosts/profiles.nix`](../nix/lib/hosts/profiles.nix).
+All checked-in hosts use the same selection pattern:
 
 ```nix
-{ lib, ... }:
+{ profile, ... }:
 {
-  features.desktop.niri.enable = lib.mkDefault true;
-  features.chrome.enable = lib.mkDefault true;
+  platform = "arch";
+  features = profile.linuxDesktop // {
+    efiTools.enable = true;
+  };
+  homeConfig = ./home.nix;
 }
 ```
+
+Presets are plain feature attribute sets. A `//` override replaces a top-level
+group, so preserve the preset's nested group when changing only part of it.
+For example, `desktop = profile.linuxDesktop.desktop // { gnome.enable = true; };`
+adds GNOME without removing Niri or DMS. Hosts can request `lib` for standard
+Nix attribute merging and module combinators. Feature options continue to be
+evaluated by upstream `lib.evalModules`; the repository defines no separate
+merge language.
 
 Features contribute settings and requirements. Disabling one contribution does
 not negate another feature's shared requirement. Use explicit upstream options

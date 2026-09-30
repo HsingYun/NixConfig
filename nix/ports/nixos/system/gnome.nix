@@ -5,7 +5,7 @@
 }:
 
 {
-  imports = [ ./desktop-nixos.nix ];
+  imports = [ ./desktop.nix ];
   services.desktopManager.gnome.enable = lib.mkDefault true;
 
   environment.gnome.excludePackages = with pkgs; [

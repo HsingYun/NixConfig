@@ -60,7 +60,6 @@ let
             };
             assertions = systemEvaluation.config.assertions;
             home.activation = systemEvaluation.config.native.activation;
-            home.sessionPath = [ "/nix/var/nix/profiles/nixconfig-system/bin" ];
           };
         }
       )

@@ -4,7 +4,7 @@ Hosts select `platform`, `packageManager`, and `features`. Software identities, 
 
 Feature input is a tree: `features.desktop.niri.enable`, `features.desktop.keyring.enable`, and `features.chrome.extensions` are examples. Feature catalog entries retain stable internal IDs for dependency and integration references. Their optional `path` declares the public path (otherwise `[name]`); `.enable` is always a boolean. Additional `options` declare a standard Nix option `type`, default, and description. `lib.evalModules` performs option validation and merging; the catalog only describes domain metadata. `defaultPlatforms` narrows where a default-enabled feature is enabled without narrowing its supported platforms. `defaultFrom` enables a feature by default when any listed feature is enabled; an explicit setting still wins. The catalog rejects invalid defaults, overlapping option paths, unknown references, and dependency/default cycles.
 
-Shared defaults are passed through upstream `lib.mkDefault`; host input is evaluated as a Nix module definition. No custom interpreter walks Nix module properties. For reusable modules with explicit leaf priorities or imports, use the host's `featureModules` list. Attribute-valued options follow their declared upstream merge type; a stronger definition can replace an entire nested value. `lib.mkDefault`, `lib.mkForce`, `lib.mkIf`, `lib.mkMerge`, and list ordering use upstream module semantics. Ordinary host definitions override shared defaults, including explicit null image paths and empty lists. Lists at the same priority concatenate; conflicting scalar definitions produce standard Nix diagnostics. Configuring an option does not implicitly enable its feature. The resolved tree is passed to Home Manager as read-only `config.features`; hosts configure it in `default.nix`, while `home.nix` retains upstream module settings and package overrides.
+Shared defaults are passed through upstream `lib.mkDefault`; host input is evaluated as a Nix module definition. No custom interpreter walks Nix module properties. The host loader supplies shared presets as `profile`; hosts select them through `features`. Attribute-valued options follow their declared upstream merge type; a stronger definition can replace an entire nested value. `lib.mkDefault`, `lib.mkForce`, `lib.mkIf`, `lib.mkMerge`, and list ordering use upstream module semantics. Ordinary host definitions override shared defaults, including explicit null image paths and empty lists. Lists at the same priority concatenate; conflicting scalar definitions produce standard Nix diagnostics. Configuring an option does not implicitly enable its feature. The resolved tree is passed to Home Manager as read-only `config.features`; hosts configure it in `default.nix`, while `home.nix` retains upstream module settings and package overrides.
 
 `portScopes` declares which feature scopes require a platform implementation. Each `nix/ports/<platform>/default.nix` registers those implementations. The feature loader validates missing registrations and required service contracts before loading them. Dependency activation paths refer to the actual system or home options. Choice rules can restrict their `platforms`; desktop choice applies to Arch and native NixOS. The generic resolver does not branch on GNOME, Niri, DMS, wallpaper or launcher identities. Desktop settings use `desktop.gnome.settings` (dconf), `desktop.niri.settings` (KDL), `desktop.dms.settings/session` (JSON), `desktop.wallpaper.image/lockImage`, and `desktop.launcher.hiddenEntries`. Business defaults and rendering remain in their modules.
 
@@ -17,11 +17,11 @@ Chrome extension files on Darwin belong to Home Manager's `programs.google-chrom
 ## Layers
 
 1. **Features** declare software identities and capability requirements, then configure applications using the resolved software.
-2. **Definitions**: `profiles.nix` exposes identity groups. `profile-recipes.nix` declares their Nix/Homebrew/pacman mappings; `catalog.nix` combines these with application recipes and rejects conflicting duplicate identities. `recipes.nix` provides recipe constructors.
+2. **Definitions**: `profiles.nix` declares software groups and their Nix/Homebrew/pacman mappings; `profile-requirements.nix` projects those groups into software requirements. `catalog.nix` combines these with application recipes and rejects conflicting duplicate identities. `recipe-constructors.nix` provides recipe constructors.
 3. **Resolution** (`resolve.nix`) merges requests, expands dependencies, checks platform support and capabilities, selects a provider, and matches extras to software identities. Its shared installation planner reconciles extras against confirmed installation owners.
 4. **Providers** (`providers.nix`) define supported platforms, fallback order, recipe validation, package identity, command paths, and installation plan formats.
 5. **Runtime planning** (`materialize.nix`) incorporates final packages produced by upstream modules, finalizes extra ownership, and supplies explicit command paths. Feature `software.bindings` connect software identities to upstream package and enable options. NixOS/Home Manager build the Nix profiles and resolve output selection, priorities and file collisions.
-6. **Installation backends** consume the plan through Home Manager, NixOS/nix-darwin, Homebrew declarations, or pacman/yay commands during Home Manager activation.
+6. **Port installation adapters** consume the plan through Home Manager, NixOS/nix-darwin, Homebrew declarations, or pacman/yay commands during Home Manager activation.
 
 The host/system `software.plan` is authoritative. Home Manager contributes requirements, explicit overrides and final upstream wrappers, then consumes that same plan. System configuration can add requirements and overrides without reaching into the managed user's internals. The two scopes do not resolve providers independently. Base tools and optional features use the same resolution process; shared profile entries reuse the same recipe.
 
@@ -336,15 +336,16 @@ pacman/yay activation tests use substitute commands to verify installation order
 
 ## Platform and mutation boundaries
 
-[`hosts/platforms.nix`](../nix/lib/hosts/platforms.nix) is the shared deployment
+[`lib/platforms/default.nix`](../nix/lib/platforms/default.nix) is the shared deployment
 platform registry for host construction, feature validation and software
 providers. `arch` is distribution-specific; Nix systems such as `x86_64-linux`
-remain CPU/OS targets. Shared experience presets belong to the host library,
+remain CPU/OS targets. Shared experience presets are plain attribute sets in `nix/lib/hosts/profiles.nix`,
 while `hosts/` contains only actual machines. See [Creating hosts](hosts.md).
 
 NixOS and Darwin use their upstream system/Home Manager modules. Arch's system
 service, policy, input-autostart and native-package adapters are loaded through
-its platform entry point. Arch-specific service requirements are not copied
+its platform entry point. Package command rendering remains in helpers; activation ordering and profile
+paths belong to the consuming port. Arch-specific service requirements are not copied
 into NixOS or Darwin activations. NixOS uses official HM dconf, Fcitx5 and
 Keyring modules. Arch also uses upstream dconf; the shared removed-database hook supplements its generation-based cleanup.
 

@@ -2,7 +2,7 @@
 
 Hosts contain machine-specific choices. Shared experience presets live in
 [`nix/lib/hosts/profiles.nix`](../nix/lib/hosts/profiles.nix); deployment platforms
-are defined in [`nix/lib/hosts/platforms.nix`](../nix/lib/hosts/platforms.nix).
+are defined in [`nix/lib/platforms/default.nix`](../nix/lib/platforms/default.nix).
 Feature definitions and package recipes remain in their respective libraries.
 Do not copy platform adapters into a host. See [Port contracts](ports.md) for platform implementation and extension points.
 
@@ -61,28 +61,31 @@ A minimal `home.nix` is:
 ```
 
 Use nested feature options such as `features.desktop.niri.enable = true`.
-A host definition may be a plain attribute set or a function starting with
-`{ lib }:`; the loader supplies the locked nixpkgs library for module combinators.
-The presets are plain attribute sets. Compose them with `lib.mkMerge` to use
-standard Nix option merging; use `lib.mkForce` when overriding an explicit
-preset value, or `lib.mkDefault` for weak defaults. A shallow `//` replaces
-an entire nested group before module evaluation, so avoid it for partial
-nested overrides. Defaults inherited from the shared flake configuration are
-already weak and can be overridden by ordinary host definitions.
+A host definition may be a plain attribute set or a function. The loader supplies
+`profile` (shared presets) and `lib` (the locked nixpkgs library) to functions that
+request them. All checked-in hosts use `{ profile, ... }:` and select a preset
+with `features = profile.linuxDesktop;` or `features = profile.cli // { ... };`.
+No per-host import or additional feature-module option is needed.
+
+Presets are plain attribute sets. `//` replaces the matching top-level feature
+group in full. For a partial change within a group, retain its existing values
+explicitly, for example `desktop = profile.linuxDesktop.desktop // { ... };`,
+or use upstream `lib.recursiveUpdate`. `lib.mkMerge`, `lib.mkDefault` and
+`lib.mkForce` remain available when Nix option merging is desired. Defaults from
+`flake.nix` are weak; ordinary host definitions, including selected preset values,
+override them.
 
 ## Arch desktop
 
 `hosts/MyArch/default.nix`:
 
 ```nix
-let
-  profiles = import ../../nix/lib/hosts/profiles.nix;
-in
+{ profile, ... }:
 {
   platform = "arch";
   system = "x86_64-linux";
   packageManager = "pacman";
-  features = profiles.linuxDesktop;
+  features = profile.linuxDesktop;
   homeConfig = ./home.nix;
 }
 ```
@@ -175,8 +178,8 @@ placeholder and must not be used to install a real machine.**
 For a GNOME tablet, use this feature selection instead of the full desktop preset:
 
 ```nix
-features = profiles.linuxDesktop // {
-  desktop = profiles.linuxDesktop.desktop // {
+features = profile.linuxDesktop // {
+  desktop = profile.linuxDesktop.desktop // {
     niri.enable = false;
     dms.enable = false;
     gnome = {
@@ -201,12 +204,12 @@ sudo nixos-rebuild switch --flake .#MyPC
 ## NixOS-WSL
 
 ```nix
-let profiles = import ../../nix/lib/hosts/profiles.nix;
-in {
+{ profile, ... }:
+{
   platform = "nixos-wsl";
   system = "x86_64-linux";
-  features = profiles.cli // {
-    smartcard = { enable = true; allowBackgroundAccess = true; };
+  features = profile.cli // {
+    smartcard = profile.cli.smartcard // { allowBackgroundAccess = true; };
   };
   systemConfig = ./system.nix;
   homeConfig = ./home.nix;
@@ -222,21 +225,21 @@ into WSL must be configured outside this repository.
 
 ## Arch under WSL
 
-Use `platform = "arch"`, `packageManager = "pacman"`, and `profiles.cli`, with
+Use `platform = "arch"`, `packageManager = "pacman"`, and `features = profile.cli;`, with
 only `homeConfig`. Enable `smartcard.allowBackgroundAccess` if PC/SC must work
 without an active local desktop session, and use `pinentry-curses` as above.
 Systemd must be enabled in the WSL distribution for native service integration.
-Do not select `profiles.linuxDesktop` or the Chinese feature for this setup.
+Do not select the `profile.linuxDesktop` preset or the Chinese feature for this setup.
 
 ## macOS / nix-darwin
 
 ```nix
-let profiles = import ../../nix/lib/hosts/profiles.nix;
-in {
+{ profile, ... }:
+{
   platform = "darwin";
   system = "aarch64-darwin"; # x86_64-darwin for an Intel Mac.
   packageManager = "homebrew";
-  features = profiles.graphical // {
+  features = profile.graphical // {
     coteditor.enable = true;
     iina.enable = true;
   };

@@ -23,11 +23,7 @@
   ];
   homeModules = [ ./home ];
   features = {
-    chinese = {
-      homeModules = [ ./home/input-method.nix ];
-    };
     dms = {
-      homeModules = [ ./home/dms.nix ];
       systemModules = [ ../../modules/system/features/desktop-session.nix ];
     };
     niri = {

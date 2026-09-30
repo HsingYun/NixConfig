@@ -1,6 +1,9 @@
-{ lib }:
+{
+  lib,
+  platformRegistry ? import ../platforms,
+}:
 let
-  inherit (import ../hosts/platforms.nix)
+  inherit (platformRegistry)
     all
     linux
     nixos
@@ -96,12 +99,12 @@ in
 
     plymouth = {
       platforms = [ "nixos" ];
-      systemModules = [ ../../ports/nixos/system/plymouth.nix ];
+      portScopes = [ "system" ];
     };
     network = {
       default = true;
       platforms = [ "nixos" ];
-      systemModules = [ ../../ports/nixos/system/network.nix ];
+      portScopes = [ "system" ];
     };
     xdg = {
       default = true;
@@ -176,14 +179,13 @@ in
         type = lib.types.bool;
         description = "allow this account's PC/SC clients outside an active desktop session (WSL/SSH)";
       };
-      homeModules = [ ../../modules/home/features/smartcard.nix ];
       systemPlatforms = linux;
       systemModules = [ ../../modules/system/features/smartcard.nix ];
     };
     nixLd = {
       default = true;
       platforms = nixos;
-      systemModules = [ ../../ports/nixos/system/nix-ld.nix ];
+      portScopes = [ "system" ];
     };
     gnome = {
       contracts = [ "system.desktop" ];
@@ -248,7 +250,6 @@ in
         "system.desktop"
       ];
       portScopes = [
-        "home"
         "system"
       ];
       options = {
@@ -353,7 +354,7 @@ in
         "niri"
         "dms"
       ];
-      homeModules = [ ../../modules/integrations/launcher.nix ];
+      homeModules = [ ../../modules/home/integrations/launcher.nix ];
       options.hiddenEntries = {
         default = [
           "avahi-discover.desktop"
@@ -395,9 +396,8 @@ in
         "niri"
         "dms"
       ];
-      homeModules = [ ../../modules/integrations/desktop-wallpaper.nix ];
+      homeModules = [ ../../modules/home/integrations/desktop-wallpaper.nix ];
       systemPlatforms = [ "nixos" ];
-      systemModules = [ ../../modules/integrations/desktop-wallpaper-system.nix ];
       options = {
         image = {
           default = null;
@@ -421,7 +421,6 @@ in
     };
     chinese = {
       contracts = [ "home.input-method" ];
-      portScopes = [ "home" ];
       platforms = desktops;
       options = {
         settings = settingsOption "Fcitx settings: inputMethod, globalOptions and addons";
@@ -433,16 +432,12 @@ in
       };
       homeModules = [ ../../modules/home/features/chinese.nix ];
       systemPlatforms = [ "nixos" ];
-      systemModules = [ ../../ports/nixos/system/chinese.nix ];
     };
   };
 
   choices = {
     desktop = {
-      platforms = [
-        "arch"
-        "nixos"
-      ];
+      platforms = desktops;
       providers = builtins.mapAttrs (_: stack: stack.features) (import ./desktop-stacks.nix);
       sessions = builtins.mapAttrs (_: stack: builtins.removeAttrs stack [ "features" ]) (
         import ./desktop-stacks.nix
@@ -457,9 +452,9 @@ in
 
   integrations = {
     chrome-browser = {
-      platforms = all;
+      platforms = desktops;
       owners = [ "chrome" ];
-      homeModules = [ ../../modules/integrations/chrome-browser.nix ];
+      homeModules = [ ../../modules/home/integrations/chrome-browser.nix ];
     };
     gpg-smartcard = {
       platforms = nixos;
@@ -468,7 +463,7 @@ in
         "gpg"
         "gpgSshSupport"
       ];
-      homeModules = [ ../../modules/integrations/smartcard.nix ];
+      portScopes = [ "home" ];
     };
     gnome-chinese = {
       portScopes = [ "home" ];

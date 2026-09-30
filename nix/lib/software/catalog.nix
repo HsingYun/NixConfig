@@ -1,7 +1,7 @@
 { pkgs }:
 let
   inherit (pkgs) lib;
-  inherit (import ./recipes.nix { inherit pkgs; })
+  inherit (import ./recipe-constructors.nix { inherit pkgs; })
     nix
     font
     cask
@@ -9,7 +9,7 @@ let
     pacman
     aur
     ;
-  profiles = import ./profile-recipes.nix { inherit pkgs; };
+  profiles = import ./profiles.nix { inherit pkgs; };
 in
 # Shared entries in profiles reuse the same recipe, so software has one identity.
 lib.foldl'

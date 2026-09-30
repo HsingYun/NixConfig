@@ -18,7 +18,7 @@
 | `darwin` | 通过 nix-darwin 与 Home Manager 管理 macOS |
 | `arch` | 通过 Home Manager 与 Arch 原生适配器管理用户环境 |
 
-`platform = "arch"` 选择 Arch 适配，`system = "x86_64-linux"` 仍表示 Nix 的 CPU/操作系统目标。平台定义统一位于 [nix/lib/hosts/platforms.nix](nix/lib/hosts/platforms.nix)，不再接受旧的 `platform = "linux"` 名称。
+`platform = "arch"` 选择 Arch 适配，`system = "x86_64-linux"` 仍表示 Nix 的 CPU/操作系统目标。平台定义统一位于 [nix/lib/platforms/default.nix](nix/lib/platforms/default.nix)，不再接受旧的 `platform = "linux"` 名称。
 
 共享体验定义于 [nix/lib/hosts/profiles.nix](nix/lib/hosts/profiles.nix)，各主机只保留桌面选择和硬件差异：
 

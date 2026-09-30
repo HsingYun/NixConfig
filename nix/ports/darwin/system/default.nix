@@ -1,6 +1,6 @@
 { user, ... }:
 
 {
-  imports = [ ../../../modules/software/backends/homebrew.nix ];
+  imports = [ ./homebrew.nix ];
   system.primaryUser = user.username;
 }

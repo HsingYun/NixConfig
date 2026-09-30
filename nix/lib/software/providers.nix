@@ -44,7 +44,7 @@ in
     externalRecipe =
       _: name:
       assert lib.assertMsg (pkgs != null) "Software: Nix extraPkg requires a package set.";
-      (import ./recipes.nix { inherit pkgs; }).nix (
+      (import ./recipe-constructors.nix { inherit pkgs; }).nix (
         lib.attrByPath (lib.splitString "." name) (throw "Software: unknown Nix package '${name}'.") pkgs
       );
     inherit validName;
@@ -67,7 +67,7 @@ in
         )
       );
 
-    platforms = (import ../hosts/platforms.nix).all;
+    platforms = (import ../platforms/default.nix).all;
     fallback = [ ];
     resolve = source: {
       package = source.package;

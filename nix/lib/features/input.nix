@@ -5,7 +5,6 @@
   platform,
   defaults,
   overrides,
-  modules ? [ ],
 }:
 let
   pathFor = key: catalog.features.${key}.path or [ key ];
@@ -56,8 +55,7 @@ let
           ) catalog.features
         );
       }
-    ]
-    ++ modules;
+    ];
   };
 in
 evaluation.config.features

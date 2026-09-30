@@ -5,7 +5,6 @@
   defaults,
   overrides,
   preferences ? { },
-  modules ? [ ],
 }:
 
 let
@@ -17,7 +16,6 @@ let
       defaults
       overrides
       preferences
-      modules
       ;
   };
   desktopSession = import ./desktop-session.nix {
@@ -59,7 +57,7 @@ let
     inherit lib catalog platform;
     inherit (resolved) enabled;
   };
-  platforms = import ../hosts/platforms.nix;
+  platforms = import ../platforms/default.nix;
 
 in
 assert lib.assertMsg (resolved.errors == [ ]) (lib.concatStringsSep "\n" resolved.errors);
@@ -76,7 +74,7 @@ assert lib.assertMsg (resolved.errors == [ ]) (lib.concatStringsSep "\n" resolve
 
     (contractCheck "home")
     dependencyChecks.homeModule
-    (import ../../modules/integrations/user-resources.nix {
+    (import ../../modules/home/integrations/user-resources.nix {
       inherit (resolved) enabled;
     })
   ];

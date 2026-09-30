@@ -6,7 +6,7 @@
 }:
 
 {
-  imports = [ ./nixos.nix ];
+  imports = [ ./base.nix ];
 
   boot.kernelPackages = lib.mkDefault pkgs.linuxPackages_latest;
 }

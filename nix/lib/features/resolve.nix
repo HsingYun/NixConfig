@@ -1,10 +1,11 @@
 {
   lib,
-  catalog ? import ./catalog.nix { inherit lib; },
+  platformRegistry ? import ../platforms,
+  catalog ? import ./catalog.nix { inherit lib platformRegistry; },
 }:
 
 let
-  catalogErrors = import ./validate.nix { inherit lib; } catalog;
+  catalogErrors = import ./validate.nix { inherit lib platformRegistry; } catalog;
 in
 assert lib.assertMsg (catalogErrors == [ ]) (lib.concatStringsSep "\n" catalogErrors);
 
@@ -14,7 +15,6 @@ assert lib.assertMsg (catalogErrors == [ ]) (lib.concatStringsSep "\n" catalogEr
   defaults ? { },
   overrides ? { },
   preferences ? { },
-  modules ? [ ],
 }:
 
 let
@@ -27,7 +27,6 @@ let
       platform
       defaults
       overrides
-      modules
       ;
   };
   pathFor = key: definitions.${key}.path or [ key ];

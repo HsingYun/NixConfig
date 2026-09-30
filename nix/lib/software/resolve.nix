@@ -147,7 +147,7 @@ let
         // lib.optionalAttrs overridden {
           nix =
             (entry.nix or { })
-            // (import ./recipes.nix { inherit pkgs; }).nix packageOverrides.${name}
+            // (import ./recipe-constructors.nix { inherit pkgs; }).nix packageOverrides.${name}
             // {
               capabilities = lib.unique ([ "store-package" ] ++ (entry.nix.capabilities or [ ]));
             };
