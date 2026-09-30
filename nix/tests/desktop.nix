@@ -60,11 +60,23 @@ let
         i18n.inputMethod = {
           enable = true;
           type = "fcitx5";
+          fcitx5.settings.inputMethod."Groups/0".DefaultIM = "rime";
         };
       }
     ];
   };
   session = pkgs.writeText "gnome-input-environment.sh" gnome.config.home.sessionVariablesExtra;
+  oldFcitx = pkgs.linkFarm "fcitx-config" {
+    profile = pkgs.writeText "fcitx5-profile" "previous configuration";
+  };
+  oldFcitxFiles = pkgs.linkFarm "home-manager-files" { ".config/fcitx5" = oldFcitx; };
+  fcitxFiles = pkgs.linkFarm "home-manager-files" {
+    ".config/fcitx5" = gnome.config.xdg.configFile.fcitx5.source;
+  };
+  perFileFcitxFiles = pkgs.linkFarm "home-manager-files" {
+    ".config/fcitx5/profile" = "${gnome.config.xdg.configFile.fcitx5.source}/profile";
+  };
+  fcitxCheck = pkgs.writeText "check-fcitx-links.sh" gnome.config.home.activation.checkLinkTargets.data;
 in
 assert !(disabled.xdg.dataFile ? applications);
 pkgs.runCommand "desktop-boundaries-check"
@@ -118,6 +130,33 @@ pkgs.runCommand "desktop-boundaries-check"
       export XDG_CURRENT_DESKTOP=GNOME GTK_IM_MODULE=custom
       . ${session}
       test "$GTK_IM_MODULE" = custom
+    )
+    # Reproduce an existing HM directory link. Official directory ownership
+    # accepts it; switching to individual files triggers the reported conflict.
+    (
+      export HOME="$TMPDIR/fcitx-home"
+      export HOME_MANAGER_BACKUP_EXT="" HOME_MANAGER_BACKUP_COMMAND="" HOME_MANAGER_BACKUP_OVERWRITE=""
+      mkdir -p "$HOME/.config" "$TMPDIR/fcitx-generation"
+      export newGenPath="$TMPDIR/fcitx-generation"
+      ln -s ${oldFcitxFiles}/.config/fcitx5 "$HOME/.config/fcitx5"
+      ln -s ${fcitxFiles} "$newGenPath/home-files"
+      bash ${fcitxCheck}
+      ln -sfn ${perFileFcitxFiles} "$newGenPath/home-files"
+      if bash ${fcitxCheck} > conflict.log 2>&1; then
+        echo "Expected a conflict when changing to per-file ownership" >&2
+        exit 1
+      fi
+      grep -F "fcitx5/profile' would be clobbered" conflict.log
+      test "$(cat "$HOME/.config/fcitx5/profile")" = "previous configuration"
+      # An unrelated user-owned link still fails: no backup or force override.
+      ln -sfn ${fcitxFiles} "$newGenPath/home-files"
+      mkdir "$HOME/personal-fcitx"
+      ln -sfn "$HOME/personal-fcitx" "$HOME/.config/fcitx5"
+      if bash ${fcitxCheck} > conflict.log 2>&1; then
+        echo "Expected protection of an unrelated directory link" >&2
+        exit 1
+      fi
+      grep -F "fcitx5' would be clobbered" conflict.log
     )
     touch "$out"
   ''

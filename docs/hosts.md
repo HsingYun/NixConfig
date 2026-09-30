@@ -113,9 +113,9 @@ nix build .#homeConfigurations.MyArch.activationPackage
 home-manager switch --flake .#MyArch
 ```
 
-Existing unmanaged files are conflicts, even if they contain the same text.
-Inspect and explicitly relocate them before allowing this configuration to own
-their paths. Do not delete whole configuration directories to resolve a conflict.
+Conflicting unmanaged files stop activation. HM may accept identical content;
+privileged native adapters require ownership evidence even for identical bytes.
+Inspect conflicts and explicitly relocate files before transferring ownership. Do not delete whole configuration directories to resolve a conflict.
 
 ## Native NixOS: PC or tablet
 

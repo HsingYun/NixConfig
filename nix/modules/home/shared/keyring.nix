@@ -29,8 +29,8 @@ in
         message = "features.desktop.keyring is only supported on Linux.";
       }
       {
-        assertion = !config.services.gnome-keyring.enable;
-        message = "features.desktop.keyring owns the keyring daemon; disable services.gnome-keyring to avoid a second instance.";
+        assertion = !nativeUnits || !config.services.gnome-keyring.enable;
+        message = "Arch's native keyring units own the daemon; disable Home Manager's services.gnome-keyring to avoid a second instance.";
       }
       {
         assertion = !isNixos || toString keyring.package == toString pkgs.gnome-keyring;
@@ -62,18 +62,14 @@ in
       "systemd/user/sockets.target.wants/gnome-keyring-daemon.socket".source = socket;
     };
 
-    # nixpkgs disables upstream systemd support, so supply a session service.
-    systemd.user.services.gnome-keyring-daemon = lib.mkIf (!nativeUnits) {
-      Unit = {
-        Description = "GNOME Keyring daemon";
-        Before = [ "graphical-session-pre.target" ];
-        PartOf = [ "graphical-session.target" ];
-      };
-      Service = {
-        ExecStart = "${keyring.command "gnome-keyring-daemon"} --start --foreground --components=pkcs11,secrets";
-        Restart = "on-failure";
-      };
-      Install.WantedBy = [ "graphical-session-pre.target" ];
+    # Let the official Home Manager module maintain Nix runtime integration.
+    services.gnome-keyring = lib.mkIf (!nativeUnits) {
+      enable = lib.mkDefault true;
+      package = keyring.package;
+      components = [
+        "pkcs11"
+        "secrets"
+      ];
     };
   };
 }

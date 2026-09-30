@@ -1,23 +1,10 @@
 {
   config,
   lib,
-  pkgs,
   ...
 }:
 let
   cfg = config.features.chinese;
-  ini = pkgs.formats.ini { };
-  addonIni = pkgs.formats.iniWithGlobalSection { };
-  normalize =
-    value:
-    if builtins.isBool value then
-      (if value then "True" else "False")
-    else if builtins.isAttrs value then
-      lib.mapAttrs (_: normalize) value
-    else if builtins.isList value then
-      map normalize value
-    else
-      value;
   settings = lib.recursiveUpdate {
     inputMethod = {
       GroupOrder."0" = "Default";
@@ -76,27 +63,9 @@ in
       lib.mkDefault "fcitx"
     );
   };
-  xdg.configFile = {
-    "fcitx5/profile".source = ini.generate "fcitx5-profile" (normalize settings.inputMethod);
-    "fcitx5/config" = lib.mkIf (settings.globalOptions != { }) {
-      source = ini.generate "fcitx5-config" (normalize settings.globalOptions);
-    };
-    # One owner starts Fcitx: the session-bound user service on both platforms.
-    "autostart/org.fcitx.Fcitx5.desktop" = lib.mkIf (config.software.platform != "arch") {
-      text = ''
-        [Desktop Entry]
-        Type=Application
-        Name=Fcitx 5
-        Hidden=true
-      '';
-    };
-  }
-  // lib.mapAttrs' (
-    name: value:
-    lib.nameValuePair "fcitx5/conf/${name}.conf" {
-      source = addonIni.generate "fcitx5-${name}" (normalize value);
-    }
-  ) settings.addons;
+  # The official module owns files when its Nix runtime is enabled. Arch reads
+  # the same settings in its native adapter without enabling that runtime.
+  i18n.inputMethod.fcitx5.settings = settings;
   xdg.dataFile = {
     "fcitx5/rime/default.custom.yaml".text = ''
       patch:

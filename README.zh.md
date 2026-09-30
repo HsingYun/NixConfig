@@ -53,6 +53,10 @@ cd NixConfig
 
 将 `HOST` 替换为 [hosts/default.nix](hosts/default.nix) 中注册的机器名。
 
+Home Manager 不自动备份冲突的非托管文件。文件冲突会停止激活并报错，需要明确处理后再重试。
+
+`nixos-rebuild switch` 会立即激活，并报告失败的服务。`nixos-rebuild boot` 只准备下次启动，执行成功不代表 Home Manager 已激活。重启后如发现配置未生效，检查 `systemctl --failed` 和 `systemctl status home-manager-<用户名>`。
+
 ## 定制
 
 在 `hosts/<机器名>/default.nix` 中选择平台与功能。系统设置位于 `system.nix`，用户设置与软件包位于 `home.nix`。
@@ -105,7 +109,7 @@ Feature 同时声明配置与软件需求，依赖自动合并去重。例如 Gh
 
 `externalPkg` 中与已启用功能重复的软件由统一层合并，遵循功能选定的来源及包装配置。选定的 Nix 命令优先于旧的原生安装。需要替换功能的 Nix 包时，在 Home Manager 配置中使用 `software.packageOverrides.<软件标识>`，安装清单与模块配置会同步更新。Arch、PC、Pad、Darwin 的共享工具已抽为 `features.commonTools.enable = true;`：aria2、GnuPG、GnuTLS、Graphviz、ncurses、OpenSSL、pinentry、rsync、SQLite、xz、zlib、zstd。它不隐式开启 GPG 配置，沿用所选包管理器优先、Nix 回退及能力约束合并规则。Linux 的 procps 也归入 commonTools。主机 `externalPkg` 只保留差异项，例如 Darwin 的 watch 和通用 pinentry；WSL 通过所选 pinentry 包使用终端交互。
 
-`vim` 默认启用，安装所选来源的 Vim，并从 [nix/assets/vimrc](nix/assets/vimrc) 管理 `~/.vimrc`；插件仍由 vim-plug 安装与更新。首次应用前，请备份已有且未由 Home Manager 管理的 `~/.vimrc`。现有 PC、Pad 使用 Nix 应用；Darwin 优先使用 Homebrew，并由统一层配置相应 PATH。
+`vim` 默认启用：Nix 包使用官方 `programs.vim` 包装器；pacman/Homebrew 的原生 Vim 使用 nixpkgs Vim 工具生成、HM 管理的 `~/.vimrc`。两者共享 [nix/assets/vimrc](nix/assets/vimrc) 设置和锁定版本的插件，不再启动时下载插件；旧 vim-plug 目录保留，但不再由本配置加载。已有非托管配置产生冲突时需明确处理。`CodeFormat()` 需要 `astyle`；缺少工具或格式化失败时明确报错，不改动缓冲区、不写入文件。现有 PC、Pad 使用 Nix 应用；Darwin 优先使用 Homebrew，并由统一层配置相应 PATH。
 
 关闭 feature 会撤去其软件需求；共享需求仍保留。Arch 普通关闭功能不卸载包；明确用 `software.packageOverrides` 把应用切到 Nix 时，在 Nix 包安装成功后，自动以普通 `pacman -R` 移除对应的旧原生包。不级联删除、不跳过依赖检查；仍被原生依赖使用、仍作为账户登录 shell，或仍提供活动/启用系统服务的包会使迁移停止。Homebrew 保持 `cleanup = "none"`，因此撤去清单项不会自动卸载现有软件。Zsh、GPG agent 和 mpv 插件等要求 Nix 包路径的集成会显式声明能力约束，解析结果会说明回退原因。
 
@@ -173,13 +177,13 @@ DMS 参数使用 `features.desktop.dms.settings` 和 `.session`，映射到 HM �
 
 隐藏默认名单固定声明于功能目录，包括 Avahi 的 `avahi-discover.desktop`、`bssh.desktop`、`bvnc.desktop`，旧 GNOME Terminal/gedit/Cheese，以及 `org.gnome.Tour.desktop`、`org.gnome.Tecla.desktop`、`org.gnome.Epiphany.desktop`、`org.gnome.Software.desktop` 以及 `htop.desktop`、`nvtop.desktop`、`cmake-gui.desktop`、`lstopo.desktop`、`jconsole-java-openjdk.desktop`、`jshell-java-openjdk.desktop` 和 vim/gvim 的入口。名单固定声明，这六个工具的入口名称已按当前 Arch 安装核对；运行时不会将扫描到的其他应用自动加入名单。`features.desktop.launcher.hiddenEntries` 可替换该列表，仅隐藏实际存在的入口，默认使用 `NoDisplay=true`，保留启动命令、关联和快捷动作。Nix 包在构建时读取，Arch 原生包在每次 HM 激活、安装软件后读取。Arch 的两种来源统一由带校验和的激活工具管理入口副本，切换来源不再与 HM 链接预检冲突；NixOS 直接使用 Home Manager 链接构建产物，不扫描宿主文件系统。关闭功能、撤销规则或源入口消失后，自动清理未被用户修改的原生副本；已有用户文件和其他符号链接会被保留。
 
-中文配置只支持原生 Linux 桌面（Arch / NixOS），WSL 不支持该 feature。两边共享 Rime 雾凇配置：Fcitx 只有 Rime 一个条目，默认英文状态，保留个人词库；`features.chinese.englishByDefault = false;` 可改为默认中文，`.settings` 可覆盖 Fcitx 的 `inputMethod`、`globalOptions` 和 `addons`。Arch 使用原生 fcitx5、GTK/Qt 模块、fcitx5-rime 和 rime-ice-git；NixOS 使用其 Nix 运行时。GNOME 都接入 Kimpanel、XSettings 和 GNOME 专用 GTK 环境；Niri 保留 Wayland 输入支持，不全局强制 GTK_IM_MODULE。输入法由图形会话的用户服务启动，避免与 XDG autostart 重复。Arch 在关闭该功能后保留受管的自启动禁用入口，防止原生包重新启动输入法；从未启用过该功能则不改动已有入口。
+中文配置只支持原生 Linux 桌面（Arch / NixOS），WSL 不支持该 feature。两边共享 Rime 雾凇配置：Fcitx 只有 Rime 一个条目，默认英文状态，保留个人词库；`features.chinese.englishByDefault = false;` 可改为默认中文，`.settings` 可覆盖 Fcitx 的 `inputMethod`、`globalOptions` 和 `addons`。Arch 使用原生 fcitx5、GTK/Qt 模块、fcitx5-rime 和 rime-ice-git；NixOS 通过官方 Home Manager Fcitx5 模块管理配置、目录链接和用户服务；Arch 在自己的适配模块中生成共享参数对应的配置，不启用 Nix 输入法运行时。GNOME 都接入 Kimpanel、XSettings 和 GNOME 专用 GTK 环境；Niri 保留 Wayland 输入支持，不全局强制 GTK_IM_MODULE。输入法由图形会话的用户服务启动，避免与 XDG autostart 重复。Arch 在关闭该功能后保留受管的自启动禁用入口，防止原生包重新启动输入法；从未启用过该功能则不改动已有入口。
 
 Arch 桌面同时提供 NetworkManager、PipeWire/WirePlumber、蓝牙、UPower、UDisks 和 GVfs，用户音频服务由 HM 管理。如果另一套网络管理器正在运行而 NetworkManager 未运行，激活在修改前报错，不自动切断现有连接。`NetworkManager-wait-online.service` 只配置开机启用，不在应用配置时执行等待联网。
 
 Niri、会话/portal 和 Keyring 等系统组件必须使用与宿主一致的包。Arch 拒绝这些组件的 Nix 包覆盖；NixOS Keyring 定制应使用系统级 nixpkgs overlay，确保 PAM、DBus、wrapper 和用户服务采用同一包。独立 Nix Keyring 必须关闭 `useWrappedDaemon`。
 
-dconf 会记录接管前的值和最后写入的值；功能关闭（包括最后一个桌面功能关闭）后，只恢复仍与本工程写入值一致的设置，保留用户后续修改。应用配置时仍会写入当前明确声明的设置。
+NixOS 使用官方 Home Manager dconf 激活流程：应用明确声明的设置；只要上游激活节点仍启用，撤去的键就重置为默认值。当前锁定的 HM 在全部 dconf 数据库都移除时不再生成激活节点，因此旧值可能保留。只有 Arch 使用跟踪值的适配器：撤去设置时，仅恢复仍与本工程最后写入值一致的项，包括最后一个数据库被移除的情况。
 
 ArchLinux 已开启 `features.mpv.enable`，播放器使用 pacman 的 mpv，HM 管理 `mpv.conf`、脚本选项和 `mpv/scripts` 链接；ModernX、thumbfast 和字体保留当前锁定的 Nix 来源，不额外安装 Nix mpv。thumbfast 明确使用 `/usr/bin/mpv` 生成缩略图。脚本加载方式见 [mpv 文件布局文档](https://mpv.io/manual/stable/#files)。NixOS/macOS 保留原有 Nix 包装集成。
 
@@ -189,7 +193,7 @@ ArchLinux 已开启 `features.mpv.enable`，播放器使用 pacman 的 mpv，HM 
 
 `chrome` 功能还默认安装 Bitwarden 扩展。在主机的 `default.nix` 中设置 `features.chrome.extensions = [ ];` 可关闭预装，或提供其他 Chrome Web Store 扩展 ID。Linux 使用 Chrome 的 `normal_installed` 策略，自动安装但允许用户禁用。NixOS 声明式管理策略文件；Arch 在 Home Manager 激活时通过 sudo 管理 `/etc/opt/chrome/policies/managed/nixconfig-extensions.json`（影响本机所有 Chrome 用户）。root 管理的记录跟踪内容、文件身份和配置所有者；拒绝接管未受管文件、覆盖管理员修改或沿软链接写入，内容未变不重写。关闭扩展或 `chrome` 后，只有未被外部修改、且无其他配置所有者需要的受管策略才会删除。macOS 使用用户目录的 External Extensions 清单，首次启动 Chrome 时可能需要确认启用。实现依据见 [Chrome 策略文档](https://support.google.com/chrome/a/answer/7517525?hl=en)和[外部扩展文档](https://developer.chrome.com/docs/extensions/how-to/distribute/install-extensions)。
 
-GNOME Keyring 是统一的 Home Manager 桌面能力，由 [keyring.nix](nix/modules/home/shared/keyring.nix) 管理。在主机的 `default.nix` 中使用 `features.desktop.keyring.enable = true;` 启用，设为 `false` 关闭；GNOME、Niri 桌面默认启用，ArchLinux 主机也已启用。模块根据软件层选择的来源处理 user units：pacman 使用原生 `gnome-keyring-daemon.service` 和 `.socket`，分别启用到 `default.target` 和 `sockets.target`；Nix 使用随图形会话启动的用户服务。NixOS 系统层只衔接 PAM、D-Bus 和 portal。这里只启用密码与证书组件，SSH 仍由原有 agent 配置负责；登录自动解锁依赖登录管理器的 PAM 配置。
+GNOME Keyring 是统一的 Home Manager 桌面能力，由 [keyring.nix](nix/modules/home/shared/keyring.nix) 管理。在主机的 `default.nix` 中使用 `features.desktop.keyring.enable = true;` 启用，设为 `false` 关闭；GNOME、Niri 桌面默认启用，ArchLinux 主机也已启用。模块根据软件层选择的来源处理 user units：pacman 使用原生 `gnome-keyring-daemon.service` 和 `.socket`，分别启用到 `default.target` 和 `sockets.target`；Nix 使用官方 Home Manager `services.gnome-keyring` 模块，其 `gnome-keyring.service` 随图形会话启动。NixOS 系统层只衔接 PAM、D-Bus 和 portal。这里只启用密码与证书组件，SSH 仍由原有 agent 配置负责；登录自动解锁依赖登录管理器的 PAM 配置。
 
 智能卡统一使用 `features.smartcard`。ArchLinux 主机显式启用，安装 `pcsclite`、`ccid`、`polkit`，由服务适配器管理 `pcscd.socket`；启用 GPG 时使用 PC/SC。普通桌面无需额外放宽 Polkit。Arch-WSL 或远程 SSH 需要后台访问时，可设置 `features.smartcard.allowBackgroundAccess = true;`，策略仅允许当前配置账户访问 PC/SC 两个动作。参见 [Arch-WSL 指南](docs/hosts.md#arch-under-wsl)和 [ArchWiki GnuPG](https://wiki.archlinux.org/title/GnuPG#Using_a_smart_card_on_a_remote_client)。关闭选项时只删除未被修改的本工程策略；硬件仍需转发到 WSL。
 

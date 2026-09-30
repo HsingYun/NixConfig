@@ -1,5 +1,23 @@
-{ config, lib, ... }:
+{
+  config,
+  lib,
+  pkgs,
+  ...
+}:
 let
+  settings = config.i18n.inputMethod.fcitx5.settings;
+  ini = pkgs.formats.ini { };
+  addonIni = pkgs.formats.iniWithGlobalSection { };
+  normalize =
+    value:
+    if builtins.isBool value then
+      (if value then "True" else "False")
+    else if builtins.isAttrs value then
+      lib.mapAttrs (_: normalize) value
+    else if builtins.isList value then
+      map normalize value
+    else
+      value;
   packages = [
     "fcitx5"
     "fcitx5-rime"
@@ -10,6 +28,18 @@ let
 in
 {
   software.requirements = lib.genAttrs packages (_: { });
+  xdg.configFile = {
+    "fcitx5/profile".source = ini.generate "fcitx5-profile" (normalize settings.inputMethod);
+    "fcitx5/config" = lib.mkIf (settings.globalOptions != { }) {
+      source = ini.generate "fcitx5-config" (normalize settings.globalOptions);
+    };
+  }
+  // lib.mapAttrs' (
+    name: value:
+    lib.nameValuePair "fcitx5/conf/${name}.conf" {
+      source = addonIni.generate "fcitx5-${name}" (normalize value);
+    }
+  ) settings.addons;
   assertions = [
     {
       assertion =

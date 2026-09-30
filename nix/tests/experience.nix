@@ -109,6 +109,26 @@ assert lib.all
   ];
 assert pc.home-manager.users.test.xdg.dataFile.applications.recursive;
 assert native.software.platform == "arch";
+assert lib.all
+  (
+    home:
+    home.xdg.configFile ? fcitx5
+    && !home.xdg.configFile.fcitx5.recursive
+    && !(home.xdg.configFile ? "fcitx5/profile")
+    && home.i18n.inputMethod.fcitx5.settings.inputMethod."Groups/0".DefaultIM == "rime"
+  )
+  [
+    pc.home-manager.users.test
+    pad.home-manager.users.test
+  ];
+assert !(native.xdg.configFile ? fcitx5);
+assert native.xdg.configFile ? "fcitx5/profile";
+assert !native.i18n.inputMethod.enable;
+assert lib.all (home: !(lib.hasInfix "/dconf.py" home.home.activation.dconfSettings.data)) [
+  pc.home-manager.users.test
+  pad.home-manager.users.test
+];
+assert lib.hasInfix "/dconf.py" native.home.activation.dconfSettings.data;
 assert lib.all (
   home:
   map (v: v.value) home.dconf.settings."org/gnome/shell".favorite-apps.value == [

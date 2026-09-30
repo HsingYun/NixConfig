@@ -15,5 +15,8 @@ home-manager.lib.homeManagerConfiguration {
     inherit inputs user;
   };
 
-  modules = [ homeModule ];
+  modules = [
+    ../../modules/software/nixpkgs.nix
+    homeModule
+  ];
 }

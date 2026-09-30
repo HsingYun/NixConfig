@@ -1,6 +1,7 @@
 { ... }:
 {
   imports = [
+    ./dconf.nix
     ./services.nix
     ./desktop-session.nix
     ./desktop-services.nix

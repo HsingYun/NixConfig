@@ -80,7 +80,7 @@ Extras that match active software identities follow those identities' selected p
 
 The same rule prevents an extra `mpv` request from installing an unconfigured player alongside Home Manager's configured wrapper. An explicit Nix output, such as `llvmPackages.llvm.dev`, is also reconciled when an active recipe already provides it. Requesting the same pacman package from both a repository and AUR is rejected.
 
-Darwin, Arch, PC, and Pad enable `features.commonTools.enable` for aria2, GnuPG, GnuTLS, Graphviz, ncurses, OpenSSL, pinentry, rsync, SQLite, xz, zlib and zstd. These requirements prefer the selected manager and fall back to Nix when needed. GnuPG and pinentry reuse existing identities: enabling GPG merges its store-package requirements, preventing duplicate native installations. Disabling commonTools removes only its requests. Platform differences remain in `externalPkg`: procps on Linux, pinentry-curses on NixOS, and watch and generic pinentry on Darwin.
+Darwin, Arch, PC, and Pad enable `features.commonTools.enable` for aria2, GnuPG, GnuTLS, Graphviz, ncurses, OpenSSL, pinentry, rsync, SQLite, xz, zlib and zstd. These requirements prefer the selected manager and fall back to Nix when needed. GnuPG and pinentry reuse existing identities: enabling GPG merges its store-package requirements, preventing duplicate native installations. Disabling commonTools removes only its requests. Linux procps belongs to commonTools. WSL selects terminal pinentry through its package override. Host differences such as watch and generic pinentry on Darwin remain in `externalPkg`.
 
 ## Development tools
 
@@ -253,11 +253,11 @@ For Nix, removing the final request removes the package from the managed profile
 
 ## Desktop input and settings lifecycle
 
-The Chinese feature supports native Linux desktops only. Its common module owns structured Fcitx profile files and the two Rime preset patches; adapters select NixOS's HM runtime or native Arch Fcitx/Rime/GTK/Qt packages. The Arch autostart adapter keeps its owned Hidden entry after feature removal, preventing the retained package from restarting Fcitx at the next login; never-enabled configurations are untouched. The local working setup is represented as one Rime entry and English mode by default, without copying learned dictionaries or monitor-specific settings. GNOME integration applies to both distributions. WSL hosts use CLI tools and terminal pinentry without Fcitx or graphical-session dependencies.
+The Chinese feature supports native Linux desktops only. Its common module supplies `i18n.inputMethod.fcitx5.settings` and the two Rime preset patches. NixOS delegates both configuration generation and the whole `fcitx5` directory link to the official HM module. Arch alone renders individual files from those settings, using native Fcitx/Rime/GTK/Qt packages. Changing the ownership granularity of an existing HM directory is a migration, not a harmless file refactor; the tests run upstream link preflight against a real old-generation directory symlink. The Arch autostart adapter keeps its owned Hidden entry after feature removal, preventing the retained package from restarting Fcitx at the next login; never-enabled configurations are untouched. The local working setup is represented as one Rime entry and English mode by default, without copying learned dictionaries or monitor-specific settings. GNOME integration applies to both distributions. WSL hosts use CLI tools and terminal pinentry without Fcitx or graphical-session dependencies.
 
-Keyring and compositor packages are OS-bound resources. Arch adapters reject unsupported Nix overrides rather than silently dropping native dependencies. NixOS's upstream keyring module has no package option, so package customization uses a system overlay; a mismatched home-only override is rejected. Standalone Nix keyring validates the absence of NixOS wrapper paths.
+Keyring and compositor packages are OS-bound resources. Arch adapters reject unsupported Nix overrides rather than silently dropping native dependencies. NixOS's upstream keyring module has no package option, so package customization uses a system overlay; a mismatched home-only override is rejected. The Nix user service comes from the official HM `services.gnome-keyring` module. Standalone Nix keyring validates the absence of NixOS wrapper paths.
 
-The shared dconf adapter replaces key-only cleanup with value tracking. It runs even with an empty desired database, restoring original values only if the current value still matches the last managed write. It preserves external edits. A legacy HM default database is adopted from the old generation's immutable INI input and key list; unknown legacy original values reset to schema defaults only when unchanged. Named databases written by this adapter follow the same lifecycle.
+NixOS retains the official HM dconf lifecycle, including resetting removed keys to defaults while activation is enabled. The pinned module omits activation when all databases are removed; it does not promise restoration of original values. Only the Arch dconf adapter replaces key-only cleanup with value tracking. It runs even with an empty desired database, restoring original values only if the current value still matches the last managed write. It preserves external edits. A legacy HM default database is adopted from the old generation's immutable INI input and key list; unknown legacy original values reset to schema defaults only when unchanged. Named databases written by this adapter follow the same lifecycle.
 
 Default login sessions are used by tuigreet explicitly. The DMS greeter seeds its session memory once per changed default while retaining the remembered username and later interactive session selections. GNOME as the default with greetd uses tuigreet; Niri with DMS uses the DMS greeter.
 
@@ -313,9 +313,8 @@ while `hosts/` contains only actual machines. See [Creating hosts](hosts.md).
 NixOS and Darwin use their upstream system/Home Manager modules. Arch's system
 service, policy, input-autostart and native-package adapters are loaded through
 its platform entry point. Arch-specific service requirements are not copied
-into NixOS or Darwin activations. The shared dconf adapter still expresses a
-declarative target for mutable user settings, with value-aware restoration when
-the target is removed; it does not edit NixOS system configuration.
+into NixOS or Darwin activations. NixOS uses official HM dconf, Fcitx5 and
+Keyring modules. Value-aware dconf restoration belongs only to the Arch adapter.
 
 Native recipes list applications and capabilities explicitly requested by this
 configuration. Pacman/yay resolve their current dependency graph, providers,
@@ -344,3 +343,40 @@ are outside these tools' cleanup scope. Activations are retryable rather than
 an atomic transaction across the whole Arch system; a failure can leave earlier
 successful changes applied. Inspect the reported conflict and retry instead of
 removing entire configuration directories.
+
+
+## Ownership and regression requirements
+
+Before adding an activation helper, inspect the pinned NixOS, nix-darwin and HM
+modules. Use their public options when available. Shared features express intent;
+native adapters supply only the missing interface. Do not replace an upstream
+activation node on NixOS to hide a migration or file conflict. A declared file
+must have one owner and stable ownership granularity (whole directory versus
+individual children). Conflicts stay visible; automatic backup, `force`, deleting
+user paths and suppressing errors are not repairs for overlapping ownership.
+
+Vim uses official `programs.vim` for the Nix wrapper and pinned plugins. Native
+Vim has no HM `package = null` interface, so its configuration is generated with
+`pkgs.vimUtils.vimrcFile` using the same plugins. Plugin sources come from the
+locked nixpkgs plus two fixed-revision, fixed-hash sources in the Vim feature.
+No activation/startup Git clone or plugin update is performed. Old plugin data
+is not deleted. `nix/modules/software/nixpkgs.nix` supplies one narrow default
+unfree-package policy to the system builders and standalone HM: Chrome, VS Code,
+a.vim and DoxygenToolkit.vim. Hosts can replace this predicate. Package license
+checks remain enabled; the plugin migration does not relabel licenses or allow
+all unfree packages. Formatter failures are tested against unsaved buffers and real
+files in an isolated temporary home.
+
+Changes to ownership or native mutation need lifecycle evidence: initial apply,
+repeat apply, change, disable, re-enable, interrupted operation, foreign files,
+and provider transitions where supported. Include a negative case proving an
+unmanaged or modified file survives; run the real upstream preflight when the
+failure belongs to HM. Native removal must fail if systemd cannot be queried,
+and must protect active/enabled units of all relevant system unit types.
+
+Keep verification levels distinct: evaluation checks options and assertions;
+profile builds detect package collisions; isolated activation tests verify file
+and helper behavior; native login, hardware and other operating systems require
+separate runtime validation. None of these is a proof against every future
+upstream change. Keep failing checks visible and identify known upstream blockers
+instead of weakening the checks or calling evaluation a successful deployment.

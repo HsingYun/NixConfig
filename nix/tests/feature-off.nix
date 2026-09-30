@@ -67,7 +67,8 @@ let
       off =
         cfg:
         !(home cfg).features.desktop.keyring.enable
-        && !((home cfg).systemd.user.services ? gnome-keyring-daemon)
+        && !(home cfg).services.gnome-keyring.enable
+        && !((home cfg).systemd.user.services ? gnome-keyring)
         && !cfg.services.gnome.gnome-keyring.enable;
     };
     plymouth = {
@@ -113,8 +114,8 @@ let
       off = cfg: !(home cfg).programs.zsh.oh-my-zsh.enable;
     };
     vim = {
-      on = cfg: (home cfg).home.file ? ".vimrc";
-      off = cfg: !((home cfg).home.file ? ".vimrc");
+      on = cfg: (home cfg).programs.vim.enable;
+      off = cfg: !(home cfg).programs.vim.enable && !((home cfg).home.file ? ".vimrc");
     };
     gpg = {
       on = cfg: (home cfg).programs.gpg.scdaemonSettings.disable-ccid or false;

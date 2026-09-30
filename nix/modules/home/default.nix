@@ -9,7 +9,6 @@
   imports = [
     ./shared/user-profile.nix
     ./shared/features.nix
-    ./shared/dconf.nix
     ./shared/keyring.nix
     ./shared/chrome.nix
     ./shared/launcher.nix

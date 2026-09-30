@@ -1,4 +1,4 @@
-{ inputs, lib, ... }:
+{ inputs, ... }:
 
 {
   imports = [ inputs.nixos-hardware.nixosModules.gpd-pocket-4 ];
@@ -18,13 +18,6 @@
   };
 
   time.timeZone = "Asia/Shanghai";
-
-  nixpkgs.config.allowUnfreePredicate =
-    pkg:
-    builtins.elem (lib.getName pkg) [
-      "google-chrome"
-      "vscode"
-    ];
 
   system.stateVersion = "26.11";
 }

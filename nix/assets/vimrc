@@ -1,40 +1,24 @@
-" 检查插件管理器是否安装，如果未安装，执行安装
-if empty(glob('~/.vim/autoload/plug.vim'))
-  silent !mkdir -p ~/.vim/autoload
-  silent !git clone https://github.com/junegunn/vim-plug.git ~/.vim/vim-plug
-  silent !cp ~/.vim/vim-plug/plug.vim ~/.vim/autoload/plug.vim
-  autocmd VimEnter * PlugInstall --sync | source $MYVIMRC
-endif
-
-
 " function {
-    " Identify platform {
-        silent function! OSX()
-            return has('macunix')
-        endfunction
-        silent function! LINUX()
-            return has('unix') && !has('macunix') && !has('win32unix')
-        endfunction
-        silent function! WINDOWS()
-            return  (has('win32') || has('win64'))
-        endfunction
-    " }
-
     " Astyle {
-        func CodeFormat()
-            exec "w"
-            "取得当前光标所在行号
-            let lineNum = line(".")
-            if &filetype == 'java'
-                exec "%!astyle --style=java --suffix=none"
-            elseif &filetype == 'cpp'
-                exec "%!astyle --style=java --suffix=none"
-            else
-                exec "%!astyle --suffix=none"
+        function! CodeFormat() abort
+            if !executable('astyle')
+                throw 'CodeFormat: astyle is not installed'
             endif
-            "返回先前光标所在行
-            exec lineNum
-        endfunc
+            let command = 'astyle --suffix=none'
+            if &filetype ==# 'java' || &filetype ==# 'cpp'
+                let command .= ' --style=java'
+            endif
+            let formatted = systemlist(command, join(getline(1, '$'), "\n") . (&endofline ? "\n" : ''))
+            if v:shell_error || empty(formatted)
+                throw 'CodeFormat: astyle failed; buffer and file were not changed'
+            endif
+            let view = winsaveview()
+            call setline(1, formatted)
+            if line('$') > len(formatted)
+                call deletebufline('%', len(formatted) + 1, '$')
+            endif
+            call winrestview(view)
+        endfunction
     " }
 " }
 
@@ -135,127 +119,65 @@ endif
 " }
 
 " Plugins {
-    " vundle {
-        if isdirectory(expand("~/.vim/vim-plug"))
-            filetype off
-            call plug#begin('~/.vim/plugged')
-            "Plug 'dracula/vim', { 'as': 'dracula' }      " 配色方案
-            Plug 'vim-scripts/a.vim'                      " C/C++语言头文件和源文件跳转
-            Plug 'vim-scripts/c.vim'                      " C/C++代码辅助
-            Plug 'majutsushi/tagbar'                      " 代码结构
-            Plug 'scrooloose/nerdtree'                    " 文件树
-            Plug 'scrooloose/syntastic'                   " 语义分析
-            Plug 'ctrlpvim/ctrlp.vim'                     " 快速查询
-            Plug 'dyng/ctrlsf.vim'
-            Plug 'vim-airline/vim-airline'                " 状态栏
-            Plug 'Yggdroot/indentLine'                    " 代码段提示
-            Plug 'vim-scripts/DoxygenToolkit.vim'         " 文档型注释
-            Plug 'scrooloose/nerdcommenter'               " 简单注释
-            Plug 'elzr/vim-json'                          " json
-            Plug 'Shougo/neocomplete.vim'
-            Plug 'sbdchd/neoformat'
-            "Plug 'tpope/vim-fugitive'
-            call plug#end()
-            filetype on
-        endif
-    " }
-
-    " solarized {
-        if isdirectory(expand("~/.vim/plugged/vim-colors-solarized/"))
-            let g:solarized_termcolors=256
-            let g:solarized_termtrans=1
-            colorscheme solarized
-        endif
-    " }
-    " vim-one {
-        if isdirectory(expand("~/.vim/plugged/vim-one/"))
-            let g:one_allow_italics = 1
-            colorscheme one
-        endif
-    " }
-
-    " dracula {
-        if isdirectory(expand("~/.vim/plugged/dracula/"))
-            colorscheme dracula
-        endif
-    " }
-
+    " Plugin packages are pinned and supplied by Home Manager/Nix.
     " Tagbar {
-        if isdirectory(expand("~/.vim/plugged/tagbar/"))
-            let g:tagbar_width=45
-            let g:tagbar_autofocus=1
-            "autocmd vimenter * Tagbar
-            nmap <F6> :TagbarToggle<cr>
-        endif
+        let g:tagbar_width=45
+        let g:tagbar_autofocus=1
+        "autocmd vimenter * Tagbar
+        nmap <F6> :TagbarToggle<cr>
     " }
 
     " the NERD Tree {
-        if isdirectory(expand("~/.vim/plugged/nerdtree/"))
-            "autocmd vimenter * NERDTree    " 自动打开文件列表
-            let NERDTreeWinPos="left"
-            nmap <F7> :NERDTreeToggle<CR>
-        endif
+        "autocmd vimenter * NERDTree    " 自动打开文件列表
+        let NERDTreeWinPos="left"
+        nmap <F7> :NERDTreeToggle<CR>
     " }
 
     " vim-airline {
-        if isdirectory(expand("~/.vim/plugged/vim-airline/"))
-            set t_Co=255
-            let g:airline#extensions#tabline#enabled = 1
-            let g:airline#extensions#tabline#buffer_nr_show = 1
-            let g:airline#extensions#tabline#formatter = 'unique_tail'
-        endif
+        set t_Co=255
+        let g:airline#extensions#tabline#enabled = 1
+        let g:airline#extensions#tabline#buffer_nr_show = 1
+        let g:airline#extensions#tabline#formatter = 'unique_tail'
     " }
 
     " indentLine {
-        if isdirectory(expand("~/.vim/plugged/indentLine/"))
-            let g:indentLine_char = '┆'
-            map <F8> :IndentLinesToggle<CR>
-            let g:indentLine_concealcursor=""
-        endif
+        let g:indentLine_char = '┆'
+        map <F8> :IndentLinesToggle<CR>
+        let g:indentLine_concealcursor=""
     " }
 
     " syntastic {
-        if isdirectory(expand("~/.vim/plugged/syntastic/"))
-            set statusline+=%#warningmsg#
-            set statusline+=%{SyntasticStatuslineFlag()}
-            set statusline+=%*
-            let g:syntastic_always_populate_loc_list = 1
-            "let g:syntastic_auto_loc_list = 1
-            let g:syntastic_check_on_open = 1
-            let g:syntastic_check_on_wq = 0
-        endif
+        set statusline+=%#warningmsg#
+        set statusline+=%{SyntasticStatuslineFlag()}
+        set statusline+=%*
+        let g:syntastic_always_populate_loc_list = 1
+        "let g:syntastic_auto_loc_list = 1
+        let g:syntastic_check_on_open = 1
+        let g:syntastic_check_on_wq = 0
     " }
 
     " DoxygenToolkit.vim {
-        if isdirectory(expand("~/.vim/plugged/DoxygenToolkit.vim/"))
-            let g:DoxygenToolkit_authorName="hsingyun"
-            let g:DoxygenToolkit_licenseTag="Apache Licence 2.0"
-        endif
+        let g:DoxygenToolkit_authorName="hsingyun"
+        let g:DoxygenToolkit_licenseTag="Apache Licence 2.0"
     " }
 
     " vim-json {
-        if isdirectory(expand("~/.vim/plugged/vim-json/"))
-            let g:vim_json_syntax_conceal = 0
-        endif
+        let g:vim_json_syntax_conceal = 0
     " }
 
     " neocomplete.vim {
-        if isdirectory(expand("~/.vim/plugged/neocomplete.vim/"))
+        if has("lua")
             let g:neocomplete#enable_at_startup = 1
         endif
     " }
 
     " neoformat {
-        if isdirectory(expand("~/.vim/plugged/neoformat/"))
-            "map <C-S-F> ::Neoformat<CR>       "映射代码格式化函数到shift+f快捷键
-        endif
+        "map <C-S-F> ::Neoformat<CR>       "映射代码格式化函数到shift+f快捷键
     " }
 
     " ctrlsf {
-        if isdirectory(expand("~/.vim/plugged/ctrlsf.vim/"))
-            nnoremap <C-f> :CtrlSF<Space>
-            let g:ctrlsf_default_view_mode = 'compact'
-        endif
+        nnoremap <C-f> :CtrlSF<Space>
+        let g:ctrlsf_default_view_mode = 'compact'
     " }
 
     " 默认编辑窗口 {

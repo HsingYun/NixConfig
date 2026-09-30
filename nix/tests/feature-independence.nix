@@ -61,7 +61,8 @@ let
     keyring =
       cfg:
       (home cfg).features.desktop.keyring.enable
-      && (home cfg).systemd.user.services ? gnome-keyring-daemon
+      && (home cfg).services.gnome-keyring.enable
+      && (home cfg).systemd.user.services ? gnome-keyring
       && cfg.services.gnome.gnome-keyring.enable;
     plymouth =
       cfg:
@@ -78,9 +79,9 @@ let
     git = cfg: (home cfg).programs.git.enable && (home cfg).programs.git.settings.alias ? lg;
     vim =
       cfg:
-      (home cfg).home.file ? ".vimrc"
-      && (home cfg).home.file.".vimrc".enable
-      && !(home cfg).programs.vim.enable;
+      (home cfg).programs.vim.enable
+      && !((home cfg).home.file ? ".vimrc")
+      && (home cfg).programs.vim.plugins != [ ];
     shell =
       cfg: (home cfg).programs.zsh.enable && (home cfg).programs.zsh.oh-my-zsh.enable && plainGit cfg;
     devel =

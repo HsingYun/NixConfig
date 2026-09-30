@@ -95,6 +95,7 @@ in
         feature-rules = pkgs.writeText "feature-rules.json" featureRules;
         feature-modules = pkgs.writeText "feature-modules.json" featureModules;
         software = pkgs.writeText "software.json" softwareTests;
+        vim-runtime = import ../tests/vim.nix { inherit inputs pkgs; };
         software-runtime = import ../tests/software-runtime.nix { inherit inputs pkgs; };
         seed-json-settings = import ../tests/seed-json-settings.nix { inherit pkgs; };
         pacman-activation = import ../tests/pacman.nix { inherit inputs pkgs; };

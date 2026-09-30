@@ -22,7 +22,7 @@ let
     )
   );
   python = pkgs.python3.withPackages (ps: [ ps.pygobject3 ]);
-  command = "${python}/bin/python3 ${../../../assets/helpers}/dconf.py ${manifest} ${lib.escapeShellArg "${config.xdg.stateHome}/nixconfig/dconf.json"} ${pkgs.dconf}/bin/dconf";
+  command = "${python}/bin/python3 ${../../../../assets/helpers}/dconf.py ${manifest} ${lib.escapeShellArg "${config.xdg.stateHome}/nixconfig/dconf.json"} ${pkgs.dconf}/bin/dconf";
 in
 {
   assertions = lib.optional cfg.enable {
@@ -31,9 +31,9 @@ in
     );
     message = "dconf database names must be valid DBus object path components (letters, digits and underscores).";
   };
-  # Replace upstream's key-only cleanup so the last removal is still reconciled,
-  # and external edits are preserved instead of indiscriminately resetting keys.
-  home.activation.dconfSettings = lib.mkIf pkgs.stdenv.hostPlatform.isLinux (
+  # Native Arch keeps applications after feature removal. Reconcile their
+  # settings without replacing Home Manager's activation on NixOS.
+  home.activation.dconfSettings = lib.mkIf (config.software.platform == "arch") (
     lib.mkForce (
       lib.hm.dag.entryAfter [ "installPackages" ] ''
         if ${if cfg.enable && (cfg.settings != { } || cfg.databases != { }) then "true" else "false"} ||

@@ -19,9 +19,7 @@ let
     ) browserTypes;
   execStart =
     home:
-    lib.concatStringsSep " " (
-      lib.toList home.systemd.user.services.gnome-keyring-daemon.Service.ExecStart
-    );
+    lib.concatStringsSep " " (lib.toList home.systemd.user.services.gnome-keyring.Service.ExecStart);
   desktopCases =
     map
       (
@@ -33,16 +31,17 @@ let
             };
           };
           home = cfg.home-manager.users.test;
-          unit = home.systemd.user.services.gnome-keyring-daemon;
+          unit = home.systemd.user.services.gnome-keyring;
         in
         assert lib.all (a: a.assertion) (cfg.assertions ++ cfg.home-manager.users.test.assertions);
         assert cfg.services.gnome.gnome-keyring.enable;
         assert home.features.desktop.keyring.enable;
         assert builtins.elem "graphical-session-pre.target" unit.Install.WantedBy;
-        assert builtins.elem "graphical-session.target" unit.Unit.PartOf;
+        assert builtins.elem "graphical-session-pre.target" unit.Unit.PartOf;
         assert lib.hasInfix "--components=pkcs11,secrets" (execStart home);
         assert !(cfg.systemd.user.services ? gnome-keyring-daemon);
-        assert !cfg.home-manager.users.test.services.gnome-keyring.enable;
+        assert home.services.gnome-keyring.enable;
+        assert !(home.systemd.user.services ? gnome-keyring-daemon);
         desktop
       )
       [
@@ -121,6 +120,8 @@ assert !console.services.gnome.gnome-keyring.enable;
 assert !(console.systemd.user.services ? gnome-keyring-daemon);
 assert !disabled.services.gnome.gnome-keyring.enable;
 assert !(disabled.home-manager.users.test.systemd.user.services ? gnome-keyring-daemon);
+assert !disabled.home-manager.users.test.services.gnome-keyring.enable;
+assert !(disabled.home-manager.users.test.systemd.user.services ? gnome-keyring);
 assert !console.home-manager.users.test.xdg.mimeApps.enable;
 assert usesChrome chrome.home-manager.users.test;
 assert lib.all (

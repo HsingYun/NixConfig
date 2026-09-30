@@ -9,10 +9,18 @@
 ''
   (
     obsolete=()
+    # Query the database once: a failed query must not look like an absent package.
+    installed=$(${lib.escapeShellArg pacman} -Qq) || {
+      echo "Native-to-Nix migration: cannot read the installed package database." >&2
+      exit 1
+    }
     for package in ${lib.escapeShellArgs packages}; do
-      if ${lib.escapeShellArg pacman} -Q -- "$package" >/dev/null 2>&1; then
-        obsolete+=("$package")
-      fi
+      while IFS= read -r name; do
+        if [[ $name == "$package" ]]; then
+          obsolete+=("$package")
+          break
+        fi
+      done <<< "$installed"
     done
     if (( ''${#obsolete[@]} > 0 )); then
       # Package dependencies do not describe login shells or enabled services.
@@ -32,13 +40,28 @@
         files=$(${lib.escapeShellArg pacman} -Qlq -- "$package") || exit $?
         while IFS= read -r file; do
           case "$file" in
-            /usr/lib/systemd/system/*.service|/usr/lib/systemd/system/*.socket|/usr/lib/systemd/system/*.timer)
+            /usr/lib/systemd/system/*.service|/usr/lib/systemd/system/*.socket|/usr/lib/systemd/system/*.timer|/usr/lib/systemd/system/*.path|/usr/lib/systemd/system/*.target|/usr/lib/systemd/system/*.mount|/usr/lib/systemd/system/*.automount|/usr/lib/systemd/system/*.swap|/usr/lib/systemd/system/*.slice)
               unit="''${file##*/}"
-              if ${lib.escapeShellArg systemctl} is-active --quiet "$unit" ||
-                 ${lib.escapeShellArg systemctl} is-enabled --quiet "$unit"; then
-                echo "Refusing to remove $package: native unit $unit is still in use." >&2
+              # A disconnected system bus is not evidence that a unit is idle.
+              state=$(${lib.escapeShellArg systemctl} show --property=ActiveState,UnitFileState -- "$unit") || {
+                echo "Refusing to remove $package: cannot inspect native unit $unit." >&2
                 exit 1
-              fi
+              }
+              activeState= unitFileState=
+              while IFS== read -r key value; do
+                case "$key" in
+                  ActiveState) activeState=$value ;;
+                  UnitFileState) unitFileState=$value ;;
+                esac
+              done <<< "$state"
+              case "$activeState" in
+                inactive|failed) ;;
+                *) echo "Refusing to remove $package: native unit $unit is active or has unknown state." >&2; exit 1 ;;
+              esac
+              case "$unitFileState" in
+                disabled|masked|masked-runtime|not-found|"") ;;
+                *) echo "Refusing to remove $package: native unit $unit is still enabled or linked." >&2; exit 1 ;;
+              esac
               ;;
           esac
         done <<< "$files"
