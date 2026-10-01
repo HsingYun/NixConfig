@@ -2,6 +2,15 @@
 
 Hosts select `platform`, `packageManager`, and `features`. Software identities, package names, provider fallback, runtime paths, and installation manifests belong to the shared software layer. Hosts normally do not set `programs.*.package`; host-specific tools use explicit provider groups in `extraPkg`, including packages absent from the identity catalog.
 
+A host-only customization must keep its configuration, extra packages, and any
+required Nix license exceptions in that host. It does not justify adding a recipe
+or permission to shared features or defaults. ArchLinux's Edge shortcut, for
+example, uses an AUR package declared by that host; it needs no nixpkgs license
+exception. A host choosing an unfree Nix package must declare its own narrow
+`nixpkgs.config.allowUnfreePredicate` in the owning Home Manager or system module.
+That predicate replaces the shared default, so it must also allow the unfree
+packages used by that host's enabled features.
+
 Feature input is a tree: `features.desktop.niri.enable`, `features.desktop.keyring.enable`, and `features.chrome.extensions` are examples. Feature catalog entries retain stable internal IDs for dependency and integration references. Their optional `path` declares the public path (otherwise `[name]`); `.enable` is always a boolean. Additional `options` declare a standard Nix option `type`, default, and description. `lib.evalModules` performs option validation and merging; the catalog only describes domain metadata. `defaultPlatforms` narrows where a default-enabled feature is enabled without narrowing its supported platforms. `defaultFrom` enables a feature by default when any listed feature is enabled; an explicit setting still wins. The catalog rejects invalid defaults, overlapping option paths, unknown references, and dependency/default cycles.
 
 Shared defaults are passed through upstream `lib.mkDefault`; host input is evaluated as a Nix module definition. No custom interpreter walks Nix module properties. The host loader supplies shared presets as `profile`; hosts select them through `features`. Attribute-valued options follow their declared upstream merge type; a stronger definition can replace an entire nested value. `lib.mkDefault`, `lib.mkForce`, `lib.mkIf`, `lib.mkMerge`, and list ordering use upstream module semantics. Ordinary host definitions override shared defaults, including explicit null image paths and empty lists. Lists at the same priority concatenate; conflicting scalar definitions produce standard Nix diagnostics. Configuring an option does not implicitly enable its feature. The resolved tree is passed to Home Manager as read-only `config.features`; hosts configure it in `default.nix`, while `home.nix` retains upstream module settings and package overrides.

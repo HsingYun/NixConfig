@@ -376,6 +376,8 @@ import ./availability.nix { inherit lib platformRegistry; } {
           "bssh.desktop"
           "bvnc.desktop"
           "cups.desktop"
+          "qv4l2.desktop"
+          "qvidcap.desktop"
           "org.gnome.Terminal.desktop"
           "org.gnome.gedit.desktop"
           "org.gnome.Cheese.desktop"

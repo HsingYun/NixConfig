@@ -62,6 +62,9 @@ lib.recursiveUpdate hostChecks (
         builtins.toJSON (import ./features/desktop-shells.nix { inherit inputs; })
       );
       feature-rules = pkgs.writeText "feature-rules.json" featureRules;
+      configuration-layers = pkgs.writeText "configuration-layers.json" (
+        builtins.toJSON (import ./helpers/common/config-layers.nix { inherit lib; })
+      );
       feature-modules = pkgs.writeText "feature-modules.json" featureComposition;
       software = pkgs.writeText "software.json" softwareTests;
       software-sources = pkgs.writeText "software-sources.json" (
@@ -79,6 +82,7 @@ lib.recursiveUpdate hostChecks (
     }
     // lib.optionalAttrs pkgs.stdenv.hostPlatform.isLinux {
       noctalia-configuration = import ./home/noctalia.nix { inherit inputs pkgs; };
+      niri-dms-configuration = import ./home/niri-dms.nix { inherit inputs pkgs; };
       desktop-boundaries = import ./home/desktop.nix { inherit inputs pkgs; };
       pacman-migration = import ./helpers/arch/pacman-migration.nix { inherit inputs pkgs; };
       greeter-session = import ./helpers/common/greeter-session.nix { inherit pkgs; };

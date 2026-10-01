@@ -44,6 +44,9 @@ in
     scripts = lib.mkDefault (lib.optionals usesNixPackage scripts);
     config = lib.mapAttrs (_: lib.mkDefault) {
       hwdec = "auto";
+      vo = "gpu-next";
+      target-colorspace-hint = "auto";
+      tone-mapping = "spline";
       hwdec-codecs = "all";
       audio-file-auto = "fuzzy";
       sub-auto = "fuzzy";

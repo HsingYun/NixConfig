@@ -4,12 +4,62 @@
   software,
   ...
 }:
+let
+  ghosttyEnabled = config.features.ghostty.enable && config.programs.ghostty.enable;
+  chromeEnabled = config.features.chrome.enable && config.programs.google-chrome.enable;
+  defaults = {
+    input.touchpad = {
+      tap = { };
+      natural-scroll = { };
+    };
+    layout = {
+      gaps = 12;
+      background-color = "transparent";
+      center-focused-column = "never";
+      default-column-width.proportion = 0.5;
+      preset-column-widths._children = [
+        { proportion = 0.33333; }
+        { proportion = 0.5; }
+        { proportion = 0.66667; }
+      ];
+      focus-ring = {
+        width = 2;
+        active-color = "#89b4fa";
+        inactive-color = "#45475a";
+      };
+    };
+    _children = [
+      {
+        window-rule = {
+          geometry-corner-radius = 12;
+          clip-to-geometry = true;
+        };
+      }
+    ]
+    ++ lib.optional config.features.desktop.fileManager.enable {
+      window-rule = {
+        match._props.app-id = "^org\\.gnome\\.Nautilus$";
+        open-floating = true;
+      };
+    }
+    ++ lib.optional (config.features.mpv.enable && config.programs.mpv.enable) {
+      window-rule = {
+        match._props.app-id = "^mpv$";
+        open-floating = true;
+        default-column-width.fixed = 1280;
+        default-window-height.fixed = 720;
+      };
+    };
+  };
+in
 {
   imports = [
     ../shared/desktop.nix
+    ../shared/niri.nix
     ../shared/terminal-exec.nix
   ];
 
+  desktop.niri.defaultSettings = defaults;
   software.requirements.wl-clipboard = { };
   xdg = {
     userDirs = {
@@ -24,6 +74,7 @@
     settings = lib.mkMerge [
       config.features.desktop.niri.settings
       {
+        spawn-at-startup = lib.mkIf ghosttyEnabled (lib.mkDefault [ (software.ghostty.command "ghostty") ]);
         environment = lib.mkIf config.features.chinese.enable {
           GTK_IM_MODULE = null; # Do not inherit the GNOME session's GTK override.
           LANG = lib.mkDefault "zh_CN.UTF-8";
@@ -32,38 +83,9 @@
           QT_QPA_PLATFORMTHEME = lib.mkDefault "gtk3";
           QT_QPA_PLATFORMTHEME_QT6 = lib.mkDefault "gtk3";
         };
-        input = {
-          keyboard.xkb.layout = lib.mkDefault "us";
-          touchpad = {
-            tap = { };
-            natural-scroll = { };
-          };
-        };
-
-        layout = {
-          gaps = lib.mkDefault 12;
-          background-color = lib.mkDefault "transparent";
-          center-focused-column = lib.mkDefault "never";
-          default-column-width.proportion = lib.mkDefault 0.5;
-          preset-column-widths._children = lib.mkDefault [
-            { proportion = 0.33333; }
-            { proportion = 0.5; }
-            { proportion = 0.66667; }
-          ];
-          focus-ring = {
-            width = lib.mkDefault 2;
-            active-color = lib.mkDefault "#89b4fa";
-            inactive-color = lib.mkDefault "#45475a";
-          };
-        };
-
         prefer-no-csd = { };
+        hotkey-overlay.skip-at-startup = lib.mkDefault { };
         screenshot-path = lib.mkDefault "~/Pictures/Screenshots/%Y-%m-%d_%H-%M-%S.png";
-
-        window-rule = {
-          geometry-corner-radius = lib.mkDefault 12;
-          clip-to-geometry = lib.mkDefault true;
-        };
 
         binds = lib.mapAttrs (_: lib.mkDefault) (
           {
@@ -73,6 +95,14 @@
             };
 
             "Mod+Q".close-window = { };
+            "Mod+D" = {
+              _props.repeat = false;
+              toggle-overview = { };
+            };
+            "Mod+Tab" = {
+              _props.repeat = false;
+              toggle-overview = { };
+            };
             "Mod+O".toggle-overview = { };
             "Mod+Shift+Slash".show-hotkey-overlay = { };
             "Mod+Shift+E".quit = { };
@@ -110,6 +140,12 @@
           }
           // lib.optionalAttrs config.features.desktop.fileManager.enable {
             "Mod+E".spawn = [ (software.nautilus.command "nautilus") ];
+          }
+          // lib.optionalAttrs chromeEnabled {
+            "Mod+B".spawn = [ (software.chrome.command "google-chrome-stable") ];
+          }
+          // lib.optionalAttrs ghosttyEnabled {
+            "Mod+T".spawn = [ (software.ghostty.command "ghostty") ];
           }
         );
       }
