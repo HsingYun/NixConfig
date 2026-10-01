@@ -12,7 +12,7 @@
     desktop = profile.linuxDesktop.desktop // {
       gnome = {
         enable = true;
-        settings."org/gnome/desktop/a11y/applications".screen-keyboard-enabled = true;
+        settings."org/gnome/desktop/a11y/applications".screen-keyboard-enabled = false;
       };
       niri.enable = false;
       dms.enable = false;

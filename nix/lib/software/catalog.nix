@@ -178,6 +178,7 @@ lib.foldl'
       pacman = pacman "gnome-shell";
     };
     gnome-system-monitor = {
+      nix = nix pkgs.gnome-system-monitor;
       pacman = pacman "gnome-system-monitor";
     };
     gnome-text-editor = {
@@ -236,10 +237,6 @@ lib.foldl'
     };
     matugen = {
       pacman = pacman "matugen";
-    };
-    mission-center = {
-      nix = nix pkgs.mission-center;
-      pacman = pacman "mission-center";
     };
     mpv = {
       nix = nix pkgs.mpv;

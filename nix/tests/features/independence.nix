@@ -162,7 +162,7 @@ let
       && (home cfg).xdg.userDirs.enable
       && (home cfg).xdg.userDirs.createDirectories
       && lib.all (name: hasPackage name cfg) [
-        "mission-center"
+        "gnome-system-monitor"
         "snapshot"
         "gnome-text-editor"
       ]

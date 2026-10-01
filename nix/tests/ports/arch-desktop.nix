@@ -73,7 +73,6 @@ let
   ];
   gnomeOnly = make { desktop.gnome.enable = true; } { };
   gnomePackages = [
-    "mission-center"
     "gdm"
     "gnome-color-manager"
     "gnome-control-center"

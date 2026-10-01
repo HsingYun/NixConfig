@@ -7,7 +7,7 @@
   imports = [ ../shared/desktop.nix ];
 
   software.requirements = lib.genAttrs [
-    "mission-center"
+    "gnome-system-monitor"
     "gnome-text-editor"
     "snapshot"
     "gnome-user-themes"
