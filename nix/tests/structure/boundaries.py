@@ -25,6 +25,10 @@ for source in root.rglob("*.nix"):
                 errors.append(f"{relative}:{number}: register platform implementations in the port")
             if relative.parts[0] == "modules" and destination.parts[0] in {"ports", "tests"}:
                 errors.append(f"{relative}:{number}: common modules must not depend on {destination.parts[0]}")
+            if (relative.parts[:3] == ("assets", "helpers", "common")
+                    and destination.parts[:2] == ("assets", "helpers")
+                    and len(destination.parts) > 2 and destination.parts[2] != "common"):
+                errors.append(f"{relative}:{number}: common helpers must not depend on platform adapters")
             if relative.parts[:2] == ("lib", "software") and destination.parts[0] in {"modules", "ports", "tests"}:
                 errors.append(f"{relative}:{number}: pure software logic must not import implementations")
             if relative.parts[:2] == ("assets", "helpers") and destination.parts[0] == "contracts":

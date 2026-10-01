@@ -123,6 +123,7 @@ assert
   gnomeOnly.home.activation.selectNativeLoginManager.after == [
     "installNativePackages"
     "linkGeneration"
+    "nativeSystemBegin"
   ];
 assert lib.all (
   p:
@@ -170,8 +171,8 @@ assert
   cfg.xdg.configFile."systemd/user/dms.service".source
   == cfg.xdg.configFile."systemd/user/niri.service.wants/dms.service".source;
 assert !(cfg.xdg.configFile ? "systemd/user/graphical-session.target.wants/dms.service");
-assert lib.hasInfix "ConditionEnvironment=XDG_CURRENT_DESKTOP=niri"
-  cfg.xdg.configFile."systemd/user/dms.service.d/nixconfig.conf".text;
+assert lib.hasInfix "ConditionEnvironment = XDG_CURRENT_DESKTOP=niri"
+  cfg.xdg.configFile."systemd/user/dms.service.d/nixconfig.conf".source.text;
 assert cfg.features.desktop.keyring.enable;
 assert cfg.features.desktop.fileManager.enable;
 assert niri.settings.binds."Mod+E".spawn == [ "/usr/bin/nautilus" ];

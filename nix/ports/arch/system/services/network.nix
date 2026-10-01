@@ -13,7 +13,7 @@
         units = [ "NetworkManager.service" ];
         enableOnly = [ "NetworkManager-wait-online.service" ];
       };
-      activation.checkNativeDesktopNetwork = lib.hm.dag.entryBefore [ "writeBoundary" ] ''
+      preflight.checkNativeDesktopNetwork = lib.hm.dag.entryBefore [ "writeBoundary" ] ''
         ${pkgs.python3}/bin/python ${../../../../assets/helpers/arch/network-preflight.py}
       '';
     };

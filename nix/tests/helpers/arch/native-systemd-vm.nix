@@ -34,6 +34,6 @@ pkgs.testers.runNixOSTest {
     # while leaving the VM's initial NixOS unit definitions available.
     machine.succeed("cp -aH /etc/systemd/system /tmp/systemd-writable")
     machine.succeed("rm /etc/systemd/system && mv /tmp/systemd-writable /etc/systemd/system")
-    machine.succeed("PYTHONDONTWRITEBYTECODE=1 python3 ${./native-systemd-integration.py} ${../../../assets/helpers}/arch/native-systemd.py")
+    machine.succeed("PYTHONDONTWRITEBYTECODE=1 python3 ${../common/systemd-integration.py} ${../../../assets/helpers}/common/systemd.py")
   '';
 }

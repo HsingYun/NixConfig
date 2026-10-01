@@ -109,7 +109,23 @@ let
     i18n.inputMethod = {
       enable = true;
       type = "fcitx5";
-      fcitx5.settings.globalOptions.Hotkey.TriggerKeys = "Control+space";
+      fcitx5.settings = {
+        globalOptions = {
+          Hotkey.TriggerKeys = "Control+space";
+          Behavior.ActiveByDefault = false;
+        };
+        inputMethod."Groups/0" = {
+          Name = "Default";
+          "Default Layout" = "us";
+        };
+        addons.classicui = {
+          globalSection = {
+            UseDarkTheme = true;
+            Font = "Maple Mono 12";
+          };
+          sections.Test.Value = 42;
+        };
+      };
     };
   };
   inputDisabled = make "arch" (allOff // { chinese = true; }) { } {
@@ -152,6 +168,28 @@ in
 assert valid inputDirect && valid inputDisabled;
 assert inputDirect.home.systemd.user.services ? fcitx5-daemon;
 assert inputDirect.home.xdg.configFile ? "fcitx5/config";
+assert
+  inputDirect.home.xdg.configFile."fcitx5/config".source.text == ''
+    [Behavior]
+    ActiveByDefault=False
+
+    [Hotkey]
+    TriggerKeys=Control+space
+  '';
+assert
+  inputDirect.home.xdg.configFile."fcitx5/profile".source.text == ''
+    [Groups/0]
+    Default Layout=us
+    Name=Default
+  '';
+assert
+  inputDirect.home.xdg.configFile."fcitx5/conf/classicui.conf".source.text == ''
+    Font=Maple Mono 12
+    UseDarkTheme=True
+
+    [Test]
+    Value=42
+  '';
 assert inputDirect.home.software.resolved.fcitx5.provider == "pacman";
 assert !(inputDisabled.home.systemd.user.services ? fcitx5-daemon);
 assert !(inputDisabled.home.software.resolved ? fcitx5);

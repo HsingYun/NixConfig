@@ -55,20 +55,55 @@ let
       config.services.greetd.settings;
   # The greeter command binds its declared config inside its own process
   # namespace. greetd and the desktop it launches retain the host filesystem.
-  greetdUnit = pkgs.writeText "greetd-nixconfig.conf" ''
-    [Service]
-    ExecStart=
-    ExecStart=/usr/bin/greetd --config /etc/greetd/nixconfig.toml
-  '';
+  greetdUnit = (pkgs.formats.systemd { }).generate "greetd-nixconfig.conf" {
+    Service.ExecStart = [
+      ""
+      "/usr/bin/greetd --config /etc/greetd/nixconfig.toml"
+    ];
+  };
   niriConfig = pkgs.writeText "greeter-niri.kdl" ''
     hotkey-overlay { skip-at-startup; }
     environment { DMS_RUN_GREETER "1"; }
     gestures { hot-corners { off; }; }
     layout { background-color "#000000"; }
   '';
+  files = lib.optionals greetd (
+    [
+      {
+        source = toString greetdConfig;
+        destination = "/etc/greetd/nixconfig.toml";
+      }
+      {
+        source = toString greetdUnit;
+        destination = "/etc/systemd/system/greetd.service.d/nixconfig.conf";
+      }
+    ]
+    ++ lib.optional (useNoctaliaGreeter && noctaliaGreeter.settings != { }) {
+      source = toString (
+        (pkgs.formats.toml { }).generate "noctalia-greeter.toml" noctaliaGreeter.settings
+      );
+      destination = "/etc/greetd/nixconfig-noctalia.toml";
+    }
+    ++ lib.optional useDmsGreeter {
+      source = toString niriConfig;
+      destination = "/etc/greetd/nixconfig-niri.kdl";
+    }
+  );
 in
 {
   config = {
+    native.resources.loginManager = {
+      desired = { inherit manager files; };
+      check = lib.mkIf (manager != "none") ''
+        test "$(${pkgs.coreutils}/bin/basename "$(${pkgs.coreutils}/bin/readlink -f /etc/systemd/system/display-manager.service)")" = ${manager}.service
+        /usr/bin/systemctl is-enabled ${manager}.service
+        test "$(/usr/bin/systemctl get-default)" = graphical.target
+        ${lib.concatMapStringsSep "\n" (
+          file:
+          "${pkgs.diffutils}/bin/cmp ${lib.escapeShellArg file.source} ${lib.escapeShellArg file.destination}"
+        ) files}
+      '';
+    };
     assertions = [
       {
         assertion = !greetd || (config.services.greetd.settings.default_session.command or "") != "";
@@ -102,28 +137,7 @@ in
           import ../../../assets/helpers/arch/display-manager-activation.nix { inherit lib pkgs; } {
             owner = user.username;
             service = if manager == "none" then null else "${manager}.service";
-            files = lib.optionals greetd (
-              [
-                {
-                  source = toString greetdConfig;
-                  destination = "/etc/greetd/nixconfig.toml";
-                }
-                {
-                  source = toString greetdUnit;
-                  destination = "/etc/systemd/system/greetd.service.d/nixconfig.conf";
-                }
-              ]
-              ++ lib.optional (useNoctaliaGreeter && noctaliaGreeter.settings != { }) {
-                source = toString (
-                  (pkgs.formats.toml { }).generate "noctalia-greeter.toml" noctaliaGreeter.settings
-                );
-                destination = "/etc/greetd/nixconfig-noctalia.toml";
-              }
-              ++ lib.optional useDmsGreeter {
-                source = toString niriConfig;
-                destination = "/etc/greetd/nixconfig-niri.kdl";
-              }
-            );
+            inherit files;
           }
         );
   };

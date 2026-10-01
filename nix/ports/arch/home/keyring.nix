@@ -8,9 +8,6 @@ let
   cfg = config.features.desktop.keyring;
   keyring = config.software.resolved.gnome-keyring;
   usesPacman = keyring.provider == "pacman";
-  unit = name: config.lib.file.mkOutOfStoreSymlink "/usr/lib/systemd/user/${name}";
-  service = unit "gnome-keyring-daemon.service";
-  socket = unit "gnome-keyring-daemon.socket";
 in
 {
   config = lib.mkIf cfg.enable {
@@ -32,11 +29,9 @@ in
     software.packageOverrides = lib.mkIf (config.software.packageManager.type == "nix") {
       gnome-keyring = lib.mkDefault (pkgs.gnome-keyring.override { useWrappedDaemon = false; });
     };
-    xdg.configFile = lib.mkIf usesPacman {
-      "systemd/user/gnome-keyring-daemon.service".source = service;
-      "systemd/user/gnome-keyring-daemon.socket".source = socket;
-      "systemd/user/default.target.wants/gnome-keyring-daemon.service".source = service;
-      "systemd/user/sockets.target.wants/gnome-keyring-daemon.socket".source = socket;
+    native.systemd.user.units = lib.mkIf usesPacman {
+      "gnome-keyring-daemon.service".wantedBy = [ "default.target" ];
+      "gnome-keyring-daemon.socket".wantedBy = [ "sockets.target" ];
     };
   };
 }

@@ -138,8 +138,14 @@ assert lib.count (name: name == "git") archPlan.installations.pacman.packages ==
 assert lib.count (name: name == "clang") archPlan.installations.pacman.packages == 1;
 assert lib.count (name: name == "google-chrome") archPlan.installations.pacman.aur == 1;
 assert builtins.elem "base-devel" archPlan.installations.pacman.packages;
-assert arch.home.activation.installNativePackages.after == [ "writeBoundary" ];
-assert arch.home.activation.installNativePackages.before == [ "linkGeneration" ];
+assert lib.all (name: builtins.elem name arch.home.activation.installNativePackages.after) [
+  "writeBoundary"
+  "nativeSystemBegin"
+];
+assert lib.all (name: builtins.elem name arch.home.activation.installNativePackages.before) [
+  "linkGeneration"
+  "systemProfile"
+];
 assert lib.hasInfix "--aur" arch.home.activation.installNativePackages.data;
 assert !(off.home-manager.users.test.home.activation ? installNativePackages);
 assert lib.all (a: a.assertion) (rotationAssertions true);

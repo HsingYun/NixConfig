@@ -21,7 +21,7 @@ let
           ;
       };
       modules = [
-        ../../modules/system/native.nix
+        ../../modules/system/native
         {
           networking.hostName = hostname;
           home-manager.users.${user.username} = home;
@@ -34,6 +34,7 @@ let
     extraSpecialArgs = { inherit inputs user; };
     modules = [
       ../../modules/software/nixpkgs.nix
+      ../../modules/home/native
       homeModule
       (
         {
@@ -59,7 +60,6 @@ let
               inherit (systemEvaluation.config.software) platform packageManager nativePrefix;
             };
             assertions = systemEvaluation.config.assertions;
-            home.activation = systemEvaluation.config.native.activation;
           };
         }
       )

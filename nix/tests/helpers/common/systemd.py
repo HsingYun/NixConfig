@@ -98,6 +98,19 @@ class FakeSystemd(helper.Systemd):
 
 
 class QueryTest(unittest.TestCase):
+    def test_verification_requires_ready_units_but_not_enable_only_jobs(self):
+        system = helper.Systemd()
+        with patch.object(system, "enabled", return_value="enabled"):
+            for state in ["activating", "deactivating", "inactive", "failed"]:
+                with self.subTest(state=state), patch.object(system, "query", return_value=state):
+                    with self.assertRaisesRegex(RuntimeError, "not ready"):
+                        system.verify(["host.service"])
+            with patch.object(system, "query", return_value="active"):
+                system.verify(["host.service"])
+            with patch.object(system, "query") as query:
+                system.verify([], ["boot.service"])
+                query.assert_not_called()
+
     def test_state_queries_reject_errors_and_empty_results(self):
         system = helper.Systemd()
         for method in [system.enabled, system.active]:

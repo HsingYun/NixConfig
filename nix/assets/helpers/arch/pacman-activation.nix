@@ -19,13 +19,21 @@
       fi
       missingRepo=()
       missingAur=()
+      installed=$(${lib.escapeShellArg pacman} -Qq) || {
+        echo "Software: cannot read the installed package database." >&2
+        exit 1
+      }
+      declare -A present=()
+      while IFS= read -r package; do
+        [[ -z $package ]] || present["$package"]=1
+      done <<< "$installed"
       for target in "''${repoTargets[@]}"; do
-        if ! ${lib.escapeShellArg pacman} -Q -- "$target" >/dev/null 2>&1; then
+        if [[ ! -v present["$target"] ]]; then
           missingRepo+=("$target")
         fi
       done
       for target in "''${aurTargets[@]}"; do
-        if ! ${lib.escapeShellArg pacman} -Q -- "$target" >/dev/null 2>&1; then
+        if [[ ! -v present["$target"] ]]; then
           missingAur+=("$target")
         fi
       done

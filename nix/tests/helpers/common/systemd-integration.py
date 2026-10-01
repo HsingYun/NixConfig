@@ -7,6 +7,7 @@ import sys
 import tempfile
 import unittest
 
+sys.path.insert(0, str(Path(sys.argv[1]).parent))
 spec = importlib.util.spec_from_file_location("native_systemd", sys.argv.pop(1))
 helper = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(helper)

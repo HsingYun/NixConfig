@@ -11,7 +11,6 @@ let
   runService =
     (osConfig.programs.dms-shell.enable && osConfig.programs.dms-shell.systemd.enable)
     || (cfg.enable && cfg.systemd.enable);
-  unit = config.lib.file.mkOutOfStoreSymlink "/usr/lib/systemd/user/dms.service";
 in
 {
   # The upstream HM module always installs its Nix runtime. This adapter only
@@ -51,26 +50,17 @@ in
       };
     })
     (lib.mkIf runService {
-      systemd.user.startServices = lib.mkDefault true;
       assertions = [
         {
           assertion = osConfig.programs.niri.enable;
           message = "Arch DMS user service requires the Niri system session.";
         }
       ];
-      xdg.configFile = {
-        "systemd/user/dms.service" = {
-          source = unit;
-        };
-        "systemd/user/niri.service.wants/dms.service" = {
-          source = unit;
-        };
-        "systemd/user/dms.service.d/nixconfig.conf" = {
-          text = ''
-            [Unit]
-            PartOf=niri.service
-            ConditionEnvironment=XDG_CURRENT_DESKTOP=niri
-          '';
+      native.systemd.user.units."dms.service" = {
+        wantedBy = [ "niri.service" ];
+        dropIns."nixconfig.conf".Unit = {
+          PartOf = "niri.service";
+          ConditionEnvironment = "XDG_CURRENT_DESKTOP=niri";
         };
       };
     })

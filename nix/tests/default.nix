@@ -77,10 +77,14 @@ lib.recursiveUpdate hostChecks (
       vscode-settings = import ./home/vscode-settings.nix { inherit inputs pkgs; };
       chrome-policy = import ./helpers/arch/chrome-policy.nix { inherit inputs pkgs; };
       pacman-activation = import ./helpers/arch/pacman.nix { inherit inputs pkgs; };
-      native-units = import ./helpers/arch/native-units.nix { inherit pkgs; };
+      native-units = import ./helpers/common/systemd.nix { inherit pkgs; };
+      network-preflight = import ./helpers/arch/network-preflight.nix { inherit pkgs; };
       native-input-autostart = import ./helpers/arch/autostart.nix { inherit inputs pkgs; };
     }
     // lib.optionalAttrs pkgs.stdenv.hostPlatform.isLinux {
+      native-user-units = import ./home/native-systemd.nix { inherit inputs pkgs; };
+      native-system-backend = import ./helpers/common/system-backend.nix { inherit inputs pkgs; };
+      native-system-integration = import ./home/native-system.nix { inherit inputs pkgs; };
       noctalia-configuration = import ./home/noctalia.nix { inherit inputs pkgs; };
       niri-dms-configuration = import ./home/niri-dms.nix { inherit inputs pkgs; };
       desktop-boundaries = import ./home/desktop.nix { inherit inputs pkgs; };

@@ -1,7 +1,6 @@
 { ... }:
 {
   imports = [
-    ./profile.nix
     ./capabilities/niri.nix
     ./capabilities/dms.nix
     ./capabilities/noctalia.nix
@@ -12,4 +11,5 @@
     ./pipewire.nix
   ];
   targets.genericLinux.enable = true;
+  native.systemd.user.vendorDirectory = "/usr/lib/systemd/user";
 }

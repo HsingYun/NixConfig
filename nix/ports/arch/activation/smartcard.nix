@@ -6,17 +6,24 @@
   ...
 }:
 let
-  cfg = config.services.pcscd;
+  active = config.security.polkit.enable && config.security.polkit.extraConfig != "";
+  source = pkgs.writeText "smartcard-polkit.rules" config.security.polkit.extraConfig;
+  destination = "/etc/polkit-1/rules.d/60-nixconfig-smartcard-${user.username}.rules";
 in
 {
+  native.resources.smartcardPolicy = {
+    desired = {
+      inherit destination;
+      source = if active then toString source else null;
+    };
+    check = lib.mkIf active "/usr/bin/sudo ${pkgs.diffutils}/bin/cmp ${source} ${lib.escapeShellArg destination}";
+  };
   native.activation.nativeSmartcard =
-    lib.hm.dag.entryAfter [ "installNativePackages" "linkGeneration" ]
+    lib.hm.dag.entryBetween [ "nativeSystemd" ] [ "installNativePackages" "linkGeneration" ]
       (
         import ../../../assets/helpers/common/owned-root-file.nix { inherit lib pkgs; } {
           owner = user.username;
-          active = config.security.polkit.enable && config.security.polkit.extraConfig != "";
-          text = config.security.polkit.extraConfig;
-          destination = "/etc/polkit-1/rules.d/60-nixconfig-smartcard-${user.username}.rules";
+          inherit active source destination;
         }
       );
 }

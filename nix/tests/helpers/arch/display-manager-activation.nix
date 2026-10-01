@@ -7,9 +7,13 @@ let
       systemctl = pkgs.writeShellScript "systemctl-stub" ''
         set -euo pipefail
         case "$*" in
-          'is-enabled ${service}') cat "$TEST_ROOT/manager-state"; exit 0 ;;
-          'is-enabled ${previous}')
-            if [[ -e "$TEST_ROOT/previous-disabled" ]]; then echo disabled; else echo enabled; fi
+          'show --property=LoadState,UnitFileState -- ${service}')
+            if [[ ''${FAIL_QUERY:-0} != 0 ]]; then exit "$FAIL_QUERY"; fi
+            echo LoadState=loaded
+            echo "UnitFileState=$(cat "$TEST_ROOT/manager-state")"; exit 0 ;;
+          'show --property=LoadState,UnitFileState -- ${previous}')
+            echo LoadState=loaded
+            if [[ -e "$TEST_ROOT/previous-disabled" ]]; then echo UnitFileState=disabled; else echo UnitFileState=enabled; fi
             exit 0 ;;
           'get-default') cat "$TEST_ROOT/boot-target"; exit 0 ;;
         esac
@@ -86,9 +90,14 @@ let
       set-default graphical.target
       EOF
       diff -u expected "$TEST_ROOT/actions"
+
+      # Query failure is not evidence that a login manager is disabled.
+      : > "$TEST_ROOT/actions"
+      if FAIL_QUERY=44 ${activate}; then exit 1; fi
+      test ! -s "$TEST_ROOT/actions"
       test -e "$TEST_ROOT/previous-disabled"
       ${activate}
-      diff -u expected "$TEST_ROOT/actions"
+      test ! -s "$TEST_ROOT/actions"
 
       # Failure after replacing the alias must still clean up on retry.
       rm "$TEST_ROOT/previous-disabled"

@@ -14,9 +14,6 @@ import shutil
 import tempfile
 import subprocess
 
-# Keep shared filesystem safety in one implementation across ports.
-sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "common"))
-
 from safe_files import read, write, lock
 
 
@@ -71,6 +68,15 @@ class Systemd:
         }:
             return True
         raise RuntimeError(f"Cannot manage {unit}: unknown active state {state!r}")
+
+    def verify(self, units, enable_only=()):
+        for unit in sorted(set(units) | set(enable_only)):
+            if self.enabled(unit) not in {"enabled", "enabled-runtime", "indirect"}:
+                raise RuntimeError(f"Native unit is not enabled: {unit}")
+        for unit in units:
+            state = self.query("show", "--property=ActiveState", "--value", "--", unit)
+            if state != "active":
+                raise RuntimeError(f"Native unit is not ready: {unit} ({state})")
 
     # These are systemd's live stop-propagation relations, not package metadata.
     stop_relations = ("RequiredBy", "RequisiteOf", "BoundBy", "ConsistsOf", "PropagatesStopTo")
@@ -294,7 +300,8 @@ def reconcile(state_path, owner, desired, systemd, enable_only=()):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--owner", required=True)
+    parser.add_argument("--owner")
+    parser.add_argument("--check", action="store_true")
     parser.add_argument("--units", type=Path, required=True)
     parser.add_argument("--state-dir", type=Path, default=Path("/var/lib/nixconfig/native-systemd"))
     args = parser.parse_args()
@@ -303,6 +310,11 @@ def main():
     enable_only = [] if isinstance(manifest, list) else manifest.get("enableOnly", [])
     if not isinstance(units, list) or not isinstance(enable_only, list) or not all(isinstance(u, str) and UNIT.fullmatch(u) for u in units + enable_only):
         raise ValueError("Invalid native systemd unit list")
+    if args.check:
+        Systemd().verify(units, enable_only)
+        return
+    if not args.owner:
+        parser.error("--owner is required when applying units")
     with lock(args.state_dir / "lock"):
         reconcile(args.state_dir / "state.json", args.owner, units, Systemd(), enable_only)
 

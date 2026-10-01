@@ -229,6 +229,7 @@ assert
     "installPackages"
     "systemProfile"
     "installNativePackages"
+    "nativeSystemBegin"
   ];
 assert !(migration.xdg.dataFile ? applications);
 assert !(inactiveMigration.home.activation ? removeReplacedNativePackages);

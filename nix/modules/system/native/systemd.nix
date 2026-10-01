@@ -29,14 +29,18 @@ in
     };
   };
   config = {
-    # Keep reconciliation when the last feature or pacman adapter is disabled.
-    native.activation.nativeSystemd =
-      lib.hm.dag.entryAfter [ "installNativePackages" "linkGeneration" "nativeSmartcard" ]
-        ''
-          if ${if units != [ ] || enableOnly != [ ] then "true" else "test -f ${state}"}; then
-            run /usr/bin/sudo ${pkgs.python3}/bin/python3 ${../../../assets/helpers}/arch/native-systemd.py \
-              --owner ${lib.escapeShellArg user.username} --units ${manifest} || exit $?
-          fi
-        '';
+    native.resources.services = {
+      desired = { inherit units enableOnly; };
+      check = ''
+        ${pkgs.python3}/bin/python3 ${../../../assets/helpers}/common/systemd.py --check --units ${manifest}
+      '';
+    };
+    # Keep reconciliation when the final service request disappears.
+    native.activation.nativeSystemd = lib.hm.dag.entryAfter [ "linkGeneration" ] ''
+      if ${if units != [ ] || enableOnly != [ ] then "true" else "test -f ${state}"}; then
+        run ${lib.escapeShellArgs config.native.privilegeCommand} ${pkgs.python3}/bin/python3 ${../../../assets/helpers}/common/systemd.py \
+          --owner ${lib.escapeShellArg user.username} --units ${manifest} || exit $?
+      fi
+    '';
   };
 }

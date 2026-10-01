@@ -19,10 +19,11 @@ class Systemd:
         self.units = set()
         self.actions = []
         self.fail = False
+        self.target = "graphical.target"
 
     def current(self): return self.selected
     def enabled(self, unit): return "enabled" if unit in self.units else "disabled"
-    def default_target(self): return "graphical.target"
+    def default_target(self): return self.target
 
     def change(self, *args):
         if self.fail:
@@ -34,6 +35,7 @@ class Systemd:
         if args[0] == "disable":
             self.units.discard(args[-1])
             if self.selected == args[-1]: self.selected = ""
+        if args[0] == "set-default": self.target = args[-1]
 
 
 class Lifecycle(unittest.TestCase):
@@ -61,6 +63,50 @@ class Lifecycle(unittest.TestCase):
         self.assertTrue(all(action[0] != "stop" for action in self.systemd.actions))
         self.apply(None)
 
+    def test_adopted_manager_is_preserved(self):
+        self.systemd.selected = "gdm.service"
+        self.systemd.units.add("gdm.service")
+        self.apply("gdm.service")
+        self.apply(None)
+        self.assertEqual(self.systemd.selected, "gdm.service")
+        self.assertEqual(self.systemd.units, {"gdm.service"})
+
+    def test_previous_manager_and_boot_target_are_restored(self):
+        self.systemd.selected = "gdm.service"
+        self.systemd.units.add("gdm.service")
+        self.systemd.target = "multi-user.target"
+        self.apply("greetd.service")
+        self.assertEqual(self.systemd.selected, "greetd.service")
+        self.apply(None)
+        self.assertEqual(self.systemd.selected, "gdm.service")
+        self.assertEqual(self.systemd.units, {"gdm.service"})
+        self.assertEqual(self.systemd.target, "multi-user.target")
+
+    def test_unknown_legacy_ownership_cannot_disable_host_manager(self):
+        self.systemd.selected = "gdm.service"
+        self.systemd.units.add("gdm.service")
+        self.path.write_text(json.dumps({"version": 1, "owners": {"host": "gdm.service"},
+                                       "managed": ["gdm.service"], "files": {}, "reload": False}))
+        with self.assertRaisesRegex(RuntimeError, "original state was not recorded"):
+            self.apply(None)
+        self.assertEqual(self.systemd.units, {"gdm.service"})
+
+    def test_interrupted_restoration_retires_the_replacement_on_retry(self):
+        self.systemd.selected = "gdm.service"
+        self.systemd.units.add("gdm.service")
+        self.apply("greetd.service")
+        change = self.systemd.change
+        def fail_disable(*args):
+            if args[0] == "disable": raise RuntimeError("interrupted restoration")
+            change(*args)
+        self.systemd.change = fail_disable
+        with self.assertRaisesRegex(RuntimeError, "interrupted"):
+            self.apply(None)
+        self.assertEqual(self.systemd.selected, "gdm.service")
+        self.systemd.change = change
+        self.apply(None)
+        self.assertEqual(self.systemd.units, {"gdm.service"})
+
     def test_shared_owner_retains_manager(self):
         self.apply("greetd.service")
         self.apply("greetd.service", "second")
@@ -70,6 +116,22 @@ class Lifecycle(unittest.TestCase):
             self.apply("gdm.service")
         self.apply(None, "second")
         self.assertEqual(self.systemd.selected, "")
+
+    def test_interrupted_retirement_restores_text_boot_on_retry(self):
+        self.systemd.target = "multi-user.target"
+        self.apply("greetd.service")
+        change = self.systemd.change
+        def fail_target(*args):
+            if args[0] == "set-default": raise RuntimeError("interrupted restoration")
+            change(*args)
+        self.systemd.change = fail_target
+        with self.assertRaisesRegex(RuntimeError, "interrupted"):
+            self.apply(None)
+        self.assertEqual(self.systemd.selected, "")
+        self.systemd.change = change
+        self.apply(None)
+        self.assertEqual(self.systemd.target, "multi-user.target")
+        self.assertEqual(self.systemd.units, set())
 
     def test_switch_failure_can_be_retried(self):
         self.apply("gdm.service")

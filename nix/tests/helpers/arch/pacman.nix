@@ -3,9 +3,12 @@ let
   inherit (pkgs) lib;
   render = import ../../../assets/helpers/arch/pacman-activation.nix { inherit lib; };
   pacman = pkgs.writeShellScript "pacman-stub" ''
-    if [[ $1 == -Q ]]; then
+    if [[ $1 == -Qq ]]; then
       printf '%s\n' "$*" >> "$QUERY_LOG"
-      [[ ''${ALL_INSTALLED:-0} == 1 || $3 == installed ]]
+      if [[ ''${FAIL_QUERY:-0} != 0 ]]; then exit "$FAIL_QUERY"; fi
+      echo installed
+      if [[ ''${ALL_INSTALLED:-0} == 1 ]]; then printf '%s\n' new-repo new-aur; fi
+      exit 0
     else
       printf 'pacman %s\n' "$*" >> "$INSTALL_LOG"
       exit "''${FAIL_REPO:-0}"
@@ -57,6 +60,11 @@ pkgs.runCommand "pacman-activation-check" { } ''
   yay -S --needed --aur -- new-aur
   EXPECTED
   diff -u expected "$INSTALL_LOG"
+
+  clearLogs
+  if FAIL_QUERY=42 ${normal} > failure 2>&1; then exit 1; fi
+  grep -F 'cannot read the installed package database' failure
+  test ! -s "$INSTALL_LOG"
 
   clearLogs
   ALL_INSTALLED=1 ${normal}

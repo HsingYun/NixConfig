@@ -18,7 +18,8 @@ capability. Reuse upstream implementations whenever available.
 | Default desktop selection | `nix/lib/features/desktop-stacks.nix` and catalog priority | `nix/modules/system/shared/desktop-policy.nix` |
 | Software identities | Software catalog and profile recipes | Shared resolver and runtime planner |
 | Package installation | Port system/activation modules consume the shared plan | Upstream Nix profiles, nix-darwin Homebrew, pacman/yay |
-| Privileged platform effects | `nix/ports/<platform>/activation/` | Platform tools and shared ownership helpers |
+| Native system plan and lifecycle | `nix/modules/system/native/` and the native HM bridge | Shared plan, stage journal, Nix profiles and systemd reconciliation |
+| Distribution-specific effects | `nix/ports/<platform>/activation/` | Native package tools, platform policies and shared ownership helpers |
 
 A contract states supported option names, types and scopes. Ports do not silently
 ignore unsupported options. NixOS keeps its full upstream interface; a native
@@ -80,8 +81,10 @@ nix/ports/
   nixos-wsl/                   NixOS-WSL specialization
   darwin/                      nix-darwin specialization
 nix/assets/helpers/
-  common/                      Shared file safety, ownership, dconf and greeter helpers
+  common/                      System backend, systemd, file ownership, dconf and greeter helpers
   arch/                        Arch package, service and desktop activation helpers
+nix/modules/system/native/    Distribution-independent native system capabilities
+nix/modules/home/native/      HM activation, inspection bridge and vendor user units
 nix/modules/system/shared/desktop-policy.nix  Shared desktop defaults and arbitration
 nix/modules/software/          Shared requirements and host/home planning
 nix/lib/platforms/             Platform registry and registration validation
@@ -99,6 +102,76 @@ Its system scope owns services, root files, software planning and the system
 Nix profile. Its home scope owns application settings and user units. The shared
 Home Manager activation entry point executes the system port's declared DAG
 nodes, invoking sudo only where needed. AUR builds still run as the user.
+
+Managing native system configuration is an intentional responsibility of this
+project. Arch's system layer reconciles explicitly owned files, services and
+profiles while preserving unmanaged state and native package ownership. Reuse
+Nix and Home Manager primitives within that boundary.
+
+The native backend is shared by distributions. A future Ubuntu port supplies its
+package-manager adapter, service requests, policy paths and privilege command;
+it reuses the same native builder, Nix profile, systemd reconciler, resource
+ownership helpers and activation journal. The common layers do not import Arch
+modules or select tools by distribution name. NixOS and Darwin use their upstream
+builders instead of this native backend.
+
+Ports contribute three interfaces:
+
+- `native.preflight`: read-only DAG stages before HM's write boundary.
+- `native.activation`: effectful DAG stages; the coordinator records their start,
+  successful completion and failures without changing their HM dependencies.
+- `native.resources.<name>`: the JSON-serializable `desired` state and an optional
+  read-only `check` script. Ports own the resource semantics; the coordinator owns
+  plan comparison and the execution/reporting protocol.
+
+`native.plan` is an immutable Nix-generated artifact containing the host, owner,
+resources and stage definitions. The installed `nixconfig-system` command exposes:
+
+```console
+nixconfig-system plan    # Selected configuration, stages and resource requests
+nixconfig-system diff    # Desired resource changes since the last successful run
+nixconfig-system status  # Latest native attempt, completed stages and exit code
+nixconfig-system verify  # Inspect live resources; nonzero on drift/query failure
+```
+
+Diff compares declarations; verify checks the live machine. Resources without a
+check are explicitly reported as `unchecked`. Verification may use the port's
+privilege command for protected files. The coordinator verifies after the HM DAG
+stages and records success only after those checks pass. Package installation,
+file updates and service changes are separate operations, not one atomic
+transaction. A failed run preserves its completed-stage list and the previous
+successful desired state. Retry reruns idempotent stages so actual drift is not
+hidden by a stale "completed" flag. An exited process with an unfinished attempt
+is reported as interrupted, including failure in an intervening HM stage.
+
+The journal starts after HM's write boundary. Earlier preflight/file-conflict
+errors remain ordinary HM errors and do not update the native attempt. Its
+user-owned files under `$XDG_STATE_HOME/nixconfig/system` are diagnostic only;
+privileged file/service reconcilers continue using their separate root-owned
+ownership records. Altering or removing a journal cannot authorize cleanup.
+Dry runs do not write the journal. No automatic backups or forced file adoption
+are introduced.
+
+System Nix profiles are owner-scoped at
+`/nix/var/nix/profiles/nixconfig-system-<username>` and use upstream Nix generation
+management. Reapplying the same output does not create another profile generation.
+The former shared `nixconfig-system` profile is left intact during migration;
+the backend does not delete a profile whose ownership it cannot establish.
+Reapplying an older HM generation restores its declared managed configuration;
+native packages remain installed unless explicitly selected for guarded migration.
+There is no automatic rollback of pacman or a claim of whole-machine atomicity.
+
+Native home adapters declare vendor user units through
+`native.systemd.user.units.<unit-name>`, with `wantedBy`, `requiredBy`, `aliases`
+and structured `dropIns`. The shared home systemd adapter links the installed unit from
+the port's `native.systemd.user.vendorDirectory` (`/usr/lib/systemd/user` on Arch),
+renders drop-ins with `pkgs.formats.systemd`, and lets
+Home Manager own the links and activation. It does not copy vendor unit contents
+or synthesize incomplete replacement services. Setting `enable = false` removes
+that declaration's managed links and drop-ins through the normal HM lifecycle.
+This interface declares the requested links explicitly; it does not interpret
+the vendor unit's `[Install]` section. System-level enablement continues to use
+the native systemd reconciler and `systemctl`.
 
 NixOS and Darwin continue to use their upstream builders and activation engines;
 Arch reconciliation is never installed on them. The software coordinator accepts
@@ -215,6 +288,12 @@ not authorize deleting existing host resources.
 Login-manager selection affects the next boot. Switching or disabling the last
 managed manager never stops the live GUI. Owned greetd files are retired when
 no longer requested, and conflicting owners or foreign changes remain visible.
+New login-manager records preserve the original manager and boot target. When
+the final consumer releases management, the backend restores that baseline and
+disables only its replacement. It preserves an externally changed manager or
+boot target. Legacy records lacking a baseline can continue selecting a desktop,
+but retiring their final manager fails explicitly until its ownership is manually
+resolved; the backend never guesses which existing login service it may disable.
 No cross-resource atomic rollback is claimed for native package managers or
 systemd; failed activations must be inspectable and retryable.
 

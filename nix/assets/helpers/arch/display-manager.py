@@ -28,8 +28,15 @@ class Systemd:
         return self.alias.resolve().name if self.alias.is_symlink() else ""
 
     def enabled(self, unit):
-        return subprocess.run([self.command, "is-enabled", unit], text=True,
-                              capture_output=True).stdout.strip()
+        result = subprocess.run([self.command, "show", "--property=LoadState,UnitFileState", "--", unit],
+                                text=True, capture_output=True, check=True)
+        state = dict(line.split("=", 1) for line in result.stdout.splitlines())
+        if state.get("LoadState") == "not-found":
+            return "not-found"
+        value = state.get("UnitFileState")
+        if value not in {"enabled", "enabled-runtime", "disabled", "static", "indirect", "linked", "linked-runtime", "masked", "masked-runtime"}:
+            raise RuntimeError(f"Cannot inspect display-manager unit {unit}: {state}")
+        return value
 
     def default_target(self):
         return subprocess.check_output([self.command, "get-default"], text=True).strip()
@@ -43,10 +50,14 @@ def reconcile(state_path, owner, service, files, systemd):
     if raw is None and service is None:
         return
     state = json.loads(raw) if raw is not None else {
-        "version": 1, "owners": {}, "managed": [], "files": {}, "reload": False
+        "version": 2, "owners": {}, "managed": [], "files": {}, "reload": False,
+        "original": None, "retiring": False,
     }
-    if state.get("version") != 1 or not set(state["managed"]) <= MANAGERS:
+    if state.get("version") not in {1, 2} or not set(state["managed"]) <= MANAGERS:
         raise ValueError("Invalid display-manager state")
+    if state["version"] == 1:
+        # Old records did not distinguish adopted from newly enabled managers.
+        state.update(version=2, original={"known": False} if state["managed"] else None, retiring=False)
     if service is not None and service not in MANAGERS:
         raise ValueError("Unsupported display manager")
     owners = dict(state["owners"])
@@ -57,9 +68,27 @@ def reconcile(state_path, owner, service, files, systemd):
     if len(set(owners.values())) > 1:
         raise RuntimeError("Conflicting display-manager owners")
     desired = next(iter(owners.values()), None)
+    original = state.get("original")
+    if not desired and state["managed"] and original and not original.get("known"):
+        raise RuntimeError("Cannot retire the legacy login manager: its original state was not recorded. Keep a desktop selected until the boot manager is explicitly migrated.")
     current = systemd.current()
     if desired and current not in MANAGERS | {"", "display-manager.service"}:
         raise RuntimeError(f"Refusing unsupported display manager: {current}")
+    # Resolve query failures before writing files or changing enablement.
+    enabled = {unit: systemd.enabled(unit) for unit in MANAGERS}
+    default_target = systemd.default_target() if desired or original else None
+    if desired and original is None:
+        state["original"] = original = {
+            "known": True,
+            "service": current if current in MANAGERS and enabled[current] in {"enabled", "enabled-runtime"} else None,
+            "target": default_target,
+        }
+    if original and original.get("known") and (
+        original.get("service") not in MANAGERS | {None}
+        or not isinstance(original.get("target"), str)
+        or not original["target"].endswith(".target")
+    ):
+        raise ValueError("Invalid original display-manager state")
     state["owners"] = owners
     previous_files = dict(state["files"].get(owner, {}))
     requested = {item["destination"]: item for item in files} if service else {}
@@ -72,6 +101,8 @@ def reconcile(state_path, owner, service, files, systemd):
     # retired. File content/identity ownership remains with the shared helper.
     if desired and desired not in state["managed"]:
         state["managed"].append(desired)
+    if desired:
+        state["retiring"] = False
     persist()
     for destination, item in requested.items():
         file_state = item.get("stateFile", "/var/lib/nixconfig/files/" +
@@ -86,18 +117,32 @@ def reconcile(state_path, owner, service, files, systemd):
         state["reload"] = False
         persist()
     if desired:
-        if current != desired or systemd.enabled(desired) != "enabled":
+        if current != desired or enabled[desired] != "enabled":
             systemd.change("enable", "--force", desired)
         for other in sorted(MANAGERS - {desired}):
-            if systemd.enabled(other) in {"enabled", "enabled-runtime"}:
+            if enabled[other] in {"enabled", "enabled-runtime"}:
                 systemd.change("disable", "--", other)
-        if systemd.default_target() != "graphical.target":
+        if default_target != "graphical.target":
             systemd.change("set-default", "graphical.target")
-    elif current in state["managed"]:
-        # No --now: retire next-boot enablement without killing the live GUI.
+    elif original and original.get("known") and (
+        current in state["managed"] or state.get("retiring") and current == (original["service"] or "")
+    ):
+        # Journal restoration before touching the alias: interruption after
+        # enabling the original manager must still retire the replacement.
+        state["retiring"] = True
+        persist()
+        restored = original["service"]
+        if restored:
+            if enabled[restored] == "not-found":
+                raise RuntimeError(f"Original login manager is unavailable: {restored}")
+            if current != restored or enabled[restored] != "enabled":
+                systemd.change("enable", "--force", restored)
         for other in state["managed"]:
-            if systemd.enabled(other) in {"enabled", "enabled-runtime"}:
+            if other != restored and enabled[other] in {"enabled", "enabled-runtime"}:
                 systemd.change("disable", "--", other)
+        # Restore only the default target this backend changed. Keep external edits.
+        if default_target == "graphical.target" and original["target"] != default_target:
+            systemd.change("set-default", original["target"])
     # Retire owned configuration even when the feature's final consumer goes
     # away. Keep foreign edits as an actionable conflict, never overwrite them.
     for destination, file_state in previous_files.items():
@@ -112,6 +157,9 @@ def reconcile(state_path, owner, service, files, systemd):
     if not records:
         state["files"].pop(owner, None)
     state["managed"] = [desired] if desired else []
+    if not desired:
+        state["original"] = None
+        state["retiring"] = False
     persist()
 
 

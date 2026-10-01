@@ -30,7 +30,7 @@ in
     service [ "networkmanager" ] [ "NetworkManager.service" ] cfg
     // {
       waitOnline = builtins.elem "NetworkManager-wait-online.service" cfg.system.native.systemd.enableOnly;
-      preflight = cfg.system.native.activation ? checkNativeDesktopNetwork;
+      preflight = cfg.system.native.preflight ? checkNativeDesktopNetwork;
     };
   "system.bluetooth" = service [ "bluez" "bluez-utils" ] [ "bluetooth.service" ];
   # These native services use the packages' DBus activation units.

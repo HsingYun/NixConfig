@@ -7,24 +7,21 @@
 let
   cfg = config.i18n.inputMethod;
   settings = cfg.fcitx5.settings;
-  ini = pkgs.formats.ini { };
-  addonIni = pkgs.formats.iniWithGlobalSection { };
-  normalize =
-    value:
-    if builtins.isBool value then
-      (if value then "True" else "False")
-    else if builtins.isAttrs value then
-      lib.mapAttrs (_: normalize) value
-    else if builtins.isList value then
-      map normalize value
-    else
-      value;
+  iniOptions.mkKeyValue = lib.generators.mkKeyValueDefault {
+    mkValueString =
+      value:
+      if builtins.isBool value then
+        (if value then "True" else "False")
+      else
+        lib.generators.mkValueStringDefault { } value;
+  } "=";
+  ini = pkgs.formats.ini iniOptions;
+  addonIni = pkgs.formats.iniWithGlobalSection iniOptions;
   optionalFile =
     name: format: value:
     lib.optionalAttrs (value != { }) {
-      "fcitx5/${name}".source = format.generate "fcitx5-${builtins.replaceStrings [ "/" ] [ "-" ] name}" (
-        normalize value
-      );
+      "fcitx5/${name}".source =
+        format.generate "fcitx5-${builtins.replaceStrings [ "/" ] [ "-" ] name}" value;
     };
   packages = [
     "fcitx5"
