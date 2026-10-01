@@ -161,6 +161,18 @@ Reapplying an older HM generation restores its declared managed configuration;
 native packages remain installed unless explicitly selected for guarded migration.
 There is no automatic rollback of pacman or a claim of whole-machine atomicity.
 
+`native.systemd.definitions` adds structured, owned concrete system unit files alongside
+vendor unit requests. The shared backend renders them with the Nixpkgs systemd
+format, records file ownership, reloads systemd, and restarts active requested
+units only when their definition content changes. Failed restarts remain pending
+and retry on the next application. Retirement removes owned enablement and stops
+eligible units before removing their definitions; active external consumers and
+foreign file edits prevent unsafe removal. Private runtime configuration files
+are not watched or managed by this interface.
+Template definitions are rejected; vendor templates remain supported by the
+existing unit-request interface. Removing a definition still required by another
+owner, including an enable-only request, is an explicit conflict.
+
 Native home adapters declare vendor user units through
 `native.systemd.user.units.<unit-name>`, with `wantedBy`, `requiredBy`, `aliases`
 and structured `dropIns`. The shared home systemd adapter links the installed unit from

@@ -9,6 +9,7 @@ let
     builtins.elem (toString system.services.${name}.package) (map toString system.systemd.packages);
 in
 {
+  "system.mihomo" = service "mihomo";
   "system.printing" = service "cups";
   "system.avahi" = service "avahi-daemon";
   "system.firmware" = packaged "fwupd";

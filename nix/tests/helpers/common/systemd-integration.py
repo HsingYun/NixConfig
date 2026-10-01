@@ -38,7 +38,9 @@ class NativeSystemdTest(unittest.TestCase):
         helper.reconcile(self.state, owner, units, self.system)
 
     def tearDown(self):
-        self.system.change("stop", "--", *(unit for unit in self.units if "@." not in unit))
+        stoppable = [unit for unit in self.units if "@." not in unit]
+        if stoppable:
+            self.system.change("stop", "--", *stoppable)
         for name, target in self.system.links().items():
             if Path(target).name in self.units:
                 self.system.remove_link(name, target)
@@ -96,6 +98,37 @@ class NativeSystemdTest(unittest.TestCase):
         self.apply([parent])
         self.apply([])
         self.assertEqual(before, self.system.links())
+
+    def test_managed_definition_update_and_retirement(self):
+        name = "nixconfig-test-managed.service"
+        source = Path(self.tmp.name) / "managed-unit"
+        marker = Path(self.tmp.name) / "executions"
+        def definition(value):
+            source.write_text(
+                f"[Service]\nType=oneshot\nRemainAfterExit=yes\n"
+                f"ExecStart={shutil.which('sh')} -c 'echo {value} >> {marker}'\n"
+                "[Install]\nWantedBy=multi-user.target\n"
+            )
+        def apply():
+            helper.reconcile(self.state, "alice", [name], self.system,
+                             definitions={name: str(source)})
+        definition("first")
+        try:
+            apply()
+            apply()
+            self.assertEqual(marker.read_text().splitlines(), ["first"])
+            definition("second")
+            apply()
+            self.assertEqual(marker.read_text().splitlines(), ["first", "second"])
+            helper.reconcile(self.state, "alice", [], self.system)
+            self.assertFalse((self.system.directory / name).exists())
+            self.assertFalse(self.system.active(name))
+        finally:
+            if self.system.active(name):
+                self.system.change("stop", "--", name)
+            for link, target in self.system.links([name]).items():
+                self.system.remove_link(link, target)
+            (self.system.directory / name).unlink(missing_ok=True)
 
     def test_live_stop_propagation(self):
         for relation in ["PartOf", "Requisite", "Requires", "BindsTo", "PropagatesStopTo"]:

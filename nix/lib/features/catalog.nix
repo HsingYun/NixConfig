@@ -28,6 +28,35 @@ let
 in
 import ./availability.nix { inherit lib platformRegistry; } {
   features = {
+    mihomo = {
+      platforms = [
+        "arch"
+        "nixos"
+        "darwin"
+      ];
+      contracts = [ "system.mihomo" ];
+      systemModules = [ ../../modules/system/features/mihomo.nix ];
+      activation = {
+        scope = "system";
+        option = [
+          "services"
+          "mihomo"
+          "enable"
+        ];
+      };
+      options = {
+        configFile = {
+          type = lib.types.strMatching "/.*";
+          default = "/etc/mihomo/config.yaml";
+          description = "Absolute runtime path to a private Mihomo YAML file; never read during Nix evaluation";
+        };
+        tunMode = {
+          type = lib.types.bool;
+          default = true;
+          description = "Grant TUN permissions; tun.enable must also be set in the private YAML";
+        };
+      };
+    };
     commonTools = {
       platforms = all;
       homeModules = [ ../../modules/home/features/common-tools.nix ];

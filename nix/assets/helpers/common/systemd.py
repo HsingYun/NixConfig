@@ -5,6 +5,8 @@ by this helper. Existing enablement and active services belong to the host.
 """
 
 import argparse
+import hashlib
+import importlib.util
 import json
 import os
 from pathlib import Path
@@ -15,6 +17,10 @@ import tempfile
 import subprocess
 
 from safe_files import read, write, lock
+
+_spec = importlib.util.spec_from_file_location("owned_file", Path(__file__).with_name("owned-file.py"))
+owned_file = importlib.util.module_from_spec(_spec)
+_spec.loader.exec_module(owned_file)
 
 
 UNIT = re.compile(r"[A-Za-z0-9_@.+:-]+\.(service|socket|timer|path)\Z")
@@ -162,7 +168,7 @@ class Systemd:
             print(f"Preserving externally changed systemd link: {path}")
 
 
-def reconcile(state_path, owner, desired, systemd, enable_only=()):
+def reconcile(state_path, owner, desired, systemd, enable_only=(), definitions=None):
     raw = read(state_path)
     state = json.loads(raw) if raw is not None else {
         "version": 2, "owners": {}, "units": {}, "links": {}, "pending": None, "reload": False
@@ -186,6 +192,35 @@ def reconcile(state_path, owner, desired, systemd, enable_only=()):
 
     def persist():
         save(state_path, state)
+
+    definitions = definitions or {}
+    if not all(isinstance(name, str) and UNIT.fullmatch(name) and "@." not in name and isinstance(source, str)
+               for name, source in definitions.items()):
+        raise ValueError("Invalid native systemd definitions")
+    records = state.setdefault("definitions", {})
+    previous_definitions = dict(records.get(owner, {}))
+    for record in records.values():
+        if not isinstance(record, dict) or not all(UNIT.fullmatch(name) for name in record):
+            raise ValueError("Invalid managed unit record")
+    applied = state.setdefault("appliedDefinitions", {})
+
+    def file_state(name):
+        return Path(state_path).parent / "unit-files" / (hashlib.sha256(name.encode()).hexdigest() + ".json")
+
+    # Record paths before effects for crash recovery. File ownership is still
+    # established by the shared inode/content journal, never by this manifest.
+    if definitions or previous_definitions:
+        records[owner] = previous_definitions | definitions
+        persist()
+    for name, source in definitions.items():
+        if read(systemd.directory / name) != read(source):
+            state["reload"] = True
+            persist()
+        owned_file.reconcile(systemd.directory / name, file_state(name), source, owner)
+    if state["reload"]:
+        systemd.change("daemon-reload")
+        state["reload"] = False
+        persist()
 
     # Recover the old journal before migrating its evidence. Unknown old
     # effects are deliberately not adopted as our property.
@@ -271,8 +306,17 @@ def reconcile(state_path, owner, desired, systemd, enable_only=()):
         state["reload"] = False
         persist()
     for unit in sorted(start_wanted):
+        # Only an owner supplying and validating a definition may restart it.
+        # A request for another owner's unit does not adopt external file edits.
+        signature = hashlib.sha256(read(systemd.directory / unit)).hexdigest() if unit in definitions else None
         if not systemd.active(unit):
             systemd.change("start", "--", unit)
+        elif signature and applied.get(unit) != signature:
+            # A failed restart retains the old signature and retries next time.
+            systemd.change("restart", "--", unit)
+        if signature:
+            applied[unit] = signature
+            persist()
 
     retired = sorted(set(state["units"]) - wanted - peers)
     # Retired units may still belong to the host. Only ignore consumers that
@@ -295,7 +339,26 @@ def reconcile(state_path, owner, desired, systemd, enable_only=()):
         systemd.change("stop", "--", *sorted(stoppable))
     for unit in retired:
         del state["units"][unit]
+        applied.pop(unit, None)
         persist()
+
+    for name in previous_definitions.keys() - definitions.keys():
+        others = any(name in record for other, record in records.items() if other != owner)
+        file_record = read(file_state(name))
+        owns_file = file_record is not None and owner in json.loads(file_record).get("owners", {})
+        if owns_file and not others and (name in wanted or systemd.active(name)):
+            raise RuntimeError(f"Preserving managed unit still used by another request or an active service: {name}")
+        state["reload"] = True
+        persist()
+        owned_file.reconcile(systemd.directory / name, file_state(name), None, owner)
+        records[owner].pop(name, None)
+        persist()
+    if not records.get(owner):
+        records.pop(owner, None)
+    if state["reload"]:
+        systemd.change("daemon-reload")
+        state["reload"] = False
+    persist()
 
 
 def main():
@@ -308,15 +371,19 @@ def main():
     manifest = json.loads(args.units.read_text())
     units = manifest if isinstance(manifest, list) else manifest["units"]
     enable_only = [] if isinstance(manifest, list) else manifest.get("enableOnly", [])
+    definitions = {} if isinstance(manifest, list) else manifest.get("definitions", {})
     if not isinstance(units, list) or not isinstance(enable_only, list) or not all(isinstance(u, str) and UNIT.fullmatch(u) for u in units + enable_only):
         raise ValueError("Invalid native systemd unit list")
     if args.check:
         Systemd().verify(units, enable_only)
+        for name, source in definitions.items():
+            if not UNIT.fullmatch(name) or read(Path("/etc/systemd/system") / name) != read(source):
+                raise RuntimeError(f"Native unit definition differs: {name}")
         return
     if not args.owner:
         parser.error("--owner is required when applying units")
     with lock(args.state_dir / "lock"):
-        reconcile(args.state_dir / "state.json", args.owner, units, Systemd(), enable_only)
+        reconcile(args.state_dir / "state.json", args.owner, units, Systemd(), enable_only, definitions)
 
 
 if __name__ == "__main__":

@@ -15,6 +15,15 @@ let
     );
 in
 {
+  "system.mihomo" = {
+    configure = { enabled, ... }: {
+      system.services.mihomo = {
+        enable = enabled;
+        configFile = "/private-config/mihomo.yaml";
+        tunMode = true;
+      };
+    };
+  };
   "system.printing" = service [ "services.printing.enable" ];
   "system.avahi" = service [ "services.avahi.enable" ];
   "system.firmware" = service [ "services.fwupd.enable" ];

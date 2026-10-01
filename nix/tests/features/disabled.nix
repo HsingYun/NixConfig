@@ -38,6 +38,14 @@ let
   # Check repository-specific settings, including integrations, rather than
   # assuming that upstream defaults or shared packages disappear.
   checks = {
+    mihomo = {
+      on = cfg: cfg.services.mihomo.enable && cfg.services.mihomo.tunMode;
+      off =
+        cfg:
+        !cfg.services.mihomo.enable
+        && !(cfg.software.resolved ? mihomo)
+        && !(cfg.systemd.services ? mihomo);
+    };
     chrome = {
       on = cfg: cfg.programs.chromium.enable;
       off = cfg: !cfg.programs.chromium.enable && !((home cfg).software.requirements ? chrome);

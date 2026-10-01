@@ -1,6 +1,9 @@
 { user, ... }:
 
 {
-  imports = [ ./homebrew.nix ];
+  imports = [
+    ./homebrew.nix
+    ./mihomo.nix
+  ];
   system.primaryUser = user.username;
 }

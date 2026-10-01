@@ -27,6 +27,11 @@ lib.foldl'
     ) catalog profile
   )
   {
+    mihomo = {
+      nix = nix pkgs.mihomo;
+      pacman = aur "mihomo";
+      homebrew = brew "mihomo";
+    };
     accountsservice = {
       pacman = pacman "accountsservice";
     };

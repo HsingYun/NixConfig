@@ -36,6 +36,12 @@ let
     && hasPackage "tela-icon-theme" cfg
     && (home cfg).dconf.settings."org/gnome/desktop/interface".icon-theme == "Tela";
   checks = {
+    mihomo =
+      cfg:
+      cfg.services.mihomo.enable
+      && cfg.services.mihomo.tunMode
+      && cfg.services.mihomo.configFile == "/etc/mihomo/config.yaml"
+      && builtins.elem "multi-user.target" cfg.systemd.services.mihomo.wantedBy;
     chrome = cfg: cfg.programs.chromium.enable && hasPackage "google-chrome" cfg;
     vscode =
       cfg:

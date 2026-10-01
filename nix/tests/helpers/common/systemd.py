@@ -84,7 +84,7 @@ class FakeSystemd(helper.Systemd):
         # A failure can occur after side effects, as with an interrupted enable.
         if self.fail == args[0]:
             raise RuntimeError("injected failure")
-        if args[0] == "start":
+        if args[0] in {"start", "restart"}:
             self.running.add(args[-1])
         elif args[0] == "stop":
             stopped = set(args[2:])
@@ -95,6 +95,115 @@ class FakeSystemd(helper.Systemd):
                     break
                 stopped |= dependents
             self.running -= stopped
+
+
+class DefinitionsTest(unittest.TestCase):
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.tmp.cleanup)
+        self.root = Path(self.tmp.name).resolve()
+        self.state = self.root / "state.json"
+        self.system = FakeSystemd(self.root / "system")
+        self.source = self.root / "source"
+        self.source.write_text("[Service]\nExecStart=/first\n")
+        self.unit = "example.service"
+
+    def apply(self, enabled=True, owner="alice"):
+        helper.reconcile(self.state, owner, [self.unit] if enabled else [], self.system,
+                         definitions={self.unit: str(self.source)} if enabled else {})
+
+    def test_create_update_restart_repeat_and_retire(self):
+        self.apply()
+        self.assertEqual((self.system.directory / self.unit).read_text(), self.source.read_text())
+        self.assertTrue(self.system.active(self.unit))
+        self.system.actions.clear()
+        self.apply()
+        self.assertEqual(self.system.actions, [])
+        self.source.write_text("[Service]\nExecStart=/second\n")
+        self.apply()
+        self.assertIn(("restart", "--", self.unit), self.system.actions)
+        self.apply(False)
+        self.assertFalse((self.system.directory / self.unit).exists())
+        self.assertFalse(self.system.active(self.unit))
+        self.system.actions.clear()
+        self.apply(False)
+        self.assertEqual(self.system.actions, [])
+
+    def test_failed_restart_retries_without_losing_ownership(self):
+        self.apply()
+        self.source.write_text("changed")
+        self.system.fail = "restart"
+        with self.assertRaisesRegex(RuntimeError, "injected"):
+            self.apply()
+        self.system.fail = None
+        self.system.actions.clear()
+        self.apply()
+        self.assertIn(("restart", "--", self.unit), self.system.actions)
+        self.apply(False)
+        self.assertFalse((self.system.directory / self.unit).exists())
+
+    def test_external_file_is_neither_adopted_nor_deleted(self):
+        target = self.system.directory / self.unit
+        target.write_text("foreign")
+        self.system.running.add(self.unit)
+        with self.assertRaisesRegex(RuntimeError, "Preserving"):
+            self.apply()
+        self.apply(False)
+        self.assertEqual(target.read_text(), "foreign")
+        self.assertTrue(self.system.active(self.unit))
+
+    def test_shared_definition_keeps_other_owner(self):
+        self.apply()
+        self.apply(owner="bob")
+        self.apply(False)
+        self.assertTrue((self.system.directory / self.unit).exists())
+        self.assertTrue(self.system.active(self.unit))
+        self.apply(False, owner="bob")
+        self.assertFalse((self.system.directory / self.unit).exists())
+
+    def test_edited_managed_file_is_preserved(self):
+        self.apply()
+        target = self.system.directory / self.unit
+        target.write_text("foreign edit")
+        with self.assertRaisesRegex(RuntimeError, "Preserving"):
+            self.apply(False)
+        self.assertEqual(target.read_text(), "foreign edit")
+
+    def test_active_foreign_consumer_preserves_definition(self):
+        self.apply()
+        self.system.running.add("foreign.service")
+        self.system.consumers[self.unit] = {"foreign.service"}
+        with self.assertRaisesRegex(RuntimeError, "still used"):
+            self.apply(False)
+        self.assertTrue((self.system.directory / self.unit).exists())
+        self.system.running.clear()
+        self.apply(False)
+        self.assertFalse((self.system.directory / self.unit).exists())
+
+    def test_enable_only_consumer_preserves_definition(self):
+        self.apply()
+        helper.reconcile(self.state, "bob", [], self.system, enable_only=[self.unit])
+        self.system.running.clear()
+        with self.assertRaisesRegex(RuntimeError, "still used"):
+            self.apply(False)
+        self.assertTrue((self.system.directory / self.unit).exists())
+        helper.reconcile(self.state, "bob", [], self.system)
+        self.apply(False)
+        self.assertFalse((self.system.directory / self.unit).exists())
+
+    def test_request_without_definition_does_not_restart_foreign_edit(self):
+        self.apply()
+        (self.system.directory / self.unit).write_text("external")
+        self.system.actions.clear()
+        helper.reconcile(self.state, "bob", [self.unit], self.system)
+        self.assertNotIn(("restart", "--", self.unit), self.system.actions)
+
+    def test_template_definitions_rejected_before_effects(self):
+        with self.assertRaisesRegex(ValueError, "definitions"):
+            helper.reconcile(self.state, "alice", [], self.system,
+                             definitions={"worker@.service": str(self.source)})
+        self.assertFalse(self.state.exists())
+        self.assertEqual(list(self.system.directory.iterdir()), [])
 
 
 class QueryTest(unittest.TestCase):

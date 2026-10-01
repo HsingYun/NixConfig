@@ -1,5 +1,6 @@
 {
   contracts = [
+    "system.mihomo"
     "home.gpg"
   ];
   managesSystem = true;

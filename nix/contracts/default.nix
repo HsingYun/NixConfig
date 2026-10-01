@@ -1,5 +1,9 @@
 # Public capability interfaces; upstream ports retain their upstream declarations.
 {
+  "system.mihomo" = {
+    scope = "system";
+    module = ./system/services/mihomo.nix;
+  };
   "home.gpg" = {
     scope = "home";
     module = ./home/gpg.nix;

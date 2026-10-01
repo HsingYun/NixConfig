@@ -11,6 +11,14 @@ let
   ];
   examples = [
     (withBooleans {
+      services.mihomo = {
+        enable = true;
+        package = pkgs.hello;
+        configFile = "/etc/mihomo/private.yaml";
+        tunMode = true;
+      };
+    })
+    (withBooleans {
       programs.gpg = {
         enable = true;
         package = pkgs.hello;

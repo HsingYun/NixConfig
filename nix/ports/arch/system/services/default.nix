@@ -1,5 +1,6 @@
 { ... }: {
   imports = [
+    ./mihomo.nix
     ./noctalia.nix
     ./noctalia-greeter.nix
     ./desktop.nix

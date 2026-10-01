@@ -73,6 +73,7 @@ lib.recursiveUpdate hostChecks (
       vim-runtime = import ./home/vim.nix { inherit inputs pkgs; };
       display-manager-lifecycle = import ./helpers/arch/display-manager-lifecycle.nix { inherit pkgs; };
       software-runtime = import ./software/runtime.nix { inherit inputs pkgs; };
+      mihomo-configuration = import ./ports/mihomo.nix { inherit inputs pkgs; };
       dconf-lifecycle = import ./helpers/common/dconf.nix { inherit inputs pkgs; };
       vscode-settings = import ./home/vscode-settings.nix { inherit inputs pkgs; };
       chrome-policy = import ./helpers/arch/chrome-policy.nix { inherit inputs pkgs; };
@@ -82,6 +83,7 @@ lib.recursiveUpdate hostChecks (
       native-input-autostart = import ./helpers/arch/autostart.nix { inherit inputs pkgs; };
     }
     // lib.optionalAttrs pkgs.stdenv.hostPlatform.isLinux {
+      mihomo-service = import ./ports/mihomo-vm.nix { inherit inputs pkgs; };
       native-user-units = import ./home/native-systemd.nix { inherit inputs pkgs; };
       native-system-backend = import ./helpers/common/system-backend.nix { inherit inputs pkgs; };
       native-system-integration = import ./home/native-system.nix { inherit inputs pkgs; };

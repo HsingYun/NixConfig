@@ -17,6 +17,11 @@ let
     lib.genAttrs names (name: home.xdg.configFile ? ${name});
 in
 {
+  "system.mihomo" = { system, ... }: {
+    package = system.software.resolved ? mihomo;
+    unit = builtins.elem "mihomo.service" system.native.systemd.units;
+    definition = system.native.systemd.definitions ? "mihomo.service";
+  };
   "home.niri" = { home, ... }: {
     nativePackage =
       home.wayland.windowManager.niri.enable && home.wayland.windowManager.niri.package == null;

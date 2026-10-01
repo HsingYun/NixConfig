@@ -33,6 +33,11 @@ let
     codex = all;
     mapleMono = all;
     coteditor = [ "darwin" ];
+    mihomo = [
+      "arch"
+      "nixos"
+      "darwin"
+    ];
     iina = [ "darwin" ];
     edge = [ "darwin" ];
     screenRotate = [ "nixos" ];

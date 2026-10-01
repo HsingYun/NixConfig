@@ -4,6 +4,10 @@
   packageManager = "nix";
   system = "x86_64-linux";
   features = profile.linuxDesktop // {
+    mihomo = {
+      enable = true;
+      configFile = "/etc/mihomo/config.yaml";
+    };
     efiTools.enable = true;
     desktop = profile.linuxDesktop.desktop // {
       gnome = {
