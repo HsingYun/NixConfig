@@ -6,10 +6,9 @@
 }:
 
 let
-  inherit (pkgs.stdenv.hostPlatform) isDarwin isLinux;
+  inherit (pkgs.stdenv.hostPlatform) isDarwin;
 in
 {
-  imports = [ ../shared/terminal-exec.nix ];
   software = {
     requirements = {
       ghostty = { };
@@ -56,11 +55,5 @@ in
         window-save-state = "always";
       }
     );
-  };
-
-  home.sessionVariables.TERMINAL = lib.mkDefault "ghostty";
-  xdg.terminal-exec = lib.mkIf isLinux {
-    enable = lib.mkDefault true;
-    settings.default = lib.mkDefault [ "com.mitchellh.ghostty.desktop" ];
   };
 }

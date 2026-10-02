@@ -28,6 +28,12 @@
       default = { };
       description = "Explicit provider selection per software identity; never silently falls back.";
     };
+    packageDefaults = lib.mkOption {
+      type = lib.types.attrsOf lib.types.package;
+      default = { };
+      internal = true;
+      description = "Platform Nix package defaults; preserve provider selection and explicit package overrides.";
+    };
     packageOverrides = lib.mkOption {
       type = lib.types.attrsOf lib.types.package;
       default = { };

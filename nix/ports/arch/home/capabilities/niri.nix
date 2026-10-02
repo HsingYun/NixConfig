@@ -12,13 +12,6 @@
         message = "Arch Niri user configuration requires the native system session through programs.niri.enable.";
       }
     ];
-    home.activation.validateArchNiri =
-      lib.hm.dag.entryBetween [ "linkGeneration" ] [ "installNativePackages" ]
-        ''
-          run /usr/bin/niri validate --config ${
-            lib.escapeShellArg (toString config.xdg.configFile."niri/config.kdl".source)
-          }
-        '';
     # The host owns the runtime, units and portal integration. Home Manager
     # still owns its upstream Niri option schema and configuration generator.
     wayland.windowManager.niri = {

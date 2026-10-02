@@ -22,10 +22,11 @@ in
     unit = builtins.elem "mihomo.service" system.native.systemd.units;
     definition = system.native.systemd.definitions ? "mihomo.service";
   };
-  "home.niri" = { home, ... }: {
+  "home.niri" = { home, system, ... }: {
     nativePackage =
       home.wayland.windowManager.niri.enable && home.wayland.windowManager.niri.package == null;
-    nativeValidation = home.home.activation ? validateArchNiri;
+    nativeValidation =
+      home.home.activation ? validateNiriConfig && system.native.resources ? niri-config;
   };
   "system.printing" = service [ "cups" "cups-filters" "ghostscript" "libusb" ] [ "cups.socket" ];
   "system.avahi" = service [ "avahi" ] [ "avahi-daemon.service" "avahi-daemon.socket" ];

@@ -277,6 +277,12 @@ an independent system or home request still installs the selected package.
 Without another installation request, a disabled wrapper is not replaced by an
 unconfigured executable. Arch uses its system Nix profile for system requests.
 
+Desktop integration is separate from package retention. For example, disabling
+`programs.ghostty.enable` keeps the feature's explicit package request, but removes
+its default terminal selection, `TERMINAL`, Niri startup and shortcut. Disabling
+`xdg.terminal-exec.enable` removes the automatic Niri Mod+Return binding for both
+Nix and native providers. Explicit host shortcuts remain authoritative.
+
 For software that needs no additional configuration, declare a package-only feature in the catalog:
 
 ```nix
@@ -330,7 +336,18 @@ For Nix, removing the final request removes the package from the managed profile
 
 The Chinese feature supports native Linux desktops only. Its common module enables the standard `i18n.inputMethod` interface, selects Fcitx5, and supplies `i18n.inputMethod.fcitx5.settings` and the two Rime preset patches. Direct interface overrides are respected on both platforms. NixOS delegates both configuration generation and the whole `fcitx5` directory link to the official HM module. Arch alone renders individual files from those settings, using native Fcitx/Rime/GTK/Qt packages. Both ports leave empty profile and global settings, and undeclared addon settings, unmanaged. An explicitly named addon requests its configuration file even when its sections are empty, following the upstream INI option type. The Arch autostart adapter keeps its owned Hidden entry after feature removal, preventing the retained package from restarting Fcitx at the next login; never-managed configurations are untouched. When input remains enabled and `i18n.inputMethod.fcitx5.systemd.enable = false`, the adapter removes its owned Hidden entry to restore desktop autostart. Its ownership stamp remains so disabling input later can suppress the retained native package again. Modified or unmanaged entries are preserved. The local working setup is represented as one Rime entry and English mode by default, without copying learned dictionaries or monitor-specific settings. GNOME integration applies to both distributions. WSL hosts use CLI tools and terminal pinentry without Fcitx or graphical-session dependencies.
 
-Keyring and compositor packages are OS-bound resources. Arch adapters reject unsupported Nix overrides rather than silently dropping native dependencies. NixOS's upstream keyring module has no package option, so package customization uses a system overlay; a mismatched home-only override is rejected. The Nix user service comes from the official HM `services.gnome-keyring` module. Standalone Nix keyring validates the absence of NixOS wrapper paths.
+Keyring and compositor packages can be OS-bound resources. Arch system adapters
+continue to require native packages where GNOME, PAM, units or ABI need them.
+A standalone user keyring can select either provider independently of the default
+package manager. The Arch system port supplies `software.packageDefaults` to
+disable NixOS wrapper paths in the default Nix package. The shared catalog and
+resolver contain no keyring-specific platform branch or recipe callback.
+Defaults preserve provider selection; explicit `software.packageOverrides` win
+and remain subject to the port's compatibility assertions. Matching extras retain
+the catalog's original software identity for deduplication.
+NixOS's upstream keyring module has no package option, so package customization
+uses a system overlay; a mismatched home-only override is rejected. The Nix user
+service comes from the official HM `services.gnome-keyring` module.
 
 All Linux hosts retain the official Home Manager dconf activation and generation key manifests. The pinned upstream module resets removed keys while a database remains configured, but skips a database removed entirely. A separate `dconfRemovedDatabases` hook handles only that gap: it resets the previous generation's keys for databases with no manifest in the new generation. Cleanup runs before upstream writes, so moving between `dconf.settings` and `dconf.databases.user` cannot reset newly applied values in their shared database. If `DCONF_PROFILE` is nonempty, removed-default-database cleanup is skipped with a warning: the previous manifest does not record that runtime profile, so its database identity cannot be inferred safely. Named databases remain independently identifiable. It never overrides `dconfSettings`, scans the live database, or maintains its own state. With no previous generation or a garbage-collected manifest, cleanup is skipped; current declarations are still applied by Home Manager. Reset means schema defaults, not restoration of pre-management values. Manual edits to previously managed keys follow the same reset semantics as upstream.
 

@@ -152,7 +152,10 @@ assert
     "spotlight"
     "toggle"
   ];
-assert cfg.home.activation.validateArchNiri.after == [ "installNativePackages" ];
+assert builtins.elem "installNativePackages" cfg.home.activation.validateNiriConfig.after;
+assert builtins.elem "nativeSystemBegin" cfg.home.activation.validateNiriConfig.after;
+assert cfg.home.activation.validateNiriConfig.before == [ "linkGeneration" ];
+assert cfg.hostSystem.native.resources ? niri-config;
 assert cfg.programs.gnome-shell.enable && cfg.programs.gnome-shell.extensions == [ ];
 assert builtins.elem "dash-to-dock@micxgx.gmail.com" (
   map (v: v.value) cfg.dconf.settings."org/gnome/shell".enabled-extensions.value

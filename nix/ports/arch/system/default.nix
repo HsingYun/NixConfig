@@ -1,6 +1,7 @@
 {
   config,
   lib,
+  pkgs,
   ...
 }:
 {
@@ -14,6 +15,10 @@
     internal = true;
   };
   config = {
+    # The standalone daemon has no NixOS privileged wrapper directory.
+    software.packageDefaults.gnome-keyring = pkgs.gnome-keyring.override {
+      useWrappedDaemon = false;
+    };
     software.requirements = lib.genAttrs (lib.unique config.native.requiredPackages) (_: {
       scopes = [ "system" ];
     });

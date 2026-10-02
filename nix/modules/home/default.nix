@@ -11,6 +11,8 @@
     ./shared/keyring.nix
     ./shared/dconf.nix
     ./shared/launcher.nix
+    ./policies/applications.nix
+    ./integrations/applications.nix
     ./software
   ];
 

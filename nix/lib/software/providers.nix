@@ -65,7 +65,8 @@ in
         )
       );
 
-    platforms = (import ../platforms/default.nix).all;
+    # Host composition validates platform identities; Nix needs no port-specific restriction.
+    supportsPlatform = _: true;
     fallback = [ ];
     resolve = source: {
       package = source.package;
@@ -111,7 +112,7 @@ in
         "cask"
       ];
 
-    platforms = [ "darwin" ];
+    supportsPlatform = platform: platform == "darwin";
     fallback = [ "nix" ];
     resolve =
       source:
@@ -162,7 +163,7 @@ in
         "package"
         "aur"
       ];
-    platforms = [ "arch" ];
+    supportsPlatform = platform: platform == "arch";
     fallback = [ "nix" ];
     resolve = source: {
       package = null;

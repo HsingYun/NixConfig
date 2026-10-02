@@ -226,6 +226,39 @@ Wayland input support. See the
 
 ## Applications
 
+`homeConfig.desktop.applications` selects desktop roles independently of Niri.
+`browser`, `terminal` and `fileManager` accept `null` (disable automatic integration)
+or an attribute set with `command` (an argv list) and optional `desktopId`.
+Only `fileManager` accepts `appId` (a window matching regex). Default selection is
+policy: enabled Ghostty/Nautilus features supply defaults, and Chrome supplies a
+browser default only on registered native Linux desktop platforms, not WSL.
+Ghostty's final configuration enable switch also controls its default selection.
+The terminal role also supplies `TERMINAL` on Darwin. Custom applications must be
+installed separately. A terminal desktop ID enables the XDG terminal launcher by
+default on Linux; that launcher's own enable switch requests its software through
+the normal plan, even when no terminal feature or desktop compositor is enabled.
+
+```nix
+homeConfig.desktop.applications.browser = {
+  command = [ "/usr/bin/microsoft-edge-stable" ];
+  desktopId = "microsoft-edge.desktop";
+};
+```
+
+The integrations use these roles for Niri application shortcuts/startup,
+Linux MIME defaults and terminal selection, and GNOME's default favorites.
+`TERMINAL` contains the selected executable's path (the resolved absolute path for
+the built-in Ghostty default); Niri preserves the complete argv. This intentionally
+replaces the former PATH-dependent `TERMINAL=ghostty` value.
+Existing explicit `settings.binds` and `xdg.mimeApps.defaultApplications` overrides
+still win. ArchLinux's existing Edge shortcut remains a host shortcut override,
+so its existing Chrome MIME associations are preserved.
+
+Default selection lives in `home/policies` and feature-scoped composition such
+as `chrome-browser`. Desktop adapters consume roles without selecting a provider
+or a specific application again. Niri-specific MPV window rules belong to the
+Niri/MPV integration. Installing an application alone does not select a role.
+
 - `chrome.extensions` defaults to Bitwarden's Web Store ID. Set it to `[ ]` to
   stop declaring preinstalled extensions. Linux uses `normal_installed` policies;
   macOS uses External Extensions manifests and may request confirmation in Chrome.

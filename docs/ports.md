@@ -330,3 +330,16 @@ conflicts and interrupted execution without mutating the real machine.
 Evaluation, building a profile and testing an isolated helper do not constitute
 a successful Arch login or hardware deployment. Live platform verification is
 still required for those claims.
+
+Arch validates an enabled, managed Niri configuration with `/usr/bin/niri validate`
+after native package installation and before linking the candidate file. The
+existing `nixconfig-system verify` command validates the deployed file through
+`native.resources.niri-config`. Both phases respect the final file enable flag;
+the live check uses the final target, including custom XDG paths and renamed files.
+Native package and service checks remain owned by their existing resources.
+
+Tests cover candidate/live validation, overridden paths, disabled files, and
+rejection of missing or invalid deployed files using an isolated command fixture.
+The separate Niri parser tests exercise the pinned Nix implementation. These
+checks do not prove DMS schema compatibility or a successful native desktop login;
+those require validation with the installed applications in a real Arch session.

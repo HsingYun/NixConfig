@@ -49,6 +49,12 @@ lib.recursiveUpdate hostChecks (
     in
     {
       architecture-boundaries = import ./structure/boundaries.nix { inherit pkgs; };
+      application-selection = pkgs.writeText "application-selection.json" (
+        builtins.toJSON (import ./home/applications.nix { inherit inputs; })
+      );
+      keyring-providers = pkgs.writeText "keyring-providers.json" (
+        builtins.toJSON (import ./software/keyring.nix { inherit inputs; })
+      );
       platform-registration = pkgs.writeText "platform-registration.json" (
         builtins.toJSON (import ./structure/platforms.nix { inherit lib; })
       );
@@ -81,6 +87,7 @@ lib.recursiveUpdate hostChecks (
       native-units = import ./helpers/common/systemd.nix { inherit pkgs; };
       network-preflight = import ./helpers/arch/network-preflight.nix { inherit pkgs; };
       native-input-autostart = import ./helpers/arch/autostart.nix { inherit inputs pkgs; };
+      native-niri-config = import ./helpers/arch/niri.nix { inherit inputs pkgs; };
     }
     // lib.optionalAttrs pkgs.stdenv.hostPlatform.isLinux {
       mihomo-service = import ./ports/mihomo-vm.nix { inherit inputs pkgs; };

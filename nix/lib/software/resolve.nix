@@ -6,6 +6,7 @@
   platform,
   pkgs ? null,
   packageOverrides ? { },
+  packageDefaults ? { },
   providerOverrides ? { },
   nativePrefix ? "/opt/homebrew",
 }:
@@ -22,7 +23,7 @@ let
         provider:
         if !(providers ? ${provider}) then
           [ "unknown provider '${provider}'" ]
-        else if !(builtins.elem platform providers.${provider}.platforms) then
+        else if !(providers.${provider}.supportsPlatform platform) then
           [ "provider '${provider}' is unavailable on '${platform}'" ]
         else if !builtins.isAttrs manager.extraPkg.${provider} then
           [ "${provider}: expected package groups" ]
@@ -102,8 +103,8 @@ let
   checkManager =
     assert lib.assertMsg (providers ? ${preferred})
       "Software: package manager '${preferred}' has no implemented backend (supported: ${lib.concatStringsSep ", " (builtins.attrNames providers)}).";
-    assert lib.assertMsg (builtins.elem platform
-      providers.${preferred}.platforms
+    assert lib.assertMsg (providers.${preferred}.supportsPlatform
+      platform
     ) "Software: package manager '${preferred}' does not support platform '${platform}'.";
     true;
   names = builtins.attrNames requirements;
@@ -124,10 +125,12 @@ let
           lib.unique ([ preferred ] ++ providers.${preferred}.fallback);
       recipes =
         entry
-        // lib.optionalAttrs overridden {
+        // lib.optionalAttrs (overridden || packageDefaults ? ${name}) {
           nix =
             (entry.nix or { })
-            // (import ./recipe-constructors.nix { inherit pkgs; }).nix packageOverrides.${name}
+            // (import ./recipe-constructors.nix { inherit pkgs; }).nix (
+              if overridden then packageOverrides.${name} else packageDefaults.${name}
+            )
             // {
               capabilities = lib.unique ([ "store-package" ] ++ (entry.nix.capabilities or [ ]));
             };
@@ -135,7 +138,7 @@ let
       usable =
         provider:
         providers ? ${provider}
-        && builtins.elem platform providers.${provider}.platforms
+        && providers.${provider}.supportsPlatform platform
         && recipes ? ${provider}
         && (recipes.${provider}.available or true)
         && lib.all (cap: builtins.elem cap (recipes.${provider}.capabilities or [ ])) capabilities;
@@ -283,11 +286,14 @@ let
 
 in
 assert checkManager;
+assert lib.assertMsg (lib.all (name: catalog ? ${name} && catalog.${name} ? nix) (
+  builtins.attrNames packageDefaults
+)) "Software: packageDefaults must refer to existing Nix recipes.";
 assert lib.assertMsg (lib.all (name: catalog ? ${name}) (
   builtins.attrNames providerOverrides
 )) "Software: providerOverrides contains an unknown software identifier.";
 assert lib.assertMsg (lib.all
-  (provider: providers ? ${provider} && builtins.elem platform providers.${provider}.platforms)
+  (provider: providers ? ${provider} && providers.${provider}.supportsPlatform platform)
   (builtins.attrValues providerOverrides)
 ) "Software: providerOverrides selects an unsupported provider.";
 assert lib.assertMsg (lib.all

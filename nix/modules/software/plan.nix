@@ -14,6 +14,7 @@ let
       nativePrefix
       providerOverrides
       packageOverrides
+      packageDefaults
       ;
     inherit pkgs;
     catalog = import ../../lib/software/catalog.nix { inherit pkgs; };

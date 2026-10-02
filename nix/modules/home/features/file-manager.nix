@@ -20,8 +20,4 @@ in
       };
     };
   };
-  xdg.mimeApps = {
-    enable = lib.mkDefault true;
-    defaultApplications."inode/directory" = lib.mkDefault [ "org.gnome.Nautilus.desktop" ];
-  };
 }

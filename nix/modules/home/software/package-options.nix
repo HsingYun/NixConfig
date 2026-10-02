@@ -203,6 +203,7 @@
     ];
   };
   xdg-terminal-exec = {
+    requestWhenEnabled = true;
     installedScopes = [ "home" ];
     enableOptions = [
       [

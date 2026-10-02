@@ -25,8 +25,10 @@
       "org/gnome/shell" = {
         favorite-apps = lib.mkDefault (
           [ "org.gnome.TextEditor.desktop" ]
-          ++ lib.optional config.features.desktop.fileManager.enable "org.gnome.Nautilus.desktop"
-          ++ lib.optional config.programs.ghostty.enable "com.mitchellh.ghostty.desktop"
+          ++ lib.concatMap (app: lib.optional (app != null && app.desktopId != null) app.desktopId) [
+            config.desktop.applications.fileManager
+            config.desktop.applications.terminal
+          ]
         );
       };
       "org/gnome/shell/extensions/dash-to-dock" = lib.mapAttrs (_: lib.mkDefault) {

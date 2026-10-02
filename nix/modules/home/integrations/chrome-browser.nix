@@ -1,11 +1,7 @@
-{ lib, ... }: {
-  xdg.mimeApps = {
-    enable = lib.mkDefault true;
-    defaultApplications = lib.genAttrs [
-      "text/html"
-      "application/xhtml+xml"
-      "x-scheme-handler/http"
-      "x-scheme-handler/https"
-    ] (_: lib.mkDefault [ "google-chrome.desktop" ]);
+{ lib, software, ... }:
+{
+  desktop.applications.browser = lib.mkDefault {
+    command = [ (software.chrome.command "google-chrome-stable") ];
+    desktopId = "google-chrome.desktop";
   };
 }

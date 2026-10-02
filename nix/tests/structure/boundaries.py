@@ -29,10 +29,14 @@ for source in root.rglob("*.nix"):
                     and destination.parts[:2] == ("assets", "helpers")
                     and len(destination.parts) > 2 and destination.parts[2] != "common"):
                 errors.append(f"{relative}:{number}: common helpers must not depend on platform adapters")
-            if relative.parts[:2] == ("lib", "software") and destination.parts[0] in {"modules", "ports", "tests"}:
+            if relative.parts[:2] == ("lib", "software") and (destination.parts[0] in {"modules", "ports", "tests"} or destination.parts[:2] == ("lib", "platforms")):
                 errors.append(f"{relative}:{number}: pure software logic must not import implementations")
             if relative.parts[:2] == ("assets", "helpers") and destination.parts[0] == "contracts":
                 errors.append(f"{relative}:{number}: helpers are tools, not public contracts")
+# Role consumers may implement desktop policy, but cannot reselect concrete apps.
+role_consumer = (root / "modules/home/integrations/applications.nix").read_text()
+if re.search(r"\b(?:software|features)\b", role_consumer):
+    errors.append("home/integrations/applications.nix: consume selected roles, not feature/package selection")
 # Test registration belongs to tests; the output assembler only imports its entry.
 for match in references.finditer((root / "lib/outputs.nix").read_text()):
     target = (root / "lib" / match[1]).resolve()
