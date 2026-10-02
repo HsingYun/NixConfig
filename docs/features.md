@@ -216,7 +216,12 @@ Chinese input supports native Arch/NixOS desktops. It supplies Fcitx5 with
 Rime Ice, one Rime entry, and English mode by default. Set
 `features.chinese.englishByDefault = false;` for Chinese by default. Its `settings`
 contains `inputMethod`, `globalOptions` and `addons`. Personal dictionaries stay
-user-owned. GNOME uses Kimpanel; Niri retains Wayland input support. See the
+user-owned. GNOME uses Kimpanel and selects the Fcitx GTK module at login,
+replacing an inherited `GTK_IM_MODULE=ibus` (including the NixOS GNOME default)
+to keep candidate windows positioned correctly. Other nonempty module selections
+are preserved. Log out and back in after applying this change so desktop-launched
+applications and user services receive the updated environment. Niri retains
+Wayland input support. See the
 [settings lifecycle](software.md#desktop-input-and-settings-lifecycle) for removal semantics.
 
 ## Applications

@@ -118,12 +118,31 @@ pkgs.runCommand "desktop-boundaries-check"
       . ${session}
       test "$GTK_IM_MODULE" = fcitx
     )
+    # NixOS GNOME already exports ibus before sourcing the HM login environment.
+    # Leaving it intact bypasses the Fcitx GTK/Kimpanel positioning path.
+    for desktop in GNOME GNOME-Classic:GNOME; do
+      for inherited in ibus "" fcitx custom; do
+        (
+          export XDG_CURRENT_DESKTOP="$desktop" GTK_IM_MODULE="$inherited"
+          . ${session}
+          case "$inherited" in
+            custom) test "$GTK_IM_MODULE" = custom ;;
+            *) test "$GTK_IM_MODULE" = fcitx ;;
+          esac
+        )
+      done
+    done
     for desktop in niri KDE ""; do
       (
         unset GTK_IM_MODULE
         export XDG_CURRENT_DESKTOP="$desktop"
         . ${session}
         test -z "''${GTK_IM_MODULE+x}"
+      )
+      (
+        export XDG_CURRENT_DESKTOP="$desktop" GTK_IM_MODULE=ibus
+        . ${session}
+        test "$GTK_IM_MODULE" = ibus
       )
     done
     (
