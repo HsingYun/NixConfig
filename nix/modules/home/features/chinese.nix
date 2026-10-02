@@ -86,5 +86,19 @@ in
       monospace = lib.mkDefault [ "Maple Mono NF CN" ];
       emoji = lib.mkDefault [ "Noto Color Emoji" ];
     };
+    # Chromium's UI requests Adwaita Sans by name. Give it an explicit CJK
+    # fallback without replacing its Latin glyphs or relying on generic aliases.
+    configFile.adwaita-cjk = {
+      enable = true;
+      priority = 60;
+      settings = {
+        description = "Use the preferred Chinese fonts for Adwaita Sans fallback";
+        alias = {
+          "@binding" = "same";
+          family = "Adwaita Sans";
+          accept.family = config.fonts.fontconfig.defaultFonts.sansSerif;
+        };
+      };
+    };
   };
 }

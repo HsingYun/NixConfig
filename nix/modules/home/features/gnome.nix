@@ -37,6 +37,7 @@
         custom-theme-shrink = true;
         disable-overview-on-startup = true;
         show-show-apps-button = true;
+        show-mounts = false;
         show-apps-at-top = true;
         show-apps-always-in-the-edge = true;
         extend-height = true;
