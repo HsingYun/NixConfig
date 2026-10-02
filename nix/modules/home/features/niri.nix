@@ -6,7 +6,12 @@
 }:
 let
   ghosttyEnabled = config.features.ghostty.enable && config.programs.ghostty.enable;
-  chromeEnabled = config.features.chrome.enable && config.programs.google-chrome.enable;
+  # Linux's Chrome feature installs through the software plan, independently
+  # of Home Manager's optional Chrome configuration module.
+  chromeEnabled =
+    config.features.chrome.enable
+    && software ? chrome
+    && (software.chrome.provider != "nix" || software.chrome.runtimePackage != null);
   defaults = {
     input.touchpad = {
       tap = { };

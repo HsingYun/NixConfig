@@ -4,7 +4,11 @@ let
     (import ../../lib/features/catalog.nix { inherit lib; }).features
   ) (_: false);
   verify =
-    { platform, enabled }:
+    {
+      platform,
+      enabled,
+      shellIntegration,
+    }:
     let
       darwin = platform == "darwin";
       cfg =
@@ -17,7 +21,14 @@ let
             };
             homeConfig = {
               home.stateVersion = "26.05";
-              programs.ghostty.settings.font-size = lib.mkIf enabled 16;
+              programs.ghostty.settings = lib.mkIf enabled (
+                {
+                  font-size = 16;
+                }
+                // lib.optionalAttrs (shellIntegration != null) {
+                  shell-integration = shellIntegration;
+                }
+              );
             };
           }
           // lib.optionalAttrs darwin { systemConfig.system.stateVersion = 6; }
@@ -43,11 +54,19 @@ let
     assert !enabled || settings.font-size == [ 16 ];
     assert !enabled || settings.font-family == [ "Maple Mono NF CN" ];
     assert !enabled || settings.background-opacity == [ 0.95 ];
+    assert
+      !enabled
+      ||
+        settings.shell-integration == [
+          (if shellIntegration == null then "detect" else shellIntegration)
+        ];
     assert (settings ? macos-titlebar-style) == (enabled && darwin);
     assert !(enabled && darwin) || h.programs.ghostty.package == null;
     assert
       (h.xdg.configFile ? "systemd/user/app-com.mitchellh.ghostty.service") == (enabled && !darwin);
-    "${platform}-${if enabled then "on" else "off"}";
+    "${platform}-${if enabled then "on" else "off"}-${
+      if shellIntegration == null then "default" else shellIntegration
+    }";
 in
 map verify (
   lib.cartesianProduct {
@@ -58,6 +77,10 @@ map verify (
     enabled = [
       true
       false
+    ];
+    shellIntegration = [
+      null
+      "none"
     ];
   }
 )

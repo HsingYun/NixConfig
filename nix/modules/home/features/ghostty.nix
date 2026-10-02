@@ -47,7 +47,7 @@ in
         quick-terminal-animation-duration = 0.15;
         clipboard-paste-protection = true;
         clipboard-paste-bracketed-safe = true;
-        shell-integration = "zsh";
+        shell-integration = "detect";
         shell-integration-features = "ssh-terminfo,ssh-env";
         scrollback-limit = 25000000;
       }

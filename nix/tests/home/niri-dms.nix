@@ -41,7 +41,7 @@ let
     let
       enabled = home platform true { } { };
       disabled = home platform false { } { };
-      inactive = home platform true { } {
+      inactive = home platform true { chrome.enable = false; } {
         programs.ghostty.enable = false;
         programs.google-chrome.enable = false;
         programs.mpv.enable = false;
@@ -187,6 +187,13 @@ let
     assert niri.settings.hotkey-overlay.skip-at-startup == { };
     assert niri.settings.binds."Mod+Tab".toggle-overview == { };
     assert niri.settings.binds."Mod+T".spawn == niri.settings.spawn-at-startup;
+    # Linux installs Chrome through the software plan, without enabling HM's
+    # Chrome module. Its shortcut must still use the selected provider.
+    assert !enabled.programs.google-chrome.enable;
+    assert
+      niri.settings.binds."Mod+B".spawn == [
+        (enabled.software.resolved.chrome.command "google-chrome-stable")
+      ];
     assert niri.settings.binds."Mod+M".spawn == niri.settings.binds."Ctrl+Alt+Delete".spawn;
     assert lib.last niri.settings.binds."Mod+M".spawn == "focusOrToggle";
     assert dms.currentThemeName == "dynamic" && dms.currentThemeCategory == "dynamic";
@@ -334,6 +341,8 @@ pkgs.runCommand "niri-dms-configuration-check"
                 assert initial['startup-count'] == '0'
                 assert 'Mod+T' not in initial and 'Mod+B' not in initial
                 assert initial['mpv-floating-rules'] == ""
+            elif variant != 'forced':
+                assert 'Mod+B' in initial
             if variant in ('partial', 'partialDirect', 'layoutOnly'):
                 assert initial['touchpad-speed'] == '0.6'
                 assert initial['touchpad-tap'] == 'true'
