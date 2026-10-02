@@ -245,6 +245,21 @@ homeConfig.desktop.applications.browser = {
 };
 ```
 
+Role fields use normal Nix submodule defaults. Overriding only `desktopId` or
+`appId` preserves the default command and other fields; setting the entire role
+to `null` disables its automatic integration. Changing `command` replaces the
+argv list but retains other defaults. When selecting a different application,
+set its desktop/window identifiers too, or explicitly set them to `null` to
+remove the inherited MIME/terminal selection or window matching:
+
+```nix
+homeConfig.desktop.applications.fileManager.appId = null;
+homeConfig.desktop.applications.terminal = {
+  command = [ "/usr/bin/foot" ];
+  desktopId = "foot.desktop";
+};
+```
+
 The integrations use these roles for Niri application shortcuts/startup,
 Linux MIME defaults and terminal selection, and GNOME's default favorites.
 `TERMINAL` contains the selected executable's path (the resolved absolute path for

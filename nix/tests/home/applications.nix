@@ -69,6 +69,30 @@ let
           fileManager = null;
         };
       };
+      partial = make provider {
+        desktop.applications = {
+          browser.desktopId = "custom-browser.desktop";
+          terminal.desktopId = null;
+          fileManager.appId = null;
+        };
+      };
+      commandField = make provider {
+        desktop.applications.terminal.command = [ "/custom/terminal" ];
+      };
+      replacement = make provider {
+        desktop.applications.terminal = {
+          command = [
+            "/custom/terminal"
+            "--flag"
+          ];
+          desktopId = null;
+        };
+        desktop.applications.fileManager = {
+          command = [ "/custom/files" ];
+          desktopId = null;
+          appId = null;
+        };
+      };
       custom = make provider {
         desktop.applications = {
           browser = {
@@ -94,6 +118,9 @@ let
       enabled
       disabled
       noRoles
+      partial
+      commandField
+      replacement
       custom
       override
     ];
@@ -131,6 +158,37 @@ let
     assert custom.home.sessionVariables.TERMINAL == "/custom/terminal";
     assert !(binds custom ? "Mod+E");
     assert !(custom.xdg.mimeApps.defaultApplications ? "inode/directory");
+    # Leaf overrides preserve sibling policy defaults, including commands.
+    assert partial.desktop.applications.browser.command == enabled.desktop.applications.browser.command;
+    assert
+      partial.xdg.mimeApps.defaultApplications."x-scheme-handler/http" == [ "custom-browser.desktop" ];
+    assert
+      partial.desktop.applications.terminal.command == enabled.desktop.applications.terminal.command;
+    assert partial.home.sessionVariables.TERMINAL == enabled.home.sessionVariables.TERMINAL;
+    assert !(partial.xdg.terminal-exec.settings ? default);
+    assert
+      partial.desktop.applications.fileManager.command
+      == enabled.desktop.applications.fileManager.command;
+    assert
+      partial.xdg.mimeApps.defaultApplications."inode/directory" == [ "org.gnome.Nautilus.desktop" ];
+    assert
+      !(lib.any (
+        rule: (rule.window-rule.match._props.app-id or null) == "^org\\.gnome\\.Nautilus$"
+      ) partial.desktop.niri.defaultSettings._children);
+    assert (binds commandField)."Mod+T".spawn == [ "/custom/terminal" ];
+    assert
+      commandField.desktop.applications.terminal.desktopId
+      == enabled.desktop.applications.terminal.desktopId;
+    # Replacing an application can explicitly clear inherited desktop metadata.
+    assert
+      (binds replacement)."Mod+T".spawn == [
+        "/custom/terminal"
+        "--flag"
+      ];
+    assert (binds replacement)."Mod+E".spawn == [ "/custom/files" ];
+    assert !(replacement.xdg.terminal-exec.settings ? default);
+    assert !(replacement.xdg.mimeApps.defaultApplications ? "inode/directory");
+    assert replacement.desktop.applications.fileManager.appId == null;
     assert (binds override)."Mod+B".spawn == [ "/explicit/browser" ];
     provider;
 in

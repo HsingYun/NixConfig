@@ -334,12 +334,19 @@ still required for those claims.
 Arch validates an enabled, managed Niri configuration with `/usr/bin/niri validate`
 after native package installation and before linking the candidate file. The
 existing `nixconfig-system verify` command validates the deployed file through
-`native.resources.niri-config`. Both phases respect the final file enable flag;
-the live check uses the final target, including custom XDG paths and renamed files.
-Native package and service checks remain owned by their existing resources.
+`native.resources.niri-config`. Both phases read the final `home.file` declaration,
+after XDG generation and host overrides. Its final enable flag controls validation,
+its final source is checked before linking, and its final target is checked after
+activation, including custom XDG paths and renamed files.
+Local source paths are snapshotted into the Nix store using Home Manager's source
+copying semantics, so validation uses the candidate bytes even if the original
+file later changes. Existing derivations and intentional out-of-store links keep
+their source semantics. Native package and service checks remain owned by their
+existing resources.
 
-Tests cover candidate/live validation, overridden paths, disabled files, and
-rejection of missing or invalid deployed files using an isolated command fixture.
+Tests cover both XDG and final `home.file` overrides, including disabled files,
+renamed targets, and valid/invalid replacement sources. An isolated command fixture
+also checks rejection of missing or invalid deployed files.
 The separate Niri parser tests exercise the pinned Nix implementation. These
 checks do not prove DMS schema compatibility or a successful native desktop login;
 those require validation with the installed applications in a real Arch session.
