@@ -1,4 +1,12 @@
-{ lib, software, ... }:
+{
+  config,
+  lib,
+  software,
+  ...
+}:
+let
+  cfg = config.i18n.inputMethod;
+in
 {
   software.requirements.fcitx5-rime = {
     capabilities = [ "store-package" ];
@@ -12,11 +20,15 @@
       addons = [ software.fcitx5-rime.package ];
     };
   };
-  # The official session-bound user service is the sole Fcitx startup owner.
-  xdg.configFile."autostart/org.fcitx.Fcitx5.desktop".text = ''
-    [Desktop Entry]
-    Type=Application
-    Name=Fcitx 5
-    Hidden=true
-  '';
+  # Suppress desktop autostart only while the systemd service owns startup.
+  xdg.configFile."autostart/org.fcitx.Fcitx5.desktop" =
+    lib.mkIf (cfg.enable && cfg.type == "fcitx5" && cfg.fcitx5.systemd.enable)
+      {
+        text = ''
+          [Desktop Entry]
+          Type=Application
+          Name=Fcitx 5
+          Hidden=true
+        '';
+      };
 }

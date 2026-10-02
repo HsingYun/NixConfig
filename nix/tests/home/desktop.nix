@@ -77,8 +77,39 @@ let
     ".config/fcitx5/profile" = "${gnome.config.xdg.configFile.fcitx5.source}/profile";
   };
   fcitxCheck = pkgs.writeText "check-fcitx-links.sh" gnome.config.home.activation.checkLinkTargets.data;
+  fcitxStartup =
+    enabled: systemd:
+    (inputs.home-manager.lib.homeManagerConfiguration {
+      inherit pkgs;
+      modules = [
+        ../../modules/home/software
+        ../../ports/nixos/home/chinese.nix
+        {
+          software.platform = "nixos";
+          home = {
+            username = "test";
+            homeDirectory = "/home/test";
+            stateVersion = "26.05";
+          };
+          i18n.inputMethod = {
+            enable = enabled;
+            fcitx5.systemd.enable = systemd;
+          };
+        }
+      ];
+    }).config;
+  systemdFcitx = fcitxStartup true true;
+  autostartFcitx = fcitxStartup true false;
+  disabledFcitx = fcitxStartup false true;
 in
 assert !(disabled.xdg.dataFile ? applications);
+assert systemdFcitx.systemd.user.services ? fcitx5-daemon;
+assert lib.hasInfix "Hidden=true"
+  systemdFcitx.xdg.configFile."autostart/org.fcitx.Fcitx5.desktop".text;
+assert !(autostartFcitx.systemd.user.services ? fcitx5-daemon);
+assert !(autostartFcitx.xdg.configFile ? "autostart/org.fcitx.Fcitx5.desktop");
+assert !(disabledFcitx.systemd.user.services ? fcitx5-daemon);
+assert !(disabledFcitx.xdg.configFile ? "autostart/org.fcitx.Fcitx5.desktop");
 pkgs.runCommand "desktop-boundaries-check"
   {
     nativeBuildInputs = [
