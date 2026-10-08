@@ -18,6 +18,7 @@
       };
       gnome = {
         enable = true;
+        settings."org/gnome/desktop/interface".show-battery-percentage = true;
         settings."org/gnome/desktop/a11y/applications".screen-keyboard-enabled = false;
         settings."org/gnome/settings-daemon/peripherals/touchscreen".orientation-lock = false;
       };
