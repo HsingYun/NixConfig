@@ -38,6 +38,28 @@ Noctalia 在所有默认主机中关闭。Niri 开启后，设置 `features.desk
 
 需要已启用 flakes 的 Nix，以及对应平台的配置工具。
 
+### 使用 nixman 管理
+
+`nixman` 统一封装 NixOS/WSL、nix-darwin 和独立 Home Manager，提供更新预览、世代管理和确认后清理。可以直接从 GitHub 运行，无需克隆仓库：
+
+```sh
+nix run github:HsingYun/NixConfig/master#nixman -- --help
+nix run github:HsingYun/NixConfig/master#nixman -- update \
+  'github:HsingYun/NixConfig/master#Darwin'
+
+# 也可以安装到用户 profile，直接使用命令
+nix profile add github:HsingYun/NixConfig/master#nixman
+nixman status
+nixman generation list
+nixman update
+```
+
+将 `Darwin` 替换为目标主机。首次更新显式指定来源，之后可以省略参数，沿用当前运行世代记录的来源。更新会先构建并预览固定的候选配置，再确认应用。激活默认同意 `[Y/n]`，清理默认拒绝 `[y/N]`。以普通用户运行，需要系统权限时会请求 `sudo`。
+
+通过 `generation info`、`generation diff` 和 `generation switch` 查看、比较和切换世代；`rollback` 返回前一个世代。`generation gc [N]` 清理最早的 N 个非活动世代，省略 N 则清理全部符合条件的历史世代；`gc` 清理不可达的 store 对象。两种清理都支持 `--dry-run`。完整命令、预览边界和 `nixman.json` 记录见 [nixman 文档](docs/nixman.md)。
+
+### 使用上游工具应用
+
 ```sh
 git clone https://github.com/HsingYun/NixConfig.git
 cd NixConfig
@@ -119,6 +141,7 @@ README 保留使用入口，详细行为以这些文档为准，避免多处维�
 flake.nix      依赖与共享用户信息
 hosts/         机器配置
 nix/
+  apps/        Flake 应用，包括 nixman
   contracts/   公开的系统与用户能力契约
   ports/       各平台实现与注册
   assets/helpers/  按平台分类的辅助实现与 common 共用代码

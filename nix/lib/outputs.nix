@@ -16,9 +16,31 @@ let
     output:
     lib.mapAttrs (_: host: host.configuration) (lib.filterAttrs (_: host: host.output == output) hosts);
   softwarePlans = lib.mapAttrs (_: host: host.views.home.software.plan) hosts;
+  appSystems = [
+    "x86_64-linux"
+    "aarch64-linux"
+    "aarch64-darwin"
+  ];
+  packages = lib.genAttrs appSystems (system: rec {
+    nixman = import ../apps/nixman {
+      pkgs = inputs.nixpkgs.legacyPackages.${system};
+      homeManager = inputs.home-manager.packages.${system}.home-manager;
+    };
+    default = nixman;
+  });
 
 in
 {
+  inherit packages;
+  apps = lib.mapAttrs (_: value: rec {
+    nixman = {
+      type = "app";
+      program = "${value.nixman}/bin/nixman";
+      meta.description = "Preview updates and manage Nix system and home generations";
+    };
+    default = nixman;
+  }) packages;
+
   nixosConfigurations = select "nixosConfigurations";
   darwinConfigurations = select "darwinConfigurations";
   homeConfigurations = select "homeConfigurations";

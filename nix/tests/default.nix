@@ -49,6 +49,12 @@ lib.recursiveUpdate hostChecks (
     in
     {
       architecture-boundaries = import ./structure/boundaries.nix { inherit pkgs; };
+      nixman = import ./apps/nixman.nix { inherit inputs pkgs; };
+      nixman-generations = pkgs.writeText "nixman-generations.json" (
+        builtins.unsafeDiscardStringContext (
+          builtins.toJSON (import ./apps/generations.nix { inherit inputs; })
+        )
+      );
       application-selection = pkgs.writeText "application-selection.json" (
         builtins.toJSON (import ./home/applications.nix { inherit inputs; })
       );

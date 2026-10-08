@@ -38,6 +38,39 @@ Noctalia is disabled on all default hosts. For an enabled Niri feature, `feature
 
 Requires Nix with flakes enabled and the configuration tool for the target platform.
 
+### Manage with nixman
+
+`nixman` wraps NixOS/WSL, nix-darwin and standalone Home Manager with update
+previews, generation management and confirmed cleanup. Run it directly from
+GitHub, without cloning the repository:
+
+```sh
+nix run github:HsingYun/NixConfig/master#nixman -- --help
+nix run github:HsingYun/NixConfig/master#nixman -- update \
+  'github:HsingYun/NixConfig/master#Darwin'
+
+# Or install the command into your user profile
+nix profile add github:HsingYun/NixConfig/master#nixman
+nixman status
+nixman generation list
+nixman update
+```
+
+Replace `Darwin` with the target host. The first update takes an explicit source;
+later updates can reuse the source recorded in the running generation. Updates
+build and preview a fixed candidate before confirmation. Activation defaults to
+yes `[Y/n]`; cleanup defaults to no `[y/N]`. Run as your normal user; system
+activation requests `sudo` when needed.
+
+Use `generation info`, `generation diff` and `generation switch` to inspect and
+select generations, or `rollback` to return to the previous one. `generation gc
+[N]` removes the oldest N inactive generations (all when N is omitted); `gc`
+collects unreachable store objects. Both support `--dry-run`. See the
+[nixman guide](docs/nixman.md) for all commands, preview boundaries and the saved
+`nixman.json` record.
+
+### Apply with upstream tools
+
 ```sh
 git clone https://github.com/HsingYun/NixConfig.git
 cd NixConfig
@@ -119,6 +152,7 @@ references hold the detailed behavior contracts; the READMEs are entry points.
 flake.nix      Dependencies and shared user settings
 hosts/         Machine configurations
 nix/
+  apps/        Flake applications, including nixman
   contracts/   Stable public platform interfaces
   ports/       Platform implementations and registration
   assets/helpers/  Platform helpers and shared common utilities
