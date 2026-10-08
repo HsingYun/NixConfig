@@ -64,8 +64,11 @@ activation requests `sudo` when needed.
 
 Use `generation info`, `generation diff` and `generation switch` to inspect and
 select generations, or `rollback` to return to the previous one. `generation gc
-[N]` removes the oldest N inactive generations (all when N is omitted); `gc`
-collects unreachable store objects. Both support `--dry-run`. See the
+--oldest N` removes the oldest N eligible generations; `--keep N` and
+`--older-than 30d` provide retention policies. Without a policy, all unprotected
+historical generations are eligible. `gc` collects unreachable store objects.
+Both support `--dry-run`. Status, generation inspection and cleanup previews
+support `--json`; the package includes Bash, Zsh and Fish completions. See the
 [nixman guide](docs/nixman.md) for all commands, preview boundaries and the saved
 `nixman.json` record.
 

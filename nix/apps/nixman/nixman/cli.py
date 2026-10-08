@@ -1,15 +1,18 @@
 """Public command line and the prepare/preview/confirm/activate transaction."""
 import argparse
+import re
 from pathlib import Path
 import subprocess
 import sys
 import tempfile
 
-from .backends import BACKENDS, detect
+from .backends import detect
 from .cleanup import generation_gc, store_gc
 from .flake import build, prepare
 from .preview import preview
-from .profiles import fingerprint, generations, list_generations, metadata, select, generation_info
+from .profiles import fingerprint, generations, metadata, select
+from .inspection import (status_data, list_data, info_data, display_status, display_list,
+                         display_info, emit_json, envelope)
 from .runtime import Error, executable, run
 
 
@@ -39,22 +42,26 @@ def unchanged(backend, initial):
         raise Error("The active configuration or profile changed during preview. Run nixman again before applying.")
 
 
-def update(backend, args):
-    backend.validate_user()
-    executable(backend.command)
-    initial = fingerprint(backend)
-    current = backend.active()
+def update(args):
     reference = args.flake
+    remembered_backend = None
     if reference is None:
-        previous = metadata(current)
+        remembered_backend = detect()
+        previous = metadata(remembered_backend.active())
         if previous is None:
             raise Error("The active generation has no saved flake. Run 'nixman update FLAKE#HOST' once.")
-        if previous.get("backend") != backend.name:
+        if previous.get("backend") != remembered_backend.name:
             raise Error("Saved flake belongs to a different backend; specify the flake explicitly.")
         reference = previous["flake"]
     with tempfile.TemporaryDirectory(prefix="nixman-") as temporary:
         directory = Path(temporary)
-        wrapper, source = prepare(backend, reference, directory)
+        backend, wrapper, source = prepare(reference, directory)
+        if remembered_backend is not None and backend.name != remembered_backend.name:
+            raise Error("The saved source now selects a different backend. Specify the flake explicitly.")
+        backend.validate_user()
+        executable(backend.command)
+        initial = fingerprint(backend)
+        current = backend.active()
         print(f"Backend: {backend.name}\nSource: {source['flake']}", flush=True)
         candidate = build(backend, wrapper, directory)
         changed = preview(backend, current, candidate)
@@ -97,25 +104,6 @@ def switch(backend, args):
         print(f"\nActivated generation {generation.id}.")
 
 
-def status(backend):
-    active = backend.active()
-    profile = backend.profile()
-    selected = profile.resolve() if profile.exists() else None
-    print(f"Backend: {backend.name}\nProfile: {profile}")
-    available = generations(backend)
-    active_ids = ", ".join(str(gen.id) for gen in available if gen.active) or "unknown"
-    selected_ids = ", ".join(str(gen.id) for gen in available if gen.selected) or "unknown"
-    print(f"Active generation: {active_ids}\nSelected generation: {selected_ids}")
-    print(f"Active path: {active or '(none)'}\nSelected path: {selected or '(none)'}")
-    print(f"Profile matches running configuration: {active is not None and active == selected}")
-    data = metadata(active)
-    if data:
-        print(f"Default update source: {data['flake']}")
-        print(f"Recorded revision: {data.get('revision') or '(not available)'}")
-    else:
-        print("Default update source: unavailable; supply FLAKE#HOST on the first update")
-
-
 def rollback(backend, args):
     available = generations(backend)
     current = next((gen for gen in available if gen.active and gen.selected), None)
@@ -137,9 +125,23 @@ def positive_count(value):
     return number
 
 
+def nonnegative_count(value):
+    number = int(value)
+    if number < 0:
+        raise argparse.ArgumentTypeError("count must be a nonnegative integer")
+    return number
+
+
+def age_seconds(value):
+    match = re.fullmatch(r"([1-9][0-9]{0,8})(h|d|w)", value)
+    if match is None:
+        raise argparse.ArgumentTypeError("age must be a positive whole number followed by h, d or w (for example 30d)")
+    return int(match[1]) * {"h": 3600, "d": 86400, "w": 604800}[match[2]]
+
+
 def parser():
     result = argparse.ArgumentParser(
-        prog="nixman", formatter_class=argparse.RawDescriptionHelpFormatter,
+        prog="nixman", allow_abbrev=False, formatter_class=argparse.RawDescriptionHelpFormatter,
         description="Preview, activate and maintain Nix system and home generations.",
         epilog="""Platform backends:
   NixOS / NixOS-WSL   nixos-rebuild
@@ -151,13 +153,15 @@ Examples:
   nixman update './configuration#ArchLinux'
   nixman update 'git+ssh://git@example.com/config?ref=main#host'
   nixman update --dry-run
-  nixman status
+  nixman status --json
   nixman generation list
   nixman generation info 12
   nixman generation diff 11 12
   nixman generation switch 11
   nixman rollback
-  nixman generation gc 3
+  nixman generation gc --oldest 3
+  nixman generation gc --keep 5 --older-than 30d
+  nixman completion zsh
   nixman gc --dry-run
 
 Behavior:
@@ -169,21 +173,24 @@ Behavior:
   deletes, but update --dry-run may download/build store objects for preview.
   Generation cleanup removes generation links; store cleanup removes unreachable
   store objects. Active and selected generations are protected.
+  The update backend is inferred from the selected flake output collection;
+  generation operations identify the existing upstream configuration.
   Generations are Nix configurations, not filesystem snapshots. Native package
   versions, application data and arbitrary activation effects are not rolled
   back. Run nixman as your normal user; system activation requests sudo.
 """)
     result.add_argument("--version", action="version", version="nixman 0.1.0")
-    result.add_argument("--backend", choices=BACKENDS, help="override automatic platform detection")
     commands = result.add_subparsers(dest="command", required=True)
     update_parser = commands.add_parser("update", help="refresh the source flake, preview, then switch")
     update_parser.add_argument("flake", nargs="?", help="FLAKE#HOST; defaults to the active generation's saved source")
-    commands.add_parser("status", help="show active/selected generations and the saved update source")
+    status_parser = commands.add_parser("status", help="show active/selected generations and the saved update source")
+    completion_parser = commands.add_parser("completion", help="print a packaged shell completion script")
+    completion_parser.add_argument("shell", choices=("bash", "zsh", "fish"))
     rollback_parser = commands.add_parser("rollback", help="preview and activate the generation before the running one")
     gc_parser = commands.add_parser("gc", help="preview and delete unreachable Nix store paths")
     generation_parser = commands.add_parser("generation", help="inspect or activate existing upstream generations")
     generations = generation_parser.add_subparsers(dest="generation_command", required=True)
-    generations.add_parser("list", help="list generations and mark the active and selected ones")
+    list_parser = generations.add_parser("list", help="list generations and mark the active and selected ones")
     info = generations.add_parser("info", help="show generation provenance and native package declarations")
     info.add_argument("generation", type=int)
     diff = generations.add_parser("diff", help="compare two generations without activating either")
@@ -191,8 +198,21 @@ Behavior:
     diff.add_argument("after", type=int, help="candidate generation")
     switch_parser = generations.add_parser("switch", help="preview and activate a generation number")
     switch_parser.add_argument("generation", type=int)
-    generation_gc = generations.add_parser("gc", help="delete the oldest N inactive generations; omit N for all inactive generations")
-    generation_gc.add_argument("count", nargs="?", type=positive_count, metavar="N", help="number to delete, excluding active and selected generations")
+    generation_gc = generations.add_parser(
+        "gc", help="preview and delete unprotected generations using retention policies",
+        description="Without a policy, select all unprotected historical generations. "
+                    "Active and selected generations are always protected. "
+                    "Preview precedes confirmation, which defaults to no [y/N].")
+    generation_gc.add_argument("--oldest", dest="count", type=positive_count, metavar="N",
+                               help="delete the oldest N eligible generations; cannot combine with retention policies")
+    generation_gc.add_argument("--keep", type=nonnegative_count, metavar="N",
+                               help="retain the newest N generations overall, plus active/selected generations")
+    generation_gc.add_argument("--older-than", type=age_seconds, metavar="AGE",
+                               help="delete only generations older than AGE (24h, 30d, 4w); intersects with --keep")
+    for command in (status_parser, list_parser, info):
+        command.add_argument("--json", action="store_true", help="write a versioned JSON result to stdout")
+    for command in (gc_parser, generation_gc):
+        command.add_argument("--json", action="store_true", help="write a JSON cleanup plan; requires --dry-run")
     for command in (update_parser, switch_parser, rollback_parser):
         command.add_argument("--yes", "-y", action="store_true", help="explicitly approve activation without prompting")
         command.add_argument("--dry-run", action="store_true", help="build/preview only; do not activate")
@@ -203,22 +223,36 @@ Behavior:
 
 
 def main(argv=None):
+    argv = list(sys.argv[1:] if argv is None else argv)
+    if argv and argv[0] == "__complete":
+        from .completion import complete
+        for candidate in complete(argv[1:], parser()):
+            print(candidate)
+        return 0
     args = parser().parse_args(argv)
     try:
         if args.command == "gc":
             store_gc(args, confirm)
             return 0
-        backend = detect(args.backend)
+        if args.command == "completion":
+            from .completion import script
+            print(script(args.shell), end="")
+            return 0
         if args.command == "update":
-            update(backend, args)
-        elif args.command == "status":
-            status(backend)
+            update(args)
+            return 0
+        backend = detect()
+        if args.command == "status":
+            data = status_data(backend)
+            (emit_json if args.json else display_status)(data)
         elif args.command == "rollback":
             rollback(backend, args)
         elif args.generation_command == "list":
-            list_generations(backend)
+            data = list_data(backend)
+            (emit_json if args.json else display_list)(data)
         elif args.generation_command == "info":
-            generation_info(backend, args.generation)
+            data = info_data(backend, args.generation)
+            (emit_json if args.json else display_info)(data)
         elif args.generation_command == "diff":
             preview(backend, select(backend, args.before).path, select(backend, args.after).path)
         elif args.generation_command == "gc":
@@ -226,6 +260,9 @@ def main(argv=None):
         else:
             switch(backend, args)
     except (Error, OSError, ValueError, subprocess.CalledProcessError) as exc:
+        if getattr(args, "json", False):
+            command = " ".join(filter(None, (args.command, getattr(args, "generation_command", None))))
+            emit_json(envelope(command, error={"message": str(exc)}))
         print(f"nixman: {exc}", file=sys.stderr)
         if isinstance(exc, subprocess.CalledProcessError):
             print("If activation started, inspect 'generation list': upstream activation can fail after partially applying changes.", file=sys.stderr)

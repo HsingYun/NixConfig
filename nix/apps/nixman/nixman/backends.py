@@ -6,8 +6,8 @@ import platform
 import pwd
 import socket
 
-from .runtime import Error, executable, run
-from .flake import WRAPPER_OPTIONS
+from .runtime import Error, executable, run, WRAPPER_OPTIONS
+from .profiles import metadata
 
 
 @dataclass(frozen=True)
@@ -52,7 +52,7 @@ class Backend:
     def default_names(self):
         hostname = socket.gethostname()
         short = hostname.split(".")[0]
-        if self.name == "darwin":
+        if self.name == "darwin" and platform.system() == "Darwin":
             return [run(["scutil", "--get", "LocalHostName"], capture=True).strip()]
         if self.system:
             return [hostname, short]
@@ -99,12 +99,28 @@ BACKENDS = {
 }
 
 
-def detect(override=None):
-    if override:
-        return BACKENDS[override]
-    if platform.system() == "Darwin":
-        return BACKENDS["darwin"]
-    release = Path("/etc/os-release")
-    if release.exists() and any(line in ('ID=nixos', 'ID="nixos"') for line in release.read_text().splitlines()):
-        return BACKENDS["nixos"]
-    return BACKENDS["home-manager"]
+def generation_backend(path):
+    if path is None:
+        return None
+    record = metadata(path)
+    if record is not None:
+        if record.get("backend") not in BACKENDS:
+            raise Error(f"Unknown backend in generation metadata: {path}")
+        return BACKENDS[record["backend"]]
+    for name, marker in (("nixos", "nixos-version"), ("darwin", "darwin-version"),
+                         ("home-manager", "hm-version")):
+        if (path / marker).is_file():
+            return BACKENDS[name]
+    if (path / "activate").is_file() and (path / "home-files").exists():
+        return BACKENDS["home-manager"]
+    return None
+
+
+def detect():
+    """Identify existing upstream generations, without guessing from the OS."""
+    for path in (resolved(Path("/run/current-system")), BACKENDS["home-manager"].active(),
+                 resolved(Path("/nix/var/nix/profiles/system"))):
+        backend = generation_backend(path)
+        if backend is not None:
+            return backend
+    raise Error("Cannot identify an existing configuration. Run 'nixman update FLAKE#HOST' first.")

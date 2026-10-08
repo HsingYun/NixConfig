@@ -1,0 +1,10 @@
+function __nixman_complete
+    set -l words (commandline -opc)
+    set -e words[1]
+    set -l current (commandline -ct)
+    if test (count $current) -eq 0
+        set current ''
+    end
+    command nixman __complete $words "$current" 2>/dev/null
+end
+complete -c nixman -a '(__nixman_complete)'

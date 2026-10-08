@@ -5,13 +5,8 @@ import re
 import shutil
 from urllib.parse import unquote, quote, urlsplit, parse_qsl
 
-from .runtime import Error, nix, nix_json, run
-
-
-# A dirty local Git tree is a valid root flake for upstream rebuild tools.
-# Nesting it in a disposable wrapper requires this Nix option. Its captured
-# narHash is still checked; this never relaxes the user's own dependency lock.
-WRAPPER_OPTIONS = ["--option", "allow-dirty-locks", "true"]
+from .runtime import Error, nix, nix_json, run, WRAPPER_OPTIONS
+from .backends import BACKENDS
 
 
 def normalize(reference):
@@ -35,7 +30,20 @@ def literal(value):
     return json.dumps(value, ensure_ascii=False).replace("${", r"\${")
 
 
-def prepare(backend, reference, directory):
+def choose_configuration(collections, host):
+    candidates = [(BACKENDS[name], configuration) for name, names in collections.items()
+                  for configuration in names if host is None or configuration == host]
+    if host is None and len(candidates) > 1:
+        candidates = [(backend, name) for backend, name in candidates if name in backend.default_names()]
+    if len(candidates) != 1:
+        available = ", ".join(f"{BACKENDS[name].collection}.{item}"
+                              for name, names in collections.items() for item in names)
+        raise Error(f"Cannot select a unique configuration{(' for #' + host) if host else ''}. "
+                    "Use a unique #HOST. Available: " + (available or "(none)"))
+    return candidates[0]
+
+
+def prepare(reference, directory):
     base, host = normalize(reference)
     # Do not update the user's lock file, even in memory. --refresh refreshes
     # the requested source branch; dependency versions remain in flake.lock.
@@ -72,6 +80,21 @@ def prepare(backend, reference, directory):
     # Encode its scalar metadata as Nix literals, escaping interpolation too.
     # Configuration names and generation provenance are still read as JSON.
     input_attrs = " ".join(f"{literal(key)} = {literal(value)};" for key, value in sorted(locked.items()))
+    # Inspect only names in the pinned source, before evaluating a chosen host.
+    collections = " ".join(
+        f'"{name}" = builtins.attrNames (target.{backend.collection} or {{}});'
+        for name, backend in BACKENDS.items())
+    (wrapper / "flake.nix").write_text(f'''{{
+  inputs.target = {{ {input_attrs} }};
+  outputs = {{ target, ... }}: {{ lib.configurations = {{ {collections} }}; }};
+}}
+''')
+    nix("flake", "lock", *WRAPPER_OPTIONS, str(wrapper))
+    names = nix_json("eval", "--json", *WRAPPER_OPTIONS, "--no-update-lock-file",
+                     f"{wrapper}#lib.configurations")
+    backend, host = choose_configuration(names, host)
+    source.update(configuration=host, flake=details["originalUrl"] + "#" + quote(host, safe="@.+-_"))
+    (wrapper / "request.json").write_text(json.dumps(source) + "\n")
     (wrapper / "flake.nix").write_text(f'''{{
   inputs.target = {{ {input_attrs} }};
   outputs = {{ target, ... }}:
@@ -86,21 +109,10 @@ def prepare(backend, reference, directory):
       }};
     in {{
       {backend.collection}.nixman = configured;
-      lib.configurations = builtins.attrNames target.{backend.collection};
     }};
 }}
 ''')
-    # Only this disposable wrapper gets a new lock file. It locks an immutable
-    # source and inherits that source's already locked inputs.
-    nix("flake", "lock", *WRAPPER_OPTIONS, str(wrapper))
-    if host is None:
-        names = nix_json("eval", "--json", *WRAPPER_OPTIONS, "--no-update-lock-file", f"{wrapper}#lib.configurations")
-        host = names[0] if len(names) == 1 else next((name for name in backend.default_names() if name in names), None)
-        if host is None:
-            raise Error("Choose a configuration with #HOST. Available: " + ", ".join(names))
-        source.update(configuration=host, flake=details["originalUrl"] + "#" + quote(host, safe="@.+-_"))
-        (wrapper / "request.json").write_text(json.dumps(source) + "\n")
-    return wrapper, source
+    return backend, wrapper, source
 
 
 def build(backend, wrapper, directory):

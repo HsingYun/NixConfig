@@ -3,10 +3,15 @@ pkgs.stdenvNoCC.mkDerivation {
   pname = "nixman";
   version = "0.1.0";
   src = ./.;
-  nativeBuildInputs = [ pkgs.makeWrapper ];
+  nativeBuildInputs = [
+    pkgs.makeWrapper
+    pkgs.installShellFiles
+  ];
   installPhase = ''
     mkdir -p "$out/lib/nixman" "$out/bin"
-    cp -r nixman templates "$out/lib/nixman/"
+    cp -r nixman templates completions "$out/lib/nixman/"
+    installShellCompletion --cmd nixman \
+      --bash completions/bash --zsh completions/zsh --fish completions/fish
     makeWrapper ${pkgs.python3}/bin/python3 "$out/bin/nixman" \
       --add-flags '-m nixman' \
       --prefix PYTHONPATH : "$out/lib/nixman" \

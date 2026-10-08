@@ -5,6 +5,12 @@ import shutil
 import subprocess
 
 
+# A dirty local Git tree is valid for upstream rebuild tools. Only disposable
+# wrappers use this option; the captured narHash and source dependency lock
+# remain enforced.
+WRAPPER_OPTIONS = ["--option", "allow-dirty-locks", "true"]
+
+
 class Error(Exception):
     pass
 

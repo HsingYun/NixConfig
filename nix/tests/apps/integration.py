@@ -2,6 +2,7 @@
 import argparse
 import contextlib
 import io
+import json
 import os
 from pathlib import Path
 import subprocess
@@ -10,11 +11,11 @@ from types import SimpleNamespace
 
 from nixman.backends import BACKENDS
 from nixman.cleanup import generation_gc, store_gc
-from nixman.flake import prepare, WRAPPER_OPTIONS
-from nixman.runtime import nix, nix_json, run
+from nixman.flake import prepare
+from nixman.runtime import WRAPPER_OPTIONS, nix, nix_json, run
 
 
-def write_source(directory):
+def write_source(directory, collection="nixosConfigurations"):
     directory.mkdir(parents=True)
     (directory / "value").write_text("original")
     (directory / "flake.nix").write_text('''{
@@ -28,12 +29,12 @@ def write_source(directory):
           };
         };
       };
-    }''')
+    }'''.replace("nixosConfigurations", collection))
 
 
-def observe(wrapper):
+def observe(wrapper, collection="nixosConfigurations"):
     return nix_json("eval", "--json", *WRAPPER_OPTIONS, "--no-update-lock-file",
-                    f"{wrapper}#nixosConfigurations.nixman.observed")
+                    f"{wrapper}#{collection}.nixman.observed")
 
 
 with tempfile.TemporaryDirectory(prefix="nixman-integration-") as temporary:
@@ -51,11 +52,21 @@ with tempfile.TemporaryDirectory(prefix="nixman-integration-") as temporary:
     # the developer's or CI runner's normal Nix store.
     assert nix("eval", "--raw", "--expr", "builtins.storeDir", capture=True) == str(store)
 
+    # Infer the target from each output collection before any host activation.
+    for expected in BACKENDS.values():
+        source = root / f"{expected.name}-source"
+        write_source(source, expected.collection)
+        work = root / f"{expected.name}-work"
+        work.mkdir()
+        detected, wrapper, record = prepare(f"path:{source}#fixture", work)
+        assert detected.name == expected.name
+        assert observe(wrapper, expected.collection)["value"] == "original"
+
     source = root / "path-source"
     write_source(source / "sub")
     work = root / "path-work"
     work.mkdir()
-    wrapper, record = prepare(BACKENDS["nixos"], f"path:{source}?dir=sub", work)
+    backend, wrapper, record = prepare(f"path:{source}?dir=sub", work)
     assert record["flake"] == f"path:{source}?dir=sub#fixture"
     assert observe(wrapper)["value"] == "original"
     (source / "sub/value").write_text("changed-after-preview")
@@ -78,7 +89,7 @@ with tempfile.TemporaryDirectory(prefix="nixman-integration-") as temporary:
         work.mkdir()
         if dirty:
             (git_source / "value").write_text("dirty")
-        wrapper, record = prepare(BACKENDS["nixos"], f"git+file://{git_source}#fixture", work)
+        backend, wrapper, record = prepare(f"git+file://{git_source}#fixture", work)
         observed = observe(wrapper)
         assert observed["value"] == ("dirty" if dirty else "original")
         assert observed["dirtyRev" if dirty else "rev"] == revision + ("-dirty" if dirty else "")
@@ -105,6 +116,18 @@ with tempfile.TemporaryDirectory(prefix="nixman-integration-") as temporary:
     assert not (profile.parent / "home-manager-1-link").is_symlink()
     assert (profile.parent / "home-manager-2-link").is_symlink()
     assert paths[0].exists()  # Removing a generation alone must not delete it.
+    preview_output = io.StringIO()
+    with contextlib.redirect_stdout(preview_output):
+        store_gc(argparse.Namespace(dry_run=True, json=True), lambda *a, **kw: False)
+    plan = json.loads(preview_output.getvalue())
+    assert str(paths[0]) in plan["paths"]
+    assert str(paths[1]) not in plan["paths"]
+    assert plan["sizeEstimate"]["basis"] == "nar"
+    assert plan["sizeEstimate"]["unmeasuredPaths"] == 0
+    expected_size = sum(int(run(["nix-store", "--query", "--size", path], capture=True))
+                        for path in plan["paths"])
+    assert plan["sizeEstimate"]["bytes"] == expected_size > 0
+    assert paths[0].exists()  # A size query and dry run must not collect it.
     with contextlib.redirect_stdout(io.StringIO()):
         store_gc(args, lambda *a, **kw: True)
     assert not paths[0].exists()

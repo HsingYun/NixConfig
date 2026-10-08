@@ -55,7 +55,7 @@ nixman update
 
 将 `Darwin` 替换为目标主机。首次更新显式指定来源，之后可以省略参数，沿用当前运行世代记录的来源。更新会先构建并预览固定的候选配置，再确认应用。激活默认同意 `[Y/n]`，清理默认拒绝 `[y/N]`。以普通用户运行，需要系统权限时会请求 `sudo`。
 
-通过 `generation info`、`generation diff` 和 `generation switch` 查看、比较和切换世代；`rollback` 返回前一个世代。`generation gc [N]` 清理最早的 N 个非活动世代，省略 N 则清理全部符合条件的历史世代；`gc` 清理不可达的 store 对象。两种清理都支持 `--dry-run`。完整命令、预览边界和 `nixman.json` 记录见 [nixman 文档](docs/nixman.md)。
+通过 `generation info`、`generation diff` 和 `generation switch` 查看、比较和切换世代；`rollback` 返回前一个世代。`generation gc --oldest N` 清理最早的 N 个符合条件的世代，也可以用 `--keep N` 和 `--older-than 30d` 设置保留策略；不指定策略则清理所有未受保护的历史世代。`gc` 清理不可达的 store 对象。两种清理都支持 `--dry-run`。状态、世代列表和详情、清理预览支持 `--json`，软件包包含 Bash/Zsh/Fish 补全。完整命令、预览边界和 `nixman.json` 记录见 [nixman 文档](docs/nixman.md)。
 
 ### 使用上游工具应用
 

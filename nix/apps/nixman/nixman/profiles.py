@@ -15,6 +15,7 @@ class Generation:
     path: Path
     selected: bool
     active: bool
+    created_at: float | None = None
 
 
 def generations(backend):
@@ -33,12 +34,13 @@ def generations(backend):
             continue
         number = int(match[1])
         path = entry.resolve()
-        date = datetime.fromtimestamp(entry.lstat().st_mtime).astimezone().strftime("%Y-%m-%d %H:%M:%S")
+        created_at = entry.lstat().st_mtime
+        date = datetime.fromtimestamp(created_at).astimezone().strftime("%Y-%m-%d %H:%M:%S")
         specialised = path / "specialisation"
         running = path == active or (active is not None and specialised.is_dir() and any(
             item.resolve() == active for item in specialised.iterdir()
         ))
-        result.append(Generation(number, date, path, entry.name == selected, running))
+        result.append(Generation(number, date, path, entry.name == selected, running, created_at))
     return sorted(result, key=lambda item: item.id, reverse=True)
 
 
@@ -67,28 +69,3 @@ def fingerprint(backend):
     profile = backend.profile()
     link = str(profile.readlink()) if profile.is_symlink() else None
     return link, str(profile.resolve()) if profile.exists() else None, str(backend.active())
-
-
-def list_generations(backend):
-    print("GENERATION  CREATED              STATE")
-    for gen in generations(backend):
-        marks = [name for flag, name in [(gen.active, "* active"), (gen.selected, "selected")] if flag]
-        if not gen.path.exists():
-            marks.append("missing")
-        print(f"{gen.id:<11} {gen.date:<20} {'; '.join(marks)}")
-    print("* active = running configuration; selected = profile/next-boot configuration")
-
-
-def generation_info(backend, number):
-    gen = select(backend, number)
-    print(f"Generation: {gen.id}\nCreated: {gen.date}\nBackend: {backend.name}")
-    print(f"Active: {gen.active}\nSelected: {gen.selected}\nStore path: {gen.path}")
-    data = metadata(gen.path)
-    if data:
-        print(json.dumps(data, indent=2, ensure_ascii=False))
-    else:
-        print("Source flake: unavailable (generation was not created by nixman)")
-    for name in ("nixos-version", "darwin-version", "hm-version"):
-        version = gen.path / name
-        if version.is_file():
-            print(f"{name}: {version.read_text().strip()}")

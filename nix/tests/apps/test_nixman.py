@@ -113,13 +113,14 @@ class NixmanTests(unittest.TestCase):
         backend.command = "nixos-rebuild"
         old, new = self.root / "old", self.root / "new"
         old.mkdir(exist_ok=True); new.mkdir(exist_ok=True)
-        backend.active.side_effect = [old, new]
+        backend.active.side_effect = [old, old, new] if reference is None else [old, new]
         args = argparse.Namespace(flake=reference, dry_run=dry_run, yes=yes)
         stack = contextlib.ExitStack()
         self.addCleanup(stack.close)
         mocks = {}
         for name, value in {"fingerprint": ("original",), "executable": "/tool",
-                            "prepare": (self.root / "frozen", {"flake": "saved#host"}),
+                            "prepare": (backend, self.root / "frozen", {"flake": "saved#host"}),
+                            "detect": backend,
                             "build": new, "preview": None, "confirm": True}.items():
             mocks[name] = stack.enter_context(patch.object(cli, name, return_value=value))
         return backend, args, mocks
@@ -127,13 +128,13 @@ class NixmanTests(unittest.TestCase):
     def test_cancel_leaves_profile_and_backend_untouched(self):
         backend, args, mocks = self.update_context()
         mocks["confirm"].return_value = False
-        cli.update(backend, args)
+        cli.update(args)
         mocks["preview"].assert_called_once()
         backend.update.assert_not_called()
 
     def test_dry_run_builds_preview_but_never_activates(self):
         backend, args, mocks = self.update_context(dry_run=True)
-        cli.update(backend, args)
+        cli.update(args)
         mocks["build"].assert_called_once()
         mocks["preview"].assert_called_once()
         mocks["confirm"].assert_not_called()
@@ -141,33 +142,33 @@ class NixmanTests(unittest.TestCase):
 
     def test_confirmation_applies_same_frozen_wrapper(self):
         backend, args, mocks = self.update_context(yes=True)
-        cli.update(backend, args)
+        cli.update(args)
         backend.update.assert_called_once_with(self.root / "frozen")
 
     def test_profile_change_during_confirmation_aborts(self):
         backend, args, mocks = self.update_context()
         mocks["fingerprint"].side_effect = [("original",), ("original",), ("new",)]
         with self.assertRaisesRegex(runtime.Error, "changed during preview"):
-            cli.update(backend, args)
+            cli.update(args)
         backend.update.assert_not_called()
 
     def test_build_failure_cannot_activate(self):
         backend, args, mocks = self.update_context()
         mocks["build"].side_effect = subprocess.CalledProcessError(1, ["nix", "build"])
         with self.assertRaises(subprocess.CalledProcessError):
-            cli.update(backend, args)
+            cli.update(args)
         backend.update.assert_not_called()
 
     def test_omitted_argument_uses_active_generation_source(self):
         backend, args, mocks = self.update_context(reference=None, dry_run=True)
         with patch.object(cli, "metadata", return_value={"flake": "path:/old/location#old-host", "backend": "nixos"}):
-            cli.update(backend, args)
-        self.assertEqual(mocks["prepare"].call_args.args[1], "path:/old/location#old-host")
+            cli.update(args)
+        self.assertEqual(mocks["prepare"].call_args.args[0], "path:/old/location#old-host")
 
     def test_unknown_source_requires_explicit_argument(self):
         backend, args, mocks = self.update_context(reference=None)
         with patch.object(cli, "metadata", return_value=None), self.assertRaises(runtime.Error):
-            cli.update(backend, args)
+            cli.update(args)
         backend.update.assert_not_called()
 
     def test_update_backend_uses_frozen_flake_and_correct_privilege(self):
@@ -255,34 +256,34 @@ class NixmanTests(unittest.TestCase):
     def test_store_cleanup_delegates_liveness_and_remnants_to_nix(self):
         paths = ["/nix/store/a.drv", "/nix/store/b-source"]
         args = argparse.Namespace(dry_run=False, yes=False)
-        with patch.object(cleanup, "dead_paths", return_value=paths), patch.object(cleanup, "nix") as nix:
+        with patch.object(cleanup, "dead_paths", return_value=paths), patch.object(cleanup, "estimate_store_size", return_value={"bytes": 1024, "basis": "nar", "unmeasuredPaths": 0}), patch.object(cleanup, "nix") as nix:
             cleanup.store_gc(args, Mock(return_value=True))
             nix.assert_called_once_with("store", "gc")
 
     def test_store_cleanup_rejects_path_that_became_live(self):
         args = argparse.Namespace(dry_run=False, yes=False)
         path = "/nix/store/old"
-        with patch.object(cleanup, "dead_paths", side_effect=[[path], []]), patch.object(cleanup, "nix") as nix, self.assertRaises(runtime.Error):
+        with patch.object(cleanup, "dead_paths", side_effect=[[path], []]), patch.object(cleanup, "estimate_store_size", return_value={"bytes": 1024, "basis": "nar", "unmeasuredPaths": 0}), patch.object(cleanup, "nix") as nix, self.assertRaises(runtime.Error):
             cleanup.store_gc(args, Mock(return_value=True))
         nix.assert_not_called()
 
     def test_store_cleanup_cancel_dry_run_and_empty_are_read_only(self):
         for dry_run, paths in ((False, []), (False, ["/nix/store/old"]), (True, ["/nix/store/old"])):
             args = argparse.Namespace(dry_run=dry_run, yes=False)
-            with patch.object(cleanup, "dead_paths", return_value=paths), patch.object(cleanup, "nix") as nix:
+            with patch.object(cleanup, "dead_paths", return_value=paths), patch.object(cleanup, "estimate_store_size", return_value={"bytes": 1024, "basis": "nar", "unmeasuredPaths": 0}), patch.object(cleanup, "nix") as nix:
                 cleanup.store_gc(args, Mock(return_value=False))
                 nix.assert_not_called()
 
     def test_store_cleanup_requires_new_preview_if_dead_set_grows(self):
         args = argparse.Namespace(dry_run=False, yes=False)
-        with patch.object(cleanup, "dead_paths", side_effect=[["/nix/store/old"], ["/nix/store/old", "/nix/store/new"]]), patch.object(cleanup, "nix") as nix, self.assertRaises(runtime.Error):
+        with patch.object(cleanup, "dead_paths", side_effect=[["/nix/store/old"], ["/nix/store/old", "/nix/store/new"]]), patch.object(cleanup, "estimate_store_size", return_value={"bytes": 1024, "basis": "nar", "unmeasuredPaths": 0}), patch.object(cleanup, "nix") as nix, self.assertRaises(runtime.Error):
             cleanup.store_gc(args, Mock(return_value=True))
         nix.assert_not_called()
 
     def test_unchanged_update_uses_generation_registration_prompt(self):
         backend, args, mocks = self.update_context()
         mocks["preview"].return_value = False
-        cli.update(backend, args)
+        cli.update(args)
         mocks["confirm"].assert_called_once_with(False, no_changes=True)
 
     def test_no_change_detection_ignores_only_provenance_and_self_references(self):
@@ -344,11 +345,12 @@ class NixmanTests(unittest.TestCase):
         (source / "flake.lock").write_text("original lock")
         request_dir = self.root / "request"
         request_dir.mkdir()
-        with patch.object(flake, "nix_json", return_value={"path": str(source), "originalUrl": "github:owner/repo/main", "url": "github:owner/repo/abc", "locked": {"type": "git", "rev": "abc", "narHash": "sha256-test", "dir": "sub", "lastModified": 123}}) as fetch, patch.object(flake, "nix") as nix, patch.object(flake, "run"):
-            wrapper, data = flake.prepare(backends.BACKENDS["nixos"], "github:owner/repo/main#host", request_dir)
+        with patch.object(flake, "nix_json", side_effect=[{"path": str(source), "originalUrl": "github:owner/repo/main", "url": "github:owner/repo/abc", "locked": {"type": "git", "rev": "abc", "narHash": "sha256-test", "dir": "sub", "lastModified": 123}}, {"nixos": ["host"]}]) as fetch, patch.object(flake, "nix") as nix, patch.object(flake, "run"):
+            backend, wrapper, data = flake.prepare("github:owner/repo/main#host", request_dir)
+        self.assertEqual(backend.name, "nixos")
         self.assertEqual((source / "flake.lock").read_text(), "original lock")
-        self.assertIn("--refresh", fetch.call_args.args)
-        self.assertIn("--no-update-lock-file", fetch.call_args.args)
+        self.assertIn("--refresh", fetch.call_args_list[0].args)
+        self.assertIn("--no-update-lock-file", fetch.call_args_list[0].args)
         nix.assert_called_once_with("flake", "lock", *flake.WRAPPER_OPTIONS, str(wrapper))
         self.assertEqual(data["flake"], "github:owner/repo/main#host")
         locked = json.loads((wrapper / "locked-input.json").read_text())
@@ -362,7 +364,7 @@ class NixmanTests(unittest.TestCase):
                         ["generation", "switch", "3", "-y"], ["update"],
                         ["update", ".#Darwin", "--dry-run"], ["status"], ["rollback"],
                         ["generation", "diff", "1", "2"], ["generation", "gc"],
-                        ["generation", "gc", "3", "--dry-run"], ["gc", "--dry-run"]):
+                        ["generation", "gc", "--oldest", "3", "--dry-run"], ["gc", "--dry-run"]):
             cli.parser().parse_args(command)
 
     def test_snapshot_is_not_a_command_alias(self):

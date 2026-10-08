@@ -1,0 +1,8 @@
+#compdef nixman
+local -a candidates
+candidates=("${(@f)$(nixman __complete "${words[@]:1:$((CURRENT - 1))}" 2>/dev/null)}")
+if (( ${#candidates} )) && [[ -n ${candidates[1]} ]]; then
+    compadd -- "${candidates[@]}"
+else
+    _files
+fi

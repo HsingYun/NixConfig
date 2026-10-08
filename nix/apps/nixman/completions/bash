@@ -1,0 +1,8 @@
+_nixman_complete() {
+    local candidate
+    COMPREPLY=()
+    while IFS= read -r candidate; do
+        [[ -n $candidate ]] && COMPREPLY+=("$candidate")
+    done < <(nixman __complete "${COMP_WORDS[@]:1:COMP_CWORD}" 2>/dev/null)
+}
+complete -o default -F _nixman_complete nixman
