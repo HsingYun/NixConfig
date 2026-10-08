@@ -15,6 +15,8 @@ name: definition:
     features ? { },
     preferences ? { },
     homeDirectory ? null,
+    stateVersion ? { },
+    timeZone ? null,
     systemConfig ? null,
     homeConfig ? null,
     hardwareConfig ? null,
@@ -53,6 +55,7 @@ name: definition:
       homeModules =
         selected.homeModules
         ++ resolvedFeatures.homeModules
+        ++ lib.optional (stateVersion ? home) { home.stateVersion = stateVersion.home; }
         ++ lib.optional (homeConfig != null) homeConfig;
     };
   in
@@ -61,6 +64,19 @@ name: definition:
     views = import ./configuration-views.nix { inherit output username configuration; };
     username = actualUser.username;
     configuration =
+      assert lib.assertMsg (
+        builtins.isAttrs stateVersion
+        && lib.all (
+          key:
+          builtins.elem key [
+            "home"
+            "system"
+          ]
+        ) (builtins.attrNames stateVersion)
+      ) "Host ${name}: stateVersion accepts only home and system compatibility versions.";
+      assert lib.assertMsg (
+        timeZone == null || (builtins.isString timeZone && timeZone != "")
+      ) "Host ${name}: timeZone must be a non-empty timezone name or null.";
       assert lib.assertMsg (
         packageManager != null
       ) "Host ${name}: platform must select a packageManager.";
@@ -114,6 +130,8 @@ name: definition:
                 })
               ]
               ++ lib.optional (hardwareConfig != null) hardwareConfig
+              ++ lib.optional (stateVersion ? system) { system.stateVersion = stateVersion.system; }
+              ++ lib.optional (timeZone != null) { time.timeZone = timeZone; }
               ++ lib.optional (systemConfig != null) systemConfig;
           }
         )

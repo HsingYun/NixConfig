@@ -9,6 +9,24 @@
 - 开发工具（`devel`）：Clang/LLVM、GCC、GDB/LLDB、构建工具、Python、Go、Node.js/TypeScript、OpenJDK、Rust/Cargo，以及 Git LFS、Protobuf、Abseil、coreutils 和 Telnet。
 - 中文环境：简体中文 locale、CJK 字体、Maple Mono、Fcitx5 + Rime 雾凇拼音。
 
+## 设计定位
+
+NixConfig 的目标是**围绕一个主要用户的需求，统一配置他使用的整台系统**。每个 host 在目标平台的管理范围内，同时管理一个用户的使用环境和所需的系统支持。这是有意选择的设计边界；同一主机上多个独立用户的配置管理不属于当前模型。
+
+[flake.nix](flake.nix) 提供共享用户身份的默认值，各 host 可以覆盖。不同主机可以管理不同用户，同一个用户在不同主机上也可以使用不同配置。Home Manager 设置只应用于被管理的账号，系统级设置则可能影响机器上的其他账号。这个模型不限制操作系统存在其他用户，也不会自动向他们应用主要用户的个人配置。
+
+一台主机的 feature 选择描述该用户的完整使用体验，因此一个 feature 可以同时提供系统支持和用户配置，例如系统 locale 支持与个人输入法设置。两类模块仍各自承担明确的职责：
+
+| 层次 | 职责 |
+| --- | --- |
+| Host | 选择用户、硬件、功能和主机策略，例如登录后启动哪些应用。 |
+| 系统模块 | 配置机器服务、权限和系统设施。 |
+| Home 模块 | 配置被管理用户的应用、个人偏好和登录启动项。 |
+| 集成与组装 | 协调系统与用户需求，以及明确的跨层默认策略。 |
+| 通用机制 | 实现声明的输入，不自行选择具体用户、主机或应用。 |
+
+例如，登录界面壁纸默认取自主要用户的壁纸，可以是明确的集成策略。跨层协作应集中、显式地表达；单用户定位不意味着模块可以任意读取其他模块的内部配置。仅在实际职责需要时增加抽象，不为假设中的多用户需求提前引入需求汇总框架或重复的 feature 目录。
+
 ## 支持平台
 
 | 平台 | 管理范围 |
@@ -83,14 +101,21 @@ Home Manager 不自动备份冲突的非托管文件。文件冲突会停止激�
 
 ## 定制
 
-在 `hosts/<机器名>/default.nix` 中选择平台与功能。系统设置位于 `system.nix`，用户设置与软件包位于 `home.nix`。
+每台主机只有一个配置入口 `hosts/<机器名>/default.nix`，并按平台需要提供可选的硬件模块。在入口中选择 `profile`，再通过 feature 补充或覆盖；feature 自己负责将公开参数落实到系统与 Home Manager。日常定制不需要分别编写系统和 Home Manager 文件。
+
+用户身份、平台、`timeZone` 和 `stateVersion` 属于主机元数据。`stateVersion.home` 保留初始 Home Manager 兼容版本，`stateVersion.system` 保留 NixOS 的版本字符串或 nix-darwin 的整数版本；Arch 只需要 Home Manager 版本。迁移时应保留已有值。
 
 例如，启用 Niri 桌面与中文输入：
 
 ```nix
 features = {
   desktop.niri.enable = true;
+  desktop.niri.settings.binds."Mod+B".spawn = [ "my-browser" ];
   desktop.dms.enable = true;
+  desktop.autostart = {
+    enable = true;
+    entries.terminal.application = "terminal";
+  };
   chinese.enable = true;
   ghostty.enable = true;
 };
@@ -130,6 +155,7 @@ NixOS/WSL 默认使用 Nix；Darwin 默认优先 Homebrew，缺少可用实现�
 Feature 同时声明配置与软件需求，依赖自动合并去重。例如 Ghostty 需要 Maple Mono；关闭 Ghostty 后，中文功能仍可保留同一字体。Niri 通过 `xdg-terminal-exec` 启动用户选择的终端。
 
 功能参数和示例统一见英文文档 [Configuring features](docs/features.md)。
+`systemConfig` 与 `homeConfig` 保留为按需使用的底层模块扩展入口；现有主机的日常配置都通过 feature 接口表达。遇到需要复用的定制，应扩展所属 feature 的公开接口。
 软件归属、包覆盖、可写设置和清理行为见 [Software architecture](docs/software.md)；
 平台边界与扩展方式见 [Port contracts](docs/ports.md)。
 部署前置条件（包括 Arch Keyring 的 PAM 配置）见 [Creating hosts](docs/hosts.md)。

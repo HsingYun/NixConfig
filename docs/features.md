@@ -139,56 +139,83 @@ fragments are allowed; malformed existing fragments remain errors.
 
 ## Desktop autostart
 
-`features.desktop.autostart.enable = true;` enables user desktop login commands
-on NixOS and Arch. It is disabled by default and has no default applications.
-The host's Home Manager module declares named entries:
+Configure `features.desktop.autostart` in the host entry point on NixOS or Arch.
+It is disabled by default and has no default applications:
 
 ```nix
-{ software, ... }:
-{
-  desktop.autostart.entries.browser = {
-    command = [ (software.chrome.command "google-chrome-stable") "--new-window" ];
+features.desktop.autostart = {
+  enable = true;
+  entries = {
+    terminal.application = "terminal";
+    browser.command = [ "google-chrome-stable" "--new-window" ];
+    notes = {
+      command = [ "/home/hsingyun/bin/open-notes" "work notes" ];
+      environment.NOTES_MODE = "work";
+      workingDirectory = "/home/hsingyun/Documents";
+    };
   };
-  desktop.autostart.entries.notes = {
-    command = [ "/home/hsingyun/bin/open-notes" "work notes" ];
-    environment.NOTES_MODE = "work";
-    workingDirectory = "/home/hsingyun/Documents";
-  };
-}
+};
 ```
 
-Commands are literal argument lists: spaces, `$`, `%` and shell syntax remain
-literal. Invoke a script explicitly for shell logic. Prefer absolute executable
-paths; bare commands use the desktop session's `PATH`. Environment values are
-also literal and stored in the Nix store, so do not put secrets in them. An
-explicit working directory must be absolute and must exist when the command
-starts. Without one, the session launcher's working directory is inherited.
-The host owns its startup selection; entries apply to any XDG Autostart-capable
-desktop session on that host, without detecting or restricting the desktop.
+Each enabled entry specifies exactly one of `application` or `command`.
+`application` selects the final `terminal`, `browser` or `fileManager` role;
+the feature resolves its command, including the selected package provider.
+An unavailable role is an error: select an application, provide a command or
+disable the entry. This does not implicitly enable or install an application.
+Explicit commands use an absolute executable path or the desktop session's
+`PATH`. Arguments, including spaces, `$`, `%` and shell syntax, remain literal.
+Invoke a script explicitly for shell logic. Environment values are also literal
+and stored in the Nix store, so do not put secrets in them. A working directory
+must be absolute and exist at startup; omitting it inherits the launcher directory.
 
-Entries merge through the normal Nix module system. Use stable entry names,
-`lib.mkDefault` for shared defaults, and `entries.<name>.enable = false` to
-disable an inherited entry. Entry names contain letters, digits, `_`, `-` and
-`.` and cannot start with `.`. Disabling an entry removes only this feature's
-generated file; it does not suppress an application's separately supplied
-autostart entry. Keep a single startup owner for each application.
+Entries merge through the normal Nix module system. Use stable names and
+`entries.<name>.enable = false` to disable an inherited entry. Names contain
+letters, digits, `_`, `-` and `.` and cannot start with `.`. The host owns the
+startup selection; entries apply to any XDG Autostart-capable desktop on it,
+without desktop detection or session restrictions.
 
-The feature generates namespaced desktop files through Nixpkgs and links them
-through Home Manager's `xdg.autostart`. GNOME and Niri's systemd session consume
-the same XDG mechanism. Activation updates files without launching commands;
-the next desktop login uses them. It does not stop an already running process,
-restart crashed applications, or manage privileged boot services. Existing
-input-method and desktop-shell services keep their own lifecycle. Declaring an
-entry does not install its application: use its feature or the software layer
-separately. The module consumes commands and never selects application roles
-or package providers.
+When replacing an inherited `application` with an explicit `command`, also set
+`application = null` so the merged entry still selects exactly one command
+source. Clear `command` in the same way when switching to an application role.
 
-Niri itself no longer starts a terminal by default. [NixOS-PC](../hosts/NixOS-PC/home.nix)
-and [ArchLinux](../hosts/ArchLinux/home.nix) explicitly enable this feature and
-declare the selected terminal directly, without conditional startup policy.
-Update that declaration when changing the host's desired startup applications.
-Pad retains no custom autostart entries. Disable `desktop.autostart.entries.terminal.enable` in either
-host to retain the terminal shortcuts without opening a terminal at login.
+The feature resolves user intent into commands; a separate generic adapter
+creates desktop files through Nixpkgs and links them through Home Manager's
+`xdg.autostart`. That adapter knows no application roles or software providers.
+Activation updates files without launching commands; the next desktop login
+uses them. Removing an entry does not stop an already running process or
+suppress an application's independently supplied startup entry. Keep one owner
+for each application's startup. Input-method and desktop-shell services retain
+their own lifecycle.
+
+Niri has no default terminal startup. [NixOS-PC](../hosts/NixOS-PC/default.nix),
+[ArchLinux](../hosts/ArchLinux/default.nix) and [NixOS-Pad](../hosts/NixOS-Pad/default.nix) explicitly declare
+`features.desktop.autostart.entries.terminal.application = "terminal";`.
+Disable that entry to retain terminal
+shortcuts without opening a terminal at login.
+
+## Platform and application preferences
+
+- `features.desktop.macos` is opt-in on Darwin. Its `settings` follow
+  nix-darwin's `system.defaults` structure, including `finder`, `dock` and
+  `NSGlobalDomain`; the Darwin adapter applies them. Configuring settings without
+  enabling the feature has no effect.
+- `features.wsl.usbip.enable` controls NixOS-WSL USB/IP integration. It is separate
+  from smart-card support and is unavailable on other deployment platforms.
+- `features.gpg.pinentry` selects an explicit Nix variant (`curses`, `tty`, `qt`
+  or `mac`) through the software override mechanism. `null` retains the selected
+  provider's default. The GPG feature must be enabled, and the chosen package
+  must support the target platform. NixOS-WSL explicitly selects `curses`.
+- `features.desktop.screenRotate.settings` configures the GNOME Screen Rotate
+  extension. For example, Pad declares `orientation-offset = 1`; these settings
+  disappear when the feature is disabled.
+- `features.desktop.gnome.textEditor` configures GNOME Text Editor. Defaults
+  enable `show-line-numbers`, set `tab-width = 32`, and disable `auto-indent`,
+  `restore-session`, `spellcheck` and `wrap-text`. These are GNOME Text Editor
+  preferences, not legacy Gedit preferences. For example, set
+  `features.desktop.gnome.textEditor.tab-width = 8`; the feature validates the
+  1–32 range and handles unsigned GSettings encoding internally.
+  `features.desktop.gnome.settings` remains available for other dconf settings
+  and explicit overrides of feature defaults.
 
 ## Configuration ownership and precedence
 
@@ -369,7 +396,7 @@ All checked-in hosts use the same selection pattern:
   features = profile.linuxDesktop // {
     efiTools.enable = true;
   };
-  homeConfig = ./home.nix;
+  stateVersion.home = "26.05";
 }
 ```
 

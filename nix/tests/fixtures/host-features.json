@@ -43,6 +43,7 @@
       "gpg",
       "gpgSshSupport",
       "iina",
+      "macos",
       "mapleMono",
       "nixTools",
       "shell",
@@ -87,6 +88,7 @@
   },
   "NixOS-Pad": {
     "enabled": [
+      "autostart",
       "chinese",
       "chrome",
       "codex",
@@ -130,6 +132,7 @@
       "nixTools",
       "shell",
       "smartcard",
+      "usbip",
       "vim",
       "xdg"
     ],

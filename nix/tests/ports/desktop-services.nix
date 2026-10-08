@@ -77,7 +77,7 @@ let
       features = allOff // {
         chrome = true;
       };
-      homeConfig = ../../../hosts/ArchLinux/home.nix;
+      stateVersion.home = "26.05";
     }).configuration.config;
   nativeFiles = arch.xdg.configFile;
   nixHome =

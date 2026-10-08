@@ -17,6 +17,12 @@
   dconf.settings = lib.mkMerge [
     config.features.desktop.gnome.settings
     {
+      "org/gnome/TextEditor" = lib.mapAttrs (_: lib.mkDefault) (
+        config.features.desktop.gnome.textEditor
+        // {
+          tab-width = lib.hm.gvariant.mkUint32 config.features.desktop.gnome.textEditor.tab-width;
+        }
+      );
       "org/gnome/desktop/app-folders" = lib.mkIf config.features.desktop.gnome.flatAppGrid {
         # An explicit empty user value also prevents Shell from creating its
         # default folders. Preserve folder contents and the app grid layout.

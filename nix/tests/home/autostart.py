@@ -39,6 +39,8 @@ for case in report["cases"]:
 
 failed = subprocess.run([desktop(report["missingDirectory"])["Exec"]], capture_output=True)
 assert failed.returncode != 0 and not failed.stdout
+role = subprocess.run([desktop(report["role"])["Exec"]], check=True, capture_output=True, text=True)
+assert json.loads(role.stdout) == {"argv": report["arguments"], "cwd": "/", "env": report["environment"]}
 for path in report["hostEntries"]:
     desktop(path)
 print("Desktop autostart: configuration, argv, environment, working directory and host policies passed")

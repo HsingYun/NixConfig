@@ -259,13 +259,17 @@ let
       ];
     }
   );
-  inactiveHost = home "arch" false { } {
-    imports = [ ../../../hosts/ArchLinux/home.nix ];
-    wayland.windowManager.niri.enable = false;
-  };
-  withoutNiri = home "arch" false { desktop.niri.enable = false; } {
-    imports = [ ../../../hosts/ArchLinux/home.nix ];
-  };
+  inactiveHost =
+    home "arch" false { desktop.niri.settings = archHost.features.desktop.niri.settings; }
+      {
+        wayland.windowManager.niri.enable = false;
+      };
+  withoutNiri = home "arch" false {
+    desktop.niri = {
+      enable = false;
+      settings = archHost.features.desktop.niri.settings;
+    };
+  } { };
   parser = pkgs.niri.overrideAttrs (_: {
     pname = "niri-config-probe";
     outputs = [ "out" ];

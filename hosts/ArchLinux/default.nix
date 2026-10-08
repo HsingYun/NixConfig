@@ -10,9 +10,13 @@
     };
   };
   system = "x86_64-linux";
+  stateVersion.home = "26.05";
   features = lib.recursiveUpdate profile.linuxDesktop {
     desktop = {
-      autostart.enable = true;
+      autostart = {
+        enable = true;
+        entries.terminal.application = "terminal";
+      };
       dms = {
         settings = {
           matugenTargetMonitor = "DP-5";
@@ -28,6 +32,8 @@
       };
       niri = {
         settings = {
+          # Installed by this host's packageManager.extraPkg.
+          binds."Mod+B".spawn = [ "/usr/bin/microsoft-edge-stable" ];
           _children = [
             # Machine-specific outputs; positions use logical pixels after scaling.
             {
@@ -58,5 +64,4 @@
       };
     };
   };
-  homeConfig = ./home.nix;
 }

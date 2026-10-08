@@ -227,7 +227,9 @@ capability registration determines which implementations a platform supplies.
 
 ## Supported customization
 
-- Host `features` selects and customizes capabilities; the loader supplies shared presets as `profile`.
+- Host `features` selects and customizes capabilities from a single host entry
+  point; the loader supplies shared presets as `profile`. Features own the
+  translation of public settings into system and Home Manager modules.
 - Session shells are registered in `nix/lib/features/desktop-shells.nix`.
   `features.desktop.niri.shell` enables and selects a shell and its greeter while enabled shell
   packages and settings coexist. System and Home Manager startup requests are
@@ -238,7 +240,9 @@ capability registration determines which implementations a platform supplies.
   greeter commands. A known default session must remain enabled when a login
   manager is active; explicit custom greeter commands are preserved. Direct
   service overrides are checked for conflicts.
-- Host `systemConfig` and `homeConfig` use ordinary public upstream-style options.
+- Optional host `systemConfig` and `homeConfig` extension modules expose
+  upstream-style options when a feature interface does not cover a requirement.
+  Shipped hosts express their ordinary configuration through features instead.
   On a native port, unsupported options fail instead of becoming inert settings.
 - Host `packageManager.type` sets the default software source.
 - `packageManager.extraPkg.<provider>.<group>` declares packages outside the

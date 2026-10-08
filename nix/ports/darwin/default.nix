@@ -14,6 +14,7 @@
   systemModules = [ ./system/default.nix ];
   homeModules = [ ];
   features = {
+    macos.systemModules = [ ./system/macos.nix ];
     chrome.homeModules = [ ./home/chrome.nix ];
     smartcard.homeModules = [ ./home/smartcard.nix ];
   };

@@ -9,6 +9,41 @@ Declarative system and user configurations for NixOS, WSL, macOS, and Linux. Hos
 - Development tools (`devel`): Clang/LLVM, GCC, GDB/LLDB, build tools, Python, Go, Node.js/TypeScript, OpenJDK, Rust/Cargo, plus Git LFS, Protobuf, Abseil, coreutils, and Telnet.
 - Chinese environment: Simplified Chinese locale, CJK fonts, Maple Mono, and Fcitx5 with Rime Ice.
 
+## Design scope
+
+NixConfig configures a machine around the needs of one primary user. Each host
+manages one user's environment together with the system support it requires,
+within the target platform's managed scope. This is an intentional design
+boundary; managing multiple independent users on the same host is outside the
+current model.
+
+The shared identity in [flake.nix](flake.nix) supplies defaults that each host
+can override. Hosts may manage different users, and the same user may have
+different configurations on different hosts. Home Manager settings apply to
+the managed account, while system settings can affect other accounts on the
+machine. This model does not prevent the operating system from having other
+users or apply the managed user's configuration to them.
+
+A host's feature selection describes that user's complete experience. One
+feature may therefore provide both system support and user configuration,
+such as locale support and personal input-method settings. Separate module
+scopes retain separate responsibilities:
+
+| Layer | Responsibility |
+| --- | --- |
+| Host | Choose the user, hardware, features and machine-specific policy, including which applications start at login. |
+| System modules | Configure machine services, permissions and system facilities. |
+| Home modules | Configure the managed user's applications, preferences and login commands. |
+| Integration and composition | Coordinate system and user requirements and explicit cross-scope defaults. |
+| Reusable mechanisms | Implement their declared inputs without selecting a particular user, host or application. |
+
+Cross-scope defaults, such as deriving a greeter wallpaper from the primary
+user's wallpaper, are deliberate integration policy. Keep that coordination
+explicit and localized; a single-user scope does not justify arbitrary access
+to another module's internals. Add abstractions when an actual responsibility
+requires them, rather than introducing multi-user aggregation or duplicating
+feature catalogs for hypothetical needs.
+
 ## Platforms
 
 | Platform | Managed scope |
@@ -98,14 +133,28 @@ Home Manager does not automatically back up conflicting unmanaged files. File co
 
 ## Configuration
 
-Each host selects a platform and features in `hosts/<name>/default.nix`. System settings belong in `system.nix`; user settings and packages belong in `home.nix`.
+Each host has one entry point, `hosts/<name>/default.nix`, plus an optional
+hardware module where the platform requires it. Select a `profile` and customize
+its features in that entry point; each feature owns the system and Home Manager
+implementation of its public settings. Routine customization does not require
+separate system or Home Manager files.
+
+User identity, platform, `timeZone` and `stateVersion` are host metadata.
+`stateVersion.home` preserves the initial Home Manager compatibility version;
+`stateVersion.system` preserves the NixOS release string or nix-darwin integer.
+Arch only needs the Home Manager version. Preserve these values during migration.
 
 For example, enable a Niri desktop with Chinese input:
 
 ```nix
 features = {
   desktop.niri.enable = true;
+  desktop.niri.settings.binds."Mod+B".spawn = [ "my-browser" ];
   desktop.dms.enable = true;
+  desktop.autostart = {
+    enable = true;
+    entries.terminal.application = "terminal";
+  };
   chinese.enable = true;
   ghostty.enable = true;
 };
@@ -145,6 +194,9 @@ NixOS/WSL default to Nix. Darwin prefers Homebrew, falling back to Nix when an i
 Features declare both configuration and software requirements. Shared dependencies are merged: Ghostty requests Maple Mono, which can remain installed for the Chinese feature after Ghostty is disabled. Niri launches a terminal through `xdg-terminal-exec` without choosing Ghostty implicitly.
 
 Detailed feature settings and examples live in [Configuring features](docs/features.md).
+`systemConfig` and `homeConfig` remain optional low-level module extension points;
+shipped hosts use feature interfaces for their ordinary configuration. Extend
+the responsible feature when a recurring customization needs a public interface.
 Package ownership, overrides, writable settings and cleanup behavior are documented
 in [Software architecture](docs/software.md). Platform implementation and extension points live in [Port contracts](docs/ports.md). Deployment prerequisites, including
 Arch keyring PAM setup, live in [Creating hosts](docs/hosts.md). These English

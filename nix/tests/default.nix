@@ -77,6 +77,9 @@ lib.recursiveUpdate hostChecks (
         builtins.toJSON (import ./features/desktop-shells.nix { inherit inputs; })
       );
       feature-rules = pkgs.writeText "feature-rules.json" featureRules;
+      host-interface = pkgs.writeText "host-interface.json" (
+        builtins.toJSON (import ./hosts/interface.nix { inherit inputs hosts; })
+      );
       configuration-layers = pkgs.writeText "configuration-layers.json" (
         builtins.toJSON (import ./helpers/common/config-layers.nix { inherit lib; })
       );

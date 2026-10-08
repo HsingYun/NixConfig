@@ -22,5 +22,6 @@
     ../nixos/home/keyring.nix
   ];
   features.nixLd.systemModules = [ ../nixos/system/nix-ld.nix ];
+  features.usbip.systemModules = [ ./system/usbip.nix ];
   integrations.gpg-smartcard.homeModules = [ ../nixos/home/smartcard.nix ];
 }

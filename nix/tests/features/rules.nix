@@ -23,6 +23,8 @@ let
   # Independent compatibility specification. Update when adding a feature.
   all = platforms;
   support = {
+    macos = [ "darwin" ];
+    usbip = [ "nixos-wsl" ];
     autostart = [
       "arch"
       "nixos"

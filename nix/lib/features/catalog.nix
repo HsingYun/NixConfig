@@ -35,6 +35,24 @@ import ./availability.nix { inherit lib platformRegistry; } {
       ];
       platforms = desktops;
       homeModules = [ ../../modules/home/features/autostart.nix ];
+      options.entries = import ./autostart.nix { inherit lib; };
+    };
+    macos = {
+      path = [
+        "desktop"
+        "macos"
+      ];
+      platforms = [ "darwin" ];
+      portScopes = [ "system" ];
+      options.settings = settingsOption "Native macOS preferences, following nix-darwin system.defaults";
+    };
+    usbip = {
+      path = [
+        "wsl"
+        "usbip"
+      ];
+      platforms = [ "nixos-wsl" ];
+      portScopes = [ "system" ];
     };
     mihomo = {
       platforms = [
@@ -124,6 +142,7 @@ import ./availability.nix { inherit lib platformRegistry; } {
       ];
     };
     screenRotate = {
+      options.settings = settingsOption "Screen Rotate extension settings";
       path = [
         "desktop"
         "screenRotate"
@@ -174,6 +193,18 @@ import ./availability.nix { inherit lib platformRegistry; } {
       systemModules = [ ../../modules/system/features/shell.nix ];
     };
     gpg = {
+      options.pinentry = {
+        type = lib.types.nullOr (
+          lib.types.enum [
+            "curses"
+            "tty"
+            "qt"
+            "mac"
+          ]
+        );
+        default = null;
+        description = "Explicit Nix pinentry variant, or null to use the software provider's default";
+      };
       contracts = [ "home.gpg" ];
       default = true;
       platforms = all;
@@ -240,6 +271,7 @@ import ./availability.nix { inherit lib platformRegistry; } {
       ];
       options = {
         settings = settingsOption "GNOME dconf settings keyed by schema path";
+        textEditor = import ./gnome-text-editor.nix { inherit lib; };
         flatAppGrid = {
           default = true;
           type = lib.types.bool;

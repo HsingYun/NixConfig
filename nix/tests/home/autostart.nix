@@ -46,14 +46,15 @@ let
         autostart = enabled;
         ${desktop} = true;
       };
-      homeConfig = {
-        imports = [ extra ];
-        home.stateVersion = "26.05";
-        desktop.autostart.entries = {
+      stateVersion.home = "26.05";
+      featureConfig.desktop.autostart.entries = lib.mkMerge [
+        {
           probe = lib.mapAttrs (_: lib.mkDefault) probe;
           disabled.enable = false;
-        };
-      };
+        }
+        (extra.entries or { })
+      ];
+      homeConfig = extra.home or { };
     }).views.home;
   cases = lib.cartesianProduct {
     platform = [
@@ -71,10 +72,10 @@ let
       enabled = make platform desktop true { };
       disabled = make platform desktop false { };
       overridden = make platform desktop true {
-        desktop.autostart.entries.probe.workingDirectory = "/tmp";
+        entries.probe.workingDirectory = "/tmp";
       };
-      removed = make platform desktop true { desktop.autostart.entries.probe.enable = false; };
-      upstreamDisabled = make platform desktop true { xdg.autostart.enable = false; };
+      removed = make platform desktop true { entries.probe.enable = false; };
+      upstreamDisabled = make platform desktop true { home.xdg.autostart.enable = false; };
     in
     assert lib.all (h: lib.all (a: a.assertion) h.assertions) [
       enabled
@@ -103,15 +104,33 @@ let
       builtins.deepSeq
         (lib.evalModules {
           modules = [
-            ../../modules/home/shared/autostart.nix
-            { desktop.autostart.entries = entries; }
+            {
+              options.entries = lib.mkOption (import ../../lib/features/autostart.nix { inherit lib; });
+              config.entries = entries;
+            }
           ];
-        }).config.desktop.autostart.entries
+        }).config.entries
         true
     )).success;
   missingDirectory = make "arch" "gnome" true {
-    desktop.autostart.entries.probe.workingDirectory = "/nixconfig-nonexistent-autostart-test";
+    entries.probe.workingDirectory = "/nixconfig-nonexistent-autostart-test";
   };
+  selectedRole =
+    home:
+    make "arch" "niri" true {
+      entries.probe = lib.mkForce {
+        application = "terminal";
+        inherit (probe) environment workingDirectory;
+      };
+      inherit home;
+    };
+  role = selectedRole {
+    desktop.applications.terminal = {
+      command = probe.command;
+      desktopId = null;
+    };
+  };
+  missingRole = selectedRole { desktop.applications.terminal = null; };
   hostEntries =
     map
       (
@@ -128,16 +147,29 @@ let
       [
         "NixOS-PC"
         "ArchLinux"
+        "NixOS-Pad"
       ];
   report = pkgs.writeText "autostart-cases.json" (
     builtins.toJSON {
       cases = map verify cases;
       inherit arguments environment hostEntries;
       missingDirectory = builtins.head missingDirectory.xdg.autostart.entries;
+      role = builtins.head role.xdg.autostart.entries;
     }
   );
 in
 assert valid { test = probe; };
+assert valid { test.enable = false; };
+assert !(valid { test = { }; });
+assert
+  !(valid {
+    test = probe // {
+      application = "terminal";
+    };
+  });
+assert !(valid { test.application = "unknown"; });
+assert !(builtins.tryEval (builtins.deepSeq missingRole.xdg.autostart.entries true)).success;
+assert role.desktop.autostart.entries.probe.command == probe.command;
 assert !(valid { "../escape" = probe; });
 assert
   !(valid {
@@ -163,8 +195,6 @@ assert
       workingDirectory = "relative";
     };
   });
-assert !hosts.NixOS-Pad.views.home.features.desktop.autostart.enable;
-assert hosts.NixOS-Pad.views.home.desktop.autostart.entries == { };
 pkgs.runCommand "desktop-autostart"
   {
     nativeBuildInputs = [

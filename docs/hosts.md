@@ -39,26 +39,44 @@ itself disable other explicitly enabled desktops.
 
 ## Common steps
 
-1. Create `hosts/<name>/default.nix` and `home.nix` using the examples below.
+1. Create `hosts/<name>/default.nix` using the examples below; add a hardware module when required by the platform.
 2. Register the directory in `hosts/default.nix`, for example:
    ```nix
    MyHost = ./MyHost;
    ```
-3. In `home.nix`, set `home.stateVersion` to the initial Home Manager version for
-   this user environment. Preserve an existing value when migrating. Do not bump
-   state versions simply because the flake inputs were updated.
+3. Set `stateVersion.home` to the initial Home Manager version for this user
+   environment. On NixOS/WSL also set `stateVersion.system` to the initial NixOS
+   version; on Darwin use nix-darwin's initial integer state version. Preserve
+   existing values when migrating. Do not bump them with flake updates.
 4. Optionally override `user.username`, `user.git.name`, `user.git.email`,
-   `hostname`, and `homeDirectory` in the host definition. Omitted user fields
-   inherit the settings passed by `flake.nix`.
+   `hostname` and `homeDirectory`. Omitted user fields inherit `flake.nix` values.
+   `timeZone` sets the system timezone on NixOS/WSL and Darwin; omit it to retain
+   platform defaults. The Arch adapter does not manage timezone configuration.
 
-A minimal `home.nix` is:
+The host entry point owns identity, compatibility metadata, feature selection
+and customization. System and Home Manager scopes are internal implementation
+details of each feature. Select a profile and add or override feature parameters:
 
 ```nix
-{ ... }:
+{ lib, profile, ... }:
 {
-  home.stateVersion = "26.05"; # Example only: use this environment's initial version.
+  platform = "arch";
+  stateVersion.home = "26.05";
+  features = lib.recursiveUpdate profile.linuxDesktop {
+    desktop.niri.settings.binds."Mod+B".spawn = [ "my-browser" ];
+    desktop.autostart = {
+      enable = true;
+      entries.terminal.application = "terminal";
+    };
+  };
 }
 ```
+
+`systemConfig` and `homeConfig` remain optional module extension points for
+unwrapped upstream options or custom packages. They accept inline modules or
+paths, and do not require additional host files. Shipped hosts do not use these
+escape hatches. Extend the responsible feature for recurring customization;
+do not add a new feature for each application setting.
 
 Use nested feature options such as `features.desktop.niri.enable = true`.
 A host definition may be a plain attribute set or a function. The loader supplies
@@ -86,7 +104,7 @@ override them.
   system = "x86_64-linux";
   packageManager = "pacman";
   features = profile.linuxDesktop;
-  homeConfig = ./home.nix;
+  stateVersion.home = "26.05";
 }
 ```
 
@@ -164,15 +182,15 @@ Use the Arch example with these changes:
   system = "x86_64-linux";
   packageManager = "nix";
   hardwareConfig = ./hardware.nix;
-  systemConfig = ./system.nix;
-  homeConfig = ./home.nix;
+  stateVersion.system = "26.11";
+  stateVersion.home = "26.05";
   # Also set features and preferences as in the desktop example.
 }
 ```
 
 Generate `hardware.nix` for the real machine using `nixos-generate-config`.
-Configure its boot loader, filesystems and initial `system.stateVersion` in the
-system configuration. **The checked-in NixOS-PC hardware file is an evaluation
+Keep model-specific imports, boot-loader settings and filesystems in the hardware
+module. Keep compatibility versions and timezone in the host entry point. **The checked-in NixOS-PC hardware file is an evaluation
 placeholder and must not be used to install a real machine.**
 
 For a GNOME tablet, use this feature selection instead of the full desktop preset:
@@ -210,24 +228,26 @@ sudo nixos-rebuild switch --flake .#MyPC
   system = "x86_64-linux";
   features = profile.cli // {
     smartcard = profile.cli.smartcard // { allowBackgroundAccess = true; };
+    wsl.usbip.enable = true;
+    gpg.pinentry = "curses";
   };
-  systemConfig = ./system.nix;
-  homeConfig = ./home.nix;
+  stateVersion.system = "26.11";
+  stateVersion.home = "26.05";
 }
 ```
 
-Set the initial NixOS `system.stateVersion` in `system.nix`; do not provide a
-native hardware/boot-loader module. The platform imports NixOS-WSL. Use
-`{ pkgs, ... }: { software.packageOverrides.pinentry = pkgs.pinentry-curses; }`
-in `home.nix`, alongside its state version, for terminal-only PIN entry.
+Do not provide a native hardware/boot-loader module. The platform imports
+NixOS-WSL. The USB/IP and pinentry choices above are public feature parameters;
+features own the underlying service and package configuration.
 No desktop or Chinese input method is selected. Smart-card device forwarding
 into WSL must be configured outside this repository.
 
 ## Arch under WSL
 
 Use `platform = "arch"`, `packageManager = "pacman"`, and `features = profile.cli;`, with
-only `homeConfig`. Enable `smartcard.allowBackgroundAccess` if PC/SC must work
-without an active local desktop session, and use `pinentry-curses` as above.
+`stateVersion.home` in the same entry point. Enable `smartcard.allowBackgroundAccess`
+if PC/SC must work without an active local desktop session, and select
+`features.gpg.pinentry = "curses";` as above.
 Systemd must be enabled in the WSL distribution for native service integration.
 Do not select the `profile.linuxDesktop` preset or the Chinese feature for this setup.
 
@@ -242,13 +262,17 @@ Do not select the `profile.linuxDesktop` preset or the Chinese feature for this 
   features = profile.graphical // {
     coteditor.enable = true;
     iina.enable = true;
+    desktop.macos = {
+      enable = true;
+      settings.finder.ShowPathbar = true;
+    };
   };
-  systemConfig = ./system.nix;
-  homeConfig = ./home.nix;
+  stateVersion.system = 6;
+  stateVersion.home = "26.05";
 }
 ```
 
-Set nix-darwin's initial integer `system.stateVersion` in `system.nix`; it is
+`stateVersion.system` is nix-darwin's initial integer compatibility version,
 not a NixOS release string. Install Homebrew separately if using that backend.
 Homebrew cleanup is disabled: removing a feature does not uninstall unrelated
 native software. macOS retains its own desktop and input method facilities.

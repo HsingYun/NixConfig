@@ -28,6 +28,7 @@ let
           default = _: true;
           type = lib.types.isOptionType;
           description = builtins.isString;
+          apply = builtins.isFunction;
         } option == [ ]
       && option.type.check option.default
     ) (builtins.attrNames value);
