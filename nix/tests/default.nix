@@ -70,6 +70,9 @@ lib.recursiveUpdate hostChecks (
       contract-types = pkgs.writeText "contract-types.json" (
         builtins.toJSON (import ./ports/contract-types.nix { inherit lib pkgs; })
       );
+      platform-contract-types = pkgs.writeText "platform-contract-types.json" (
+        builtins.toJSON (import ./ports/platform-types.nix { inherit inputs; })
+      );
       contract-behavior = pkgs.writeText "contract-behavior.json" (
         builtins.toJSON (import ./contracts { inherit inputs; })
       );
@@ -77,6 +80,9 @@ lib.recursiveUpdate hostChecks (
         builtins.toJSON (import ./features/desktop-shells.nix { inherit inputs; })
       );
       feature-rules = pkgs.writeText "feature-rules.json" featureRules;
+      feature-settings = pkgs.writeText "feature-settings.json" (
+        builtins.toJSON (import ./home/feature-settings.nix { inherit inputs; })
+      );
       host-interface = pkgs.writeText "host-interface.json" (
         builtins.toJSON (import ./hosts/interface.nix { inherit inputs hosts; })
       );

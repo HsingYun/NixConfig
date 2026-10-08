@@ -5,7 +5,7 @@
   ...
 }:
 let
-  cfg = config.home-manager.users.${user.username}.features.smartcard;
+  cfg = config.features.smartcard;
 in
 {
   services.pcscd.enable = lib.mkDefault true;

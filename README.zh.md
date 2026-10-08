@@ -101,23 +101,23 @@ Home Manager 不自动备份冲突的非托管文件。文件冲突会停止激�
 
 ## 定制
 
-每台主机只有一个配置入口 `hosts/<机器名>/default.nix`，并按平台需要提供可选的硬件模块。在入口中选择 `profile`，再通过 feature 补充或覆盖；feature 自己负责将公开参数落实到系统与 Home Manager。日常定制不需要分别编写系统和 Home Manager 文件。
+每台主机只有一个配置入口 `hosts/<机器名>/default.nix`，并按平台需要提供可选的硬件模块。在入口中用 `profiles = profile.linuxDesktop;` 选择预设，再通过 `features` 补充或覆盖；feature 自己负责将公开参数落实到系统与 Home Manager。日常定制不需要分别编写系统和 Home Manager 文件。
 
 用户身份、平台、`timeZone` 和 `stateVersion` 属于主机元数据。`stateVersion.home` 保留初始 Home Manager 兼容版本，`stateVersion.system` 保留 NixOS 的版本字符串或 nix-darwin 的整数版本；Arch 只需要 Home Manager 版本。迁移时应保留已有值。
 
-例如，启用 Niri 桌面与中文输入：
+预设可以是单个属性集，也可以是多个预设组成的列表。入口统一使用 Nix 模块合并：主机配置优先于预设，预设优先于共享默认值；修改嵌套 feature 选项会保留其他选项，不需要手写 `//`；自由格式的 settings 子属性集仍按其声明的 Nix 类型合并。系统与 Home 分别直接获得同一份只读 feature 参数。
+
+例如，定制桌面预设：
 
 ```nix
+profiles = profile.linuxDesktop;
 features = {
-  desktop.niri.enable = true;
   desktop.niri.settings.binds."Mod+B".spawn = [ "my-browser" ];
-  desktop.dms.enable = true;
   desktop.autostart = {
     enable = true;
     entries.terminal.application = "terminal";
   };
-  chinese.enable = true;
-  ghostty.enable = true;
+  ghostty.settings.font-size = 16;
 };
 ```
 

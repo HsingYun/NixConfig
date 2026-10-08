@@ -58,11 +58,12 @@ and customization. System and Home Manager scopes are internal implementation
 details of each feature. Select a profile and add or override feature parameters:
 
 ```nix
-{ lib, profile, ... }:
+{ profile, ... }:
 {
   platform = "arch";
   stateVersion.home = "26.05";
-  features = lib.recursiveUpdate profile.linuxDesktop {
+  profiles = profile.linuxDesktop;
+  features = {
     desktop.niri.settings.binds."Mod+B".spawn = [ "my-browser" ];
     desktop.autostart = {
       enable = true;
@@ -81,17 +82,19 @@ do not add a new feature for each application setting.
 Use nested feature options such as `features.desktop.niri.enable = true`.
 A host definition may be a plain attribute set or a function. The loader supplies
 `profile` (shared presets) and `lib` (the locked nixpkgs library) to functions that
-request them. All checked-in hosts use `{ profile, ... }:` and select a preset
-with `features = profile.linuxDesktop;` or `features = profile.cli // { ... };`.
-No per-host import or additional feature-module option is needed.
+request them. Select one preset with `profiles = profile.linuxDesktop;`, or
+compose several with `profiles = [ profile.cli myExtraPreset ];`. Omit `profiles`
+when no preset is needed. Put host-specific differences in `features`.
 
-Presets are plain attribute sets. `//` replaces the matching top-level feature
-group in full. For a partial change within a group, retain its existing values
-explicitly, for example `desktop = profile.linuxDesktop.desktop // { ... };`,
-or use upstream `lib.recursiveUpdate`. `lib.mkMerge`, `lib.mkDefault` and
-`lib.mkForce` remain available when Nix option merging is desired. Defaults from
-`flake.nix` are weak; ordinary host definitions, including selected preset values,
-override them.
+The entry point merges these definitions through Nix's module system. Ordinary
+host feature values override profile defaults, which override shared defaults
+from `flake.nix`. Nested feature options preserve unrelated options. Free-form
+settings follow their declared types; a stronger value may replace a whole
+settings sub-attribute set. An explicit host list replaces a weaker profile list. Lists from profiles at the same priority
+concatenate, while conflicting scalars require an explicit host choice. Unsupported
+profile features are disabled by platform defaults; explicitly enabling one in
+`features` remains an error. `lib.mkForce`, `lib.mkMerge` and list ordering remain
+available when needed. Do not combine a profile and host overrides with `//`.
 
 ## Arch desktop
 
@@ -103,7 +106,7 @@ override them.
   platform = "arch";
   system = "x86_64-linux";
   packageManager = "pacman";
-  features = profile.linuxDesktop;
+  profiles = profile.linuxDesktop;
   stateVersion.home = "26.05";
 }
 ```
@@ -193,11 +196,12 @@ Keep model-specific imports, boot-loader settings and filesystems in the hardwar
 module. Keep compatibility versions and timezone in the host entry point. **The checked-in NixOS-PC hardware file is an evaluation
 placeholder and must not be used to install a real machine.**
 
-For a GNOME tablet, use this feature selection instead of the full desktop preset:
+For a GNOME tablet, select the desktop preset and override its desktop choice:
 
 ```nix
-features = profile.linuxDesktop // {
-  desktop = profile.linuxDesktop.desktop // {
+profiles = profile.linuxDesktop;
+features = {
+  desktop = {
     niri.enable = false;
     dms.enable = false;
     gnome = {
@@ -226,8 +230,9 @@ sudo nixos-rebuild switch --flake .#MyPC
 {
   platform = "nixos-wsl";
   system = "x86_64-linux";
-  features = profile.cli // {
-    smartcard = profile.cli.smartcard // { allowBackgroundAccess = true; };
+  profiles = profile.cli;
+  features = {
+    smartcard.allowBackgroundAccess = true;
     wsl.usbip.enable = true;
     gpg.pinentry = "curses";
   };
@@ -244,7 +249,7 @@ into WSL must be configured outside this repository.
 
 ## Arch under WSL
 
-Use `platform = "arch"`, `packageManager = "pacman"`, and `features = profile.cli;`, with
+Use `platform = "arch"`, `packageManager = "pacman"`, and `profiles = profile.cli;`, with
 `stateVersion.home` in the same entry point. Enable `smartcard.allowBackgroundAccess`
 if PC/SC must work without an active local desktop session, and select
 `features.gpg.pinentry = "curses";` as above.
@@ -259,7 +264,8 @@ Do not select the `profile.linuxDesktop` preset or the Chinese feature for this 
   platform = "darwin";
   system = "aarch64-darwin"; # x86_64-darwin for an Intel Mac.
   packageManager = "homebrew";
-  features = profile.graphical // {
+  profiles = profile.graphical;
+  features = {
     coteditor.enable = true;
     iina.enable = true;
     desktop.macos = {

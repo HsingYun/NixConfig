@@ -7,10 +7,11 @@
     home = "26.05";
     system = "26.11";
   };
-  features = profile.cli // {
+  profiles = profile.cli;
+  features = {
     wsl.usbip.enable = true;
     gpg.pinentry = "curses";
-    smartcard = profile.cli.smartcard // {
+    smartcard = {
       allowBackgroundAccess = true;
     };
   };

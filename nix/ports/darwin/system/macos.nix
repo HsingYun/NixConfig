@@ -1,4 +1,4 @@
-{ config, user, ... }:
+{ config, ... }:
 {
-  system.defaults = config.home-manager.users.${user.username}.features.desktop.macos.settings;
+  system.defaults = config.features.desktop.macos.settings;
 }

@@ -6,7 +6,7 @@ let
       inherit pkgs;
       modules = [
         ../../modules/home/software
-        ../../modules/home/shared/features.nix
+        ../../modules/shared/features.nix
         ../../modules/home/features/vscode.nix
         {
           home = {

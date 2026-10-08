@@ -6,6 +6,13 @@ public interfaces for a platform; it is not an Arch-only compatibility folder.
 NixOS and Darwin may also add ports when upstream modules do not supply a needed
 capability. Reuse upstream implementations whenever available.
 
+Host-wide feature input is resolved once and supplied independently to both
+module scopes as read-only `config.features`. System features must not reach
+through `home-manager.users` for these inputs. The explicit software coordinator
+still collects user and system requirements into one installation plan.
+Cross-feature desktop policy belongs to the integration registry; generic
+renderers consume resolved inputs without selecting features.
+
 ## Source of truth
 
 | Concern | Declaration | Implementation |
@@ -24,14 +31,17 @@ capability. Reuse upstream implementations whenever available.
 A contract states supported option names, types and scopes. Ports do not silently
 ignore unsupported options. NixOS keeps its full upstream interface; a native
 port implements a declared subset and rejects options it has not implemented.
-The contract checker submits the portable input examples in
-[`probes.nix`](../nix/contracts/probes.nix) to actual option types through upstream
-`lib.evalModules`. Every public contract option must have a probe. Probes cover
-both boolean values, nonempty structured settings and Nix package values. They
-are interface requirements, not platform defaults: a native adapter can use
-`package = null` for native delegation while an upstream module requires a Nix
-package. Checks also validate defined host values without forcing undefined
-upstream options. These are sample-based interface checks, not a proof of behavioral equivalence.
+Normal configuration evaluation checks only contracts required by the selected
+features: required options must exist and configured values must satisfy the
+portable schema. It does not evaluate synthetic input samples.
+
+The `platform-contract-types` test checks every contract declared by every port,
+including dormant features, using [`type-probes.nix`](../nix/tests/contracts/type-probes.nix)
+and upstream `lib.evalModules`. Every public contract option must have a probe.
+Probes cover both boolean values, nonempty structured settings and Nix package
+values. They are interface requirements, not platform defaults: a native adapter
+can use `package = null` for native delegation while an upstream module requires
+a Nix package. These sample-based checks do not prove behavioral equivalence.
 The separate contract behavior suite configures public options directly, with
 all features disabled, and checks generated services, files or package plans on
 every registered implementation. Each contract is tested in isolation, including
@@ -227,8 +237,8 @@ capability registration determines which implementations a platform supplies.
 
 ## Supported customization
 
-- Host `features` selects and customizes capabilities from a single host entry
-  point; the loader supplies shared presets as `profile`. Features own the
+- Host `profiles` selects shared presets and `features` customizes capabilities
+  from the same entry point. Features own the
   translation of public settings into system and Home Manager modules.
 - Session shells are registered in `nix/lib/features/desktop-shells.nix`.
   `features.desktop.niri.shell` enables and selects a shell and its greeter while enabled shell

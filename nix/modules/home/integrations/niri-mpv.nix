@@ -4,10 +4,14 @@
   ...
 }:
 {
+  imports = [ ../shared/niri.nix ];
   config =
     lib.mkIf
       (
-        config.wayland.windowManager.niri.enable && config.features.mpv.enable && config.programs.mpv.enable
+        config.features.desktop.niri.enable
+        && config.wayland.windowManager.niri.enable
+        && config.features.mpv.enable
+        && config.programs.mpv.enable
       )
       {
         # Follow general and file-manager defaults, preserving rule precedence.

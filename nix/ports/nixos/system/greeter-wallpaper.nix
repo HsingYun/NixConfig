@@ -2,11 +2,10 @@
   config,
   lib,
   pkgs,
-  user,
   ...
 }:
 let
-  wallpaper = config.home-manager.users.${user.username}.features.desktop.wallpaper;
+  wallpaper = config.features.desktop.wallpaper;
   lock = wallpaper.lockImage;
   session = pkgs.writeTextDir "session.json" (
     builtins.toJSON {

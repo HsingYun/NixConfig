@@ -134,29 +134,33 @@ Home Manager does not automatically back up conflicting unmanaged files. File co
 ## Configuration
 
 Each host has one entry point, `hosts/<name>/default.nix`, plus an optional
-hardware module where the platform requires it. Select a `profile` and customize
-its features in that entry point; each feature owns the system and Home Manager
+hardware module where the platform requires it. Set `profiles = profile.linuxDesktop;`
+(or a list of presets) and put overrides in `features`; each feature owns the system and Home Manager
 implementation of its public settings. Routine customization does not require
 separate system or Home Manager files.
+
+The entry point uses Nix module merging: host feature values override profile
+defaults, which override shared defaults. Nested feature changes preserve
+unrelated options; free-form settings retain their declared Nix merge semantics.
+Both module scopes
+receive the same read-only feature input directly.
 
 User identity, platform, `timeZone` and `stateVersion` are host metadata.
 `stateVersion.home` preserves the initial Home Manager compatibility version;
 `stateVersion.system` preserves the NixOS release string or nix-darwin integer.
 Arch only needs the Home Manager version. Preserve these values during migration.
 
-For example, enable a Niri desktop with Chinese input:
+For example, customize the desktop preset:
 
 ```nix
+profiles = profile.linuxDesktop;
 features = {
-  desktop.niri.enable = true;
   desktop.niri.settings.binds."Mod+B".spawn = [ "my-browser" ];
-  desktop.dms.enable = true;
   desktop.autostart = {
     enable = true;
     entries.terminal.application = "terminal";
   };
-  chinese.enable = true;
-  ghostty.enable = true;
+  ghostty.settings.font-size = 16;
 };
 ```
 

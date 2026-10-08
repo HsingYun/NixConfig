@@ -60,10 +60,34 @@ let
     NixOS-Pad = "26.11";
     NixOS-WSL = "26.11";
   };
+  # System features consume host input without a Home Manager-shaped schema.
+  systemOnly = lib.evalModules {
+    modules = [
+      ../../modules/shared/features.nix
+      ../../contracts/system/services/mihomo.nix
+      ../../modules/system/features/mihomo.nix
+      {
+        options.assertions = lib.mkOption {
+          type = lib.types.listOf lib.types.raw;
+          default = [ ];
+        };
+        config.features.mihomo = {
+          configFile = "/etc/mihomo/config.yaml";
+          tunMode = false;
+        };
+      }
+    ];
+  };
   hostDefinitions = lib.mapAttrs (
     _: path: import ../../lib/hosts/load.nix { inherit lib; } (import path)
   ) (import ../../../hosts);
 in
+assert systemOnly.config.services.mihomo.enable && !systemOnly.config.services.mihomo.tunMode;
+assert !(systemOnly.options ? home-manager);
+assert lib.all (a: a.assertion) systemOnly.config.assertions;
+assert lib.all (
+  name: builtins.toJSON (system name).features == builtins.toJSON (home name).features
+) (builtins.attrNames hosts);
 assert lib.all (h: !(h ? homeConfig) && !(h ? systemConfig)) (builtins.attrValues hostDefinitions);
 assert lib.all (
   name:

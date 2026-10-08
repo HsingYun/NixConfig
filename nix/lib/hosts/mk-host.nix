@@ -12,6 +12,7 @@ name: definition:
     system ? null,
     hostname ? name,
     user ? { },
+    profiles ? [ ],
     features ? { },
     preferences ? { },
     homeDirectory ? null,
@@ -45,6 +46,7 @@ name: definition:
         name
         platform
         preferences
+        profiles
         ;
       defaults = settings.features;
       overrides = features;

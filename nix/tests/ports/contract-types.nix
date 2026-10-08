@@ -16,7 +16,7 @@ let
         ) (lib.collect lib.isOption (builtins.removeAttrs expected [ "_module" ]))
       );
       actual = lib.evalModules { modules = [ { options = declarations; } ]; };
-      checks = import ../../contracts/check.nix {
+      checks = import ../contracts/types.nix {
         inherit lib pkgs;
         names = [ name ];
         options = actual.options;

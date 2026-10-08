@@ -5,6 +5,7 @@
   defaults,
   overrides,
   preferences ? { },
+  profiles ? [ ],
 }:
 
 let
@@ -16,6 +17,7 @@ let
       defaults
       overrides
       preferences
+      profiles
       ;
   };
   desktopDefaults = import ./desktop-defaults.nix {
@@ -32,7 +34,7 @@ let
   contractCheck = scope: { options, pkgs, ... }: {
     assertions = import ../../contracts/check.nix {
       inherit lib pkgs options;
-      names = lib.filter (name: contracts.${name}.scope == scope) port.contracts;
+      names = lib.filter (name: contracts.${name}.scope == scope) requiredContracts;
     };
   };
   attach =
@@ -53,6 +55,11 @@ let
       }
     ) entries;
   entries = attach "features" active ++ attach "integrations" integrations;
+  # Validate only contracts used by this feature selection. Exhaustive input
+  # probes for every declared platform contract belong to the test suite.
+  requiredContracts = lib.intersectLists port.contracts (
+    lib.unique (lib.concatMap (entry: entry.contracts or [ ]) entries)
+  );
   dependencyChecks = import ./assertions.nix {
     inherit lib catalog platform;
     inherit (resolved) enabled;
@@ -90,6 +97,7 @@ assert lib.assertMsg (resolved.errors == [ ]) (lib.concatStringsSep "\n" resolve
       lib.concatMap (entry: entry.systemModules or [ ]) entries
     )
     ++ [
+      { features = resolved.config; }
       dependencyChecks.systemModule
       (contractCheck "system")
     ]

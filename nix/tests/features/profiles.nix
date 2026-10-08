@@ -11,7 +11,8 @@ let
       name = "ProfilePriority";
       platform = "darwin";
       defaults.chrome.enable = false;
-      overrides = profile.graphical // overrides;
+      profiles = profile.graphical;
+      inherit overrides;
     };
   check =
     name: path:
@@ -20,6 +21,7 @@ let
       result = resolve {
         inherit name;
         inherit (host) platform;
+        profiles = host.profiles or [ ];
         overrides = host.features or { };
         preferences = host.preferences or { };
       };
@@ -32,7 +34,7 @@ let
     true;
 in
 assert load { platform = "arch"; } == { platform = "arch"; };
-assert (load ({ profile }: { features = profile.cli; })).features == profile.cli;
+assert (load ({ profile }: { profiles = profile.cli; })).profiles == profile.cli;
 assert
   (load ({ lib }: { features = lib.mkIf true { vim.enable = true; }; })).features._type == "if";
 assert (profileDefaults { }).config.chrome.enable;

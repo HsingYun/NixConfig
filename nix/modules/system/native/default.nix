@@ -7,6 +7,7 @@
 }:
 {
   imports = [
+    ../../shared/features.nix
     ../../software/system.nix
     ./profile.nix
     ./systemd.nix

@@ -13,7 +13,8 @@
     home = "26.05";
     system = 6;
   };
-  features = profile.graphical // {
+  profiles = profile.graphical;
+  features = {
     coteditor.enable = true;
     iina.enable = true;
     edge.enable = true;

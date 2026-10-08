@@ -8,9 +8,10 @@
     system = "26.11";
   };
   timeZone = "Asia/Shanghai";
-  features = profile.linuxDesktop // {
+  profiles = profile.linuxDesktop;
+  features = {
     efiTools.enable = true;
-    desktop = profile.linuxDesktop.desktop // {
+    desktop = {
       autostart = {
         enable = true;
         entries.terminal.application = "terminal";

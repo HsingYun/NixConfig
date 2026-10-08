@@ -40,7 +40,6 @@ in
     ../shared/desktop.nix
     ../shared/niri.nix
     ../integrations/niri-applications.nix
-    ../integrations/niri-mpv.nix
   ];
 
   desktop.niri.defaultSettings = defaults;
@@ -58,10 +57,7 @@ in
     settings = lib.mkMerge [
       config.features.desktop.niri.settings
       {
-        environment = lib.mkIf config.features.chinese.enable {
-          GTK_IM_MODULE = null; # Do not inherit the GNOME session's GTK override.
-          LANG = lib.mkDefault "zh_CN.UTF-8";
-          XMODIFIERS = lib.mkDefault "@im=fcitx";
+        environment = {
           ELECTRON_OZONE_PLATFORM_HINT = lib.mkDefault "auto";
           QT_QPA_PLATFORMTHEME = lib.mkDefault "gtk3";
           QT_QPA_PLATFORMTHEME_QT6 = lib.mkDefault "gtk3";

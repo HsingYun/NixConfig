@@ -12,6 +12,7 @@ assert lib.assertMsg (catalogErrors == [ ]) (lib.concatStringsSep "\n" catalogEr
 {
   name,
   platform,
+  profiles ? [ ],
   defaults ? { },
   overrides ? { },
   preferences ? { },
@@ -26,6 +27,7 @@ let
       name
       platform
       defaults
+      profiles
       overrides
       ;
   };

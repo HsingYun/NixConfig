@@ -494,10 +494,15 @@ import ./availability.nix { inherit lib platformRegistry; } {
       };
     };
     ghostty = {
+      options.settings = settingsOption "Ghostty configuration settings";
       platforms = all;
       homeModules = [ ../../modules/home/features/ghostty.nix ];
     };
     mpv = {
+      options = {
+        settings = settingsOption "mpv.conf options";
+        scriptOpts = settingsOption "mpv script options, grouped by script name";
+      };
       platforms = all;
       homeModules = [ ../../modules/home/features/mpv.nix ];
     };
@@ -546,6 +551,22 @@ import ./availability.nix { inherit lib platformRegistry; } {
   };
 
   integrations = {
+    niri-chinese = {
+      platforms = desktops;
+      owners = [
+        "niri"
+        "chinese"
+      ];
+      homeModules = [ ../../modules/home/integrations/niri-chinese.nix ];
+    };
+    niri-mpv = {
+      platforms = desktops;
+      owners = [
+        "niri"
+        "mpv"
+      ];
+      homeModules = [ ../../modules/home/integrations/niri-mpv.nix ];
+    };
     chrome-browser = {
       platforms = desktops;
       owners = [ "chrome" ];

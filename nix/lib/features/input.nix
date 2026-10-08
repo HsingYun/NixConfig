@@ -4,6 +4,7 @@
   name,
   platform,
   defaults,
+  profiles,
   overrides,
 }:
 let
@@ -36,8 +37,8 @@ let
         );
       })
       ({ config, ... }: {
-        # A feature-local choice enables its providers through normal module
-        # defaults. Explicit disables survive and are diagnosed by the resolver.
+        # A selected provider takes precedence over profile defaults (950),
+        # but platform restrictions (900) and explicit host definitions win.
         config.features = lib.mkMerge (
           lib.concatMap (
             rule:
@@ -52,7 +53,7 @@ let
                 )
                 (
                   lib.mkMerge (
-                    map (feature: lib.setAttrByPath (pathFor feature ++ [ "enable" ]) (lib.mkDefault true)) (
+                    map (feature: lib.setAttrByPath (pathFor feature ++ [ "enable" ]) (lib.mkOverride 925 true)) (
                       lib.toList features
                     )
                   )
@@ -64,6 +65,10 @@ let
       {
         _file = "Host ${name}: shared feature defaults";
         config.features = lib.mkDefault defaults;
+      }
+      {
+        _file = "Host ${name}: profiles";
+        config.features = lib.mkOverride 950 (lib.mkMerge (lib.toList profiles));
       }
       {
         _file = "Host ${name}: features";

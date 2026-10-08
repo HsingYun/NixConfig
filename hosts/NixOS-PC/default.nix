@@ -1,4 +1,4 @@
-{ lib, profile, ... }:
+{ profile, ... }:
 {
   platform = "nixos";
   packageManager = "nix";
@@ -8,7 +8,8 @@
     system = "26.11";
   };
   timeZone = "Asia/Shanghai";
-  features = lib.recursiveUpdate profile.linuxDesktop {
+  profiles = profile.linuxDesktop;
+  features = {
     desktop.autostart = {
       enable = true;
       entries.terminal.application = "terminal";

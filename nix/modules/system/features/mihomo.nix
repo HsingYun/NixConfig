@@ -1,11 +1,10 @@
 {
   config,
   lib,
-  user,
   ...
 }:
 let
-  cfg = config.home-manager.users.${user.username}.features.mihomo;
+  cfg = config.features.mihomo;
 in
 {
   services.mihomo = {

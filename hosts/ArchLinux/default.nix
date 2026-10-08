@@ -1,4 +1,4 @@
-{ lib, profile, ... }:
+{ profile, ... }:
 {
   platform = "arch";
   packageManager = {
@@ -11,7 +11,8 @@
   };
   system = "x86_64-linux";
   stateVersion.home = "26.05";
-  features = lib.recursiveUpdate profile.linuxDesktop {
+  profiles = profile.linuxDesktop;
+  features = {
     desktop = {
       autostart = {
         enable = true;

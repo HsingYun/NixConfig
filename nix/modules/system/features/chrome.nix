@@ -1,11 +1,10 @@
 {
   config,
   lib,
-  user,
   ...
 }:
 let
-  extensions = config.home-manager.users.${user.username}.features.chrome.extensions;
+  extensions = config.features.chrome.extensions;
 in
 {
   # This upstream module manages policies, not the browser package.

@@ -1,13 +1,12 @@
 {
   config,
   lib,
-  user,
   ...
 }:
 let
   cfg = config.services.displayManager.noctalia-greeter;
   session = config.services.displayManager.defaultSession;
-  wallpaper = config.home-manager.users.${user.username}.features.desktop.wallpaper;
+  wallpaper = config.features.desktop.wallpaper;
 in
 {
   services.displayManager.noctalia-greeter.settings = lib.mkIf cfg.enable (

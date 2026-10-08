@@ -72,6 +72,7 @@ let
     specialArgs.user.username = "test";
     modules = [
       ../../modules/system/features/gnome.nix
+      ../../modules/shared/features.nix
       (import ../../modules/system/shared/desktop-policy.nix {
         contracts = registry.definitions.gnomeOnly.contracts;
         desktopDefaults = import ../../lib/features/desktop-defaults.nix {
@@ -86,12 +87,11 @@ let
       ../../contracts/system/services/power.nix
       ../../contracts/system/services/storage.nix
       {
-        options.home-manager.users = lib.mkOption { type = lib.types.attrsOf lib.types.raw; };
         options.assertions = lib.mkOption {
           type = lib.types.listOf lib.types.raw;
           default = [ ];
         };
-        config.home-manager.users.test.features.desktop = partial.config.desktop;
+        config.features = partial.config;
       }
     ];
   };

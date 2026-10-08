@@ -169,7 +169,7 @@ let
       security.rtkit.enable = true;
     })
   ];
-  contracts = import ./.;
+  contracts = import ../../contracts;
   allExamples = lib.concatLists examples;
 in
 lib.mapAttrs (

@@ -7,7 +7,7 @@
 {
   imports = [
     ./shared/user-profile.nix
-    ./shared/features.nix
+    ../shared/features.nix
     ./shared/autostart.nix
     ./shared/keyring.nix
     ./shared/dconf.nix

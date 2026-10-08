@@ -23,12 +23,19 @@ let
       modules = [
         ../../modules/home/software
         ../../modules/home/features/mpv.nix
+        ../../modules/shared/features.nix
         {
           home = {
             username = "test";
             homeDirectory = if pkgs.stdenv.hostPlatform.isDarwin then "/Users/test" else "/home/test";
             stateVersion = "26.05";
           };
+          features =
+            (import ../../lib/features/resolve.nix { inherit lib; } {
+              name = "RuntimeFixture";
+              platform = if pkgs.stdenv.hostPlatform.isDarwin then "darwin" else "arch";
+              overrides.mpv.enable = true;
+            }).config;
           programs.mpv.enable = enabled;
           software.packageManager = {
             type = "nix";

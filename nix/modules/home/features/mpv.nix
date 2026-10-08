@@ -42,32 +42,38 @@ in
     enable = lib.mkDefault true;
     defaultProfiles = lib.mkDefault [ "high-quality" ];
     scripts = lib.mkDefault (lib.optionals usesNixPackage scripts);
-    config = lib.mapAttrs (_: lib.mkDefault) {
-      hwdec = "auto";
-      vo = "gpu-next";
-      target-colorspace-hint = "auto";
-      tone-mapping = "spline";
-      hwdec-codecs = "all";
-      audio-file-auto = "fuzzy";
-      sub-auto = "fuzzy";
-      deband = true;
-      icc-profile-auto = false;
-      blend-subtitles = "video";
-      interpolation = true;
-      # Interpolation requires a display-sync mode.
-      video-sync = "display-resample";
-      tscale = "oversample";
-      osc = false;
-      border = false;
-    };
-    scriptOpts = {
-      osc = lib.mapAttrs (_: lib.mkDefault) {
-        language = "chs";
-        font = "Source Han Sans SC";
-      };
-      thumbfast = lib.mkIf (!usesNixPackage) {
-        mpv_path = lib.mkDefault (software.mpv.command "mpv");
-      };
-    };
+    config = lib.mkMerge [
+      config.features.mpv.settings
+      (lib.mapAttrs (_: lib.mkDefault) {
+        hwdec = "auto";
+        vo = "gpu-next";
+        target-colorspace-hint = "auto";
+        tone-mapping = "spline";
+        hwdec-codecs = "all";
+        audio-file-auto = "fuzzy";
+        sub-auto = "fuzzy";
+        deband = true;
+        icc-profile-auto = false;
+        blend-subtitles = "video";
+        interpolation = true;
+        # Interpolation requires a display-sync mode.
+        video-sync = "display-resample";
+        tscale = "oversample";
+        osc = false;
+        border = false;
+      })
+    ];
+    scriptOpts = lib.mkMerge [
+      config.features.mpv.scriptOpts
+      {
+        osc = lib.mapAttrs (_: lib.mkDefault) {
+          language = "chs";
+          font = "Source Han Sans SC";
+        };
+        thumbfast = lib.mkIf (!usesNixPackage) {
+          mpv_path = lib.mkDefault (software.mpv.command "mpv");
+        };
+      }
+    ];
   };
 }

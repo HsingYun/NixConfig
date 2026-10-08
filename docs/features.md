@@ -46,8 +46,9 @@ layer; `systemConfig.software.providerOverrides.noctalia = "nix";` explicitly
 selects the Nix package instead.
 
 ```nix
-features = profile.linuxDesktop // {
-  desktop = profile.linuxDesktop.desktop // {
+profiles = profile.linuxDesktop;
+features = {
+  desktop = {
     niri = { enable = true; shell = "noctalia"; };
     noctalia.settings.theme.mode = "dark";
   };
@@ -192,6 +193,39 @@ Niri has no default terminal startup. [NixOS-PC](../hosts/NixOS-PC/default.nix),
 `features.desktop.autostart.entries.terminal.application = "terminal";`.
 Disable that entry to retain terminal
 shortcuts without opening a terminal at login.
+
+## Application settings
+
+Ghostty and MPV expose their native configuration structures through their
+existing features. Settings do not enable a disabled feature:
+
+```nix
+profiles = profile.linuxDesktop;
+features = {
+  ghostty.settings = {
+    font-size = 16;
+    background-opacity = 1.0;
+  };
+  mpv = {
+    settings = { hwdec = "auto-safe"; interpolation = false; };
+    scriptOpts.osc.language = "eng";
+  };
+};
+```
+
+`ghostty.settings` maps to Home Manager's `programs.ghostty.settings`;
+`mpv.settings` maps to `programs.mpv.config`, and `mpv.scriptOpts` maps to
+`programs.mpv.scriptOpts`. Feature settings override the bundled application
+defaults; upstream modules validate values and generate files. Unrelated defaults
+remain intact. An exceptional conflicting low-level override can use `lib.mkForce`.
+
+Niri's Qt theme and Electron Wayland preferences apply independently of Chinese
+input. The Niri–Chinese integration owns input-method environment adjustments
+and follows the configured locale; it only runs for an enabled Fcitx5 input method.
+It copies `XMODIFIERS` only when present in the final Home Manager session
+variables, preserving explicit removal of that variable.
+Niri–MPV window rules also belong to the integration registry. Disabling either
+feature removes that integration's contribution.
 
 ## Platform and application preferences
 
@@ -393,20 +427,32 @@ All checked-in hosts use the same selection pattern:
 { profile, ... }:
 {
   platform = "arch";
-  features = profile.linuxDesktop // {
+  profiles = profile.linuxDesktop;
+  features = {
     efiTools.enable = true;
   };
   stateVersion.home = "26.05";
 }
 ```
 
-Presets are plain feature attribute sets. A `//` override replaces a top-level
-group, so preserve the preset's nested group when changing only part of it.
-For example, `desktop = profile.linuxDesktop.desktop // { gnome.enable = true; };`
-adds GNOME without removing Niri or DMS. Hosts can request `lib` for standard
-Nix attribute merging and module combinators. Feature options continue to be
-evaluated by upstream `lib.evalModules`; the repository defines no separate
-merge language.
+Select a single preset with `profiles = profile.linuxDesktop;`, or a list with
+`profiles = [ profile.cli myExtraPreset ];`. Host differences belong in `features`.
+The entry point merges profile defaults at priority 950, between shared
+`flake.nix` defaults (1000) and ordinary host definitions (100). Unsupported
+platform defaults use priority 900. A feature-local provider selection, such as
+`desktop.niri.shell`, enables its provider at priority 925: it overrides a
+profile's default disable while preserving platform restrictions and explicit
+host disables. Lower numbers are stronger in Nix.
+
+Nested feature options retain unrelated profile definitions. Free-form settings
+follow their declared types: overriding `desktop.niri.settings.layout.gaps` can
+replace a weaker profile's entire `layout` value, while other settings keys and
+the Niri enable flag remain intact. This is ordinary Nix option merging, not a
+recursive attribute-update algorithm. A host list
+replaces a weaker profile list, including when the host supplies `[]`; same-priority
+profile lists concatenate. Conflicting profile scalars require a host override.
+Use ordinary Nix module combinators for exceptional priority or ordering needs.
+No manual `//` or recursive attribute merge is required at the host boundary.
 
 Features contribute settings and requirements. Disabling one contribution does
 not negate another feature's shared requirement. Use explicit upstream options

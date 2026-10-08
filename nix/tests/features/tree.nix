@@ -10,6 +10,47 @@ let
       }
       // args
     );
+  profile = import ../../lib/hosts/profiles.nix;
+  profileChoice =
+    shell: extra:
+    check {
+      profiles.desktop = {
+        niri.enable = true;
+        ${shell}.enable = false;
+      };
+      overrides = lib.mkMerge [
+        { desktop.niri.shell = shell; }
+        extra
+      ];
+    };
+  profileBinding = check {
+    profiles = profile.linuxDesktop;
+    overrides.desktop.niri.settings.binds."Mod+B".spawn = [ "my-browser" ];
+  };
+  profileList = check {
+    profiles = [ profile.linuxDesktop ];
+    overrides.desktop.niri.settings.binds."Mod+B".spawn = [ "my-browser" ];
+  };
+  profilePriority = check {
+    defaults.chrome = {
+      enable = false;
+      extensions = [ "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" ];
+    };
+    profiles = [
+      {
+        chrome = {
+          enable = true;
+          extensions = [ "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb" ];
+        };
+      }
+      { chrome.extensions = [ "cccccccccccccccccccccccccccccccc" ]; }
+    ];
+    overrides.chrome.extensions = [ ];
+  };
+  unsupportedProfile = check {
+    platform = "darwin";
+    profiles = profile.linuxDesktop;
+  };
   merged = check {
     defaults = {
       desktop.niri.enable = true;
@@ -141,6 +182,32 @@ let
     }
   ];
 in
+assert lib.all
+  (
+    shell:
+    let
+      selected = profileChoice shell { };
+      disabled = profileChoice shell { desktop.${shell}.enable = false; };
+      dormant = profileChoice shell { desktop.niri.enable = false; };
+    in
+    selected.errors == [ ]
+    && selected.enabled.${shell}
+    && selected.selected.desktopShell == shell
+    && disabled.errors != [ ]
+    && !disabled.enabled.${shell}
+    && dormant.errors == [ ]
+    && !dormant.enabled.${shell}
+  )
+  [
+    "dms"
+    "noctalia"
+  ];
+assert profileBinding.errors == [ ];
+assert profileBinding.enabled.niri && profileBinding.enabled.dms;
+assert profileBinding.config.desktop.niri.settings.binds."Mod+B".spawn == [ "my-browser" ];
+assert builtins.toJSON profileBinding == builtins.toJSON profileList;
+assert profilePriority.config.chrome.enable && profilePriority.config.chrome.extensions == [ ];
+assert unsupportedProfile.errors == [ ] && !unsupportedProfile.enabled.niri;
 assert lib.all
   (
     shell:
