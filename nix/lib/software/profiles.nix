@@ -20,6 +20,9 @@ let
     };
   };
   user = {
+    nixman = {
+      nix = nix pkgs.hsingyun.nixconfig.nixman;
+    };
     fastfetch = {
       nix = nix pkgs.fastfetch;
       homebrew = brew "fastfetch";

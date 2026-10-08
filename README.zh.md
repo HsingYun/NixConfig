@@ -40,15 +40,14 @@ Noctalia 在所有默认主机中关闭。Niri 开启后，设置 `features.desk
 
 ### 使用 nixman 管理
 
-`nixman` 统一封装 NixOS/WSL、nix-darwin 和独立 Home Manager，提供更新预览、世代管理和确认后清理。可以直接从 GitHub 运行，无需克隆仓库：
+所有 host 都通过共享用户软件清单安装 `nixman`。它统一封装 NixOS/WSL、nix-darwin 和独立 Home Manager，提供更新预览、世代管理和确认后清理。首次更新可以直接从 GitHub 运行，无需克隆仓库：
 
 ```sh
 nix run github:HsingYun/NixConfig/master#nixman -- --help
 nix run github:HsingYun/NixConfig/master#nixman -- update \
   'github:HsingYun/NixConfig/master#Darwin'
 
-# 也可以安装到用户 profile，直接使用命令
-nix profile add github:HsingYun/NixConfig/master#nixman
+# 应用这份配置后，可以直接使用命令
 nixman status
 nixman generation list
 nixman update

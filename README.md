@@ -40,17 +40,17 @@ Requires Nix with flakes enabled and the configuration tool for the target platf
 
 ### Manage with nixman
 
-`nixman` wraps NixOS/WSL, nix-darwin and standalone Home Manager with update
-previews, generation management and confirmed cleanup. Run it directly from
-GitHub, without cloning the repository:
+`nixman` is installed by the shared user software profile on every host. It
+wraps NixOS/WSL, nix-darwin and standalone Home Manager with update previews,
+generation management and confirmed cleanup. For the initial update, run it
+directly from GitHub without cloning the repository:
 
 ```sh
 nix run github:HsingYun/NixConfig/master#nixman -- --help
 nix run github:HsingYun/NixConfig/master#nixman -- update \
   'github:HsingYun/NixConfig/master#Darwin'
 
-# Or install the command into your user profile
-nix profile add github:HsingYun/NixConfig/master#nixman
+# After applying this configuration
 nixman status
 nixman generation list
 nixman update

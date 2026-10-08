@@ -66,8 +66,14 @@ let
         else
           config.system.build.toplevel;
       homeDirectory = if backend == "darwin" then "/Users/test" else "/home/test";
+      home = if backend == "home-manager" then config else config.home-manager.users.test;
     in
     assert record.schema == 1;
+    assert home.software.resolved.nixman.provider == "nix";
+    assert
+      lib.count (
+        package: package.drvPath == home.software.resolved.nixman.package.drvPath
+      ) home.home.packages == 1;
     assert record.flake == source.flake;
     assert record.managedFiles ? "${homeDirectory}/nixman-probe";
     assert backend != "darwin" || builtins.elem "watch" record.native.homebrew.brews;

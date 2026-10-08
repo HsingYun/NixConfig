@@ -1,5 +1,7 @@
-{ lib, ... }:
+{ inputs, lib, ... }:
 {
+  nixpkgs.overlays = [ (import ../../apps/overlay.nix { inherit inputs; }) ];
+
   # Approval is explicit and shared by standalone HM, NixOS and nix-darwin.
   # These applications/plugins are already selected by the repository's features;
   # do not permit every unfree package or bypass nixpkgs' license checks.

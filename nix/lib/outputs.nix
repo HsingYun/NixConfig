@@ -21,13 +21,18 @@ let
     "aarch64-linux"
     "aarch64-darwin"
   ];
-  packages = lib.genAttrs appSystems (system: rec {
-    nixman = import ../apps/nixman {
-      pkgs = inputs.nixpkgs.legacyPackages.${system};
-      homeManager = inputs.home-manager.packages.${system}.home-manager;
-    };
-    default = nixman;
-  });
+  packages = lib.genAttrs appSystems (
+    system:
+    let
+      pkgs = inputs.nixpkgs.legacyPackages.${system}.extend (
+        import ../apps/overlay.nix { inherit inputs; }
+      );
+    in
+    {
+      inherit (pkgs.hsingyun.nixconfig) nixman;
+      default = pkgs.hsingyun.nixconfig.nixman;
+    }
+  );
 
 in
 {

@@ -6,6 +6,21 @@ and activation mechanisms, without a separate generation database.
 
 ## Run
 
+Every configured host installs `nixman` through the shared user software profile,
+including NixOS, NixOS-WSL, Darwin and Arch. It is a repository-provided Nix
+package, even when Homebrew or pacman is the preferred package manager. No
+feature toggle or separate user-profile installation is required after applying
+a configuration that includes it. The flake app remains available for the
+initial update and for use outside these managed hosts.
+
+The repository package is registered under `pkgs.hsingyun.nixconfig.nixman`.
+Its package name (`pname`), executable, software identity and public flake output
+are all `nixman`. The attribute namespace does not prefix the package name; Nix
+store hashes distinguish derivations. Installing another package that provides
+`bin/nixman` in the same environment can still cause a file collision.
+The overlay preserves unrelated packages and rejects an existing package at
+that exact attribute instead of silently replacing it.
+
 ```sh
 # From a checkout
 nix run .#nixman -- --help
@@ -15,7 +30,7 @@ nix run .#nixman -- status
 nix run github:HsingYun/NixConfig/master#nixman -- update \
   'github:HsingYun/NixConfig/master#Darwin'
 
-# Install into a user profile
+# Optional: install on a machine not managed by this configuration
 nix profile add github:HsingYun/NixConfig/master#nixman
 ```
 
@@ -114,6 +129,12 @@ backend, managed file sources and native package declarations. Relative local
 references are saved using Nix's canonical absolute reference. The next
 `nixman update` without an argument reads the running generation's record and
 passes the same default source into its successor.
+
+Installing the command alone does not create this provenance record. A first
+update through nixman must specify the source. `status` can report that the
+profile matches the running configuration while the default update source is
+unavailable: these describe configuration identity and recorded provenance,
+respectively.
 
 Switching to another recorded generation restores that generation's default
 source. Generations created without nixman remain usable, but do not have this
