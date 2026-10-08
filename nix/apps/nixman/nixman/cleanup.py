@@ -5,6 +5,7 @@ import time
 from .profiles import fingerprint, generations
 from .inspection import envelope, emit_json, generation_data
 from .runtime import Error, executable, nix, nix_json, run
+from .terminal import emit
 
 
 def generation_plan(backend, count, *, keep=None, cutoff=None):
@@ -36,14 +37,14 @@ def generation_gc(backend, args, confirm):
                                                 "olderThanSeconds": age, "cutoff": cutoff},
                            generations=[generation_data(gen) for gen in plan]))
         return
-    print("Generation cleanup plan (oldest first):")
+    emit("Generation cleanup plan (oldest first):", "heading")
     if keep is not None:
         print(f"Keep the newest {keep} generation(s), plus any older active or selected generations.")
     if age is not None:
         print(f"Only generations older than {age} seconds at preview time are eligible.")
     for generation in plan:
-        print(f"  - {generation.id:<8} {generation.date}  {generation.path}")
-    print(f"\nDelete {len(plan)} generation(s). Active and selected generations are protected.")
+        emit(f"  - {generation.id:<8} {generation.date}  {generation.path}", "remove")
+    emit(f"\nDelete {len(plan)} generation(s). Active and selected generations are protected.", "warning")
     print("Store objects remain until garbage collection. Deleted generation numbers cannot be restored.")
     if not plan or args.dry_run:
         print("No generations deleted.")
@@ -57,7 +58,7 @@ def generation_gc(backend, args, confirm):
     # generation when the selected profile points at a different generation.
     run([executable("nix-env"), "--profile", backend.profile(), "--delete-generations",
          *[str(generation.id) for generation in plan]], privileged=backend.system)
-    print(f"Deleted {len(plan)} generation(s). Run 'nixman gc' to preview store cleanup.")
+    emit(f"Deleted {len(plan)} generation(s). Run 'nixman gc' to preview store cleanup.", "success")
 
 
 def dead_paths():
@@ -113,14 +114,14 @@ def store_gc(args, confirm):
     if not paths:
         print("The Nix store has no unreachable paths to collect.")
         return
-    print("Store cleanup plan (unreachable paths only):")
+    emit("Store cleanup plan (unreachable paths only):", "heading")
     for path in paths:
-        print(f"  - {path}")
-    print(f"\nCollect {len(paths)} unreachable path(s) using Nix garbage collection.")
+        emit(f"  - {path}", "remove")
+    emit(f"\nCollect {len(paths)} unreachable path(s) using Nix garbage collection.", "warning")
     if size_estimate["bytes"] is None:
-        print("Estimated space to reclaim: unavailable (could not query path sizes).")
+        emit("Estimated space to reclaim: unavailable (could not query path sizes).", "warning")
     else:
-        print(f"Estimated space to reclaim: {format_size(size_estimate['bytes'])} (NAR-based estimate).")
+        emit(f"Estimated space to reclaim: {format_size(size_estimate['bytes'])} (NAR-based estimate).", "heading")
         if size_estimate["unmeasuredPaths"]:
             print(f"Estimate excludes {size_estimate['unmeasuredPaths']} path(s) without size metadata.")
         print("Actual disk space freed may differ due to hard links, compression and filesystem overhead.")
@@ -137,4 +138,4 @@ def store_gc(args, confirm):
     # Native GC also handles unregistered build remnants and stale lock files.
     # Keep that policy in Nix, including root checks and the actual byte count.
     nix("store", "gc")
-    print("Store garbage collection complete.")
+    emit("Store garbage collection complete.", "success")

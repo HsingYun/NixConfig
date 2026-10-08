@@ -3,6 +3,7 @@ from datetime import datetime, timezone
 import json
 
 from .profiles import generations, metadata, select
+from .terminal import emit, field, style
 
 
 def envelope(command, **values):
@@ -61,36 +62,46 @@ def local_date(value):
 
 
 def display_status(data):
-    print(f"Backend: {data['backend']}\nProfile: {data['profile']}")
+    field("Backend", data["backend"])
+    field("Profile", data["profile"])
     for name in ("active", "selected"):
         ids = ", ".join(map(str, data[name]["generations"])) or "unknown"
-        print(f"{name.capitalize()} generation: {ids}")
+        field(f"{name.capitalize()} generation", ids)
     for name in ("active", "selected"):
-        print(f"{name.capitalize()} path: {data[name]['path'] or '(none)'}")
-    print(f"Profile matches running configuration: {data['profileMatchesRunning']}")
+        field(f"{name.capitalize()} path", data[name]["path"] or "(none)")
+    matches = data["profileMatchesRunning"]
+    field("Profile matches running configuration", style(str(matches), "success" if matches else "warning"))
     if data["defaultUpdateSource"] is not None:
-        print(f"Default update source: {data['defaultUpdateSource']}")
-        print(f"Recorded revision: {data['revision'] or '(not available)'}")
+        field("Default update source", data["defaultUpdateSource"])
+        field("Recorded revision", data["revision"] or "(not available)")
     else:
-        print("Default update source: unavailable; supply FLAKE#HOST on the first update")
+        emit("Default update source: unavailable; supply FLAKE#HOST on the first update", "warning")
 
 
 def display_list(data):
-    print("GENERATION  CREATED              STATE")
+    emit("GENERATION  CREATED              STATE", "heading")
     for gen in data["generations"]:
         marks = [name for flag, name in ((gen["active"], "* active"), (gen["selected"], "selected"),
                                          (not gen["available"], "missing")) if flag]
-        print(f"{gen['id']:<11} {local_date(gen['createdAt']):<20} {'; '.join(marks)}")
+        row = f"{gen['id']:<11} {local_date(gen['createdAt']):<20} {'; '.join(marks)}"
+        if not gen["available"]:
+            emit(row, "warning")
+        elif gen["active"]:
+            emit(row, "success")
+        else:
+            print(row)
     print("* active = running configuration; selected = profile/next-boot configuration")
 
 
 def display_info(data):
     gen = data["generation"]
-    print(f"Generation: {gen['id']}\nCreated: {local_date(gen['createdAt'])}\nBackend: {data['backend']}")
-    print(f"Active: {gen['active']}\nSelected: {gen['selected']}\nStore path: {gen['path']}")
+    for name, value in (("Generation", gen["id"]), ("Created", local_date(gen["createdAt"])),
+                        ("Backend", data["backend"]), ("Active", gen["active"]),
+                        ("Selected", gen["selected"]), ("Store path", gen["path"])):
+        field(name, value)
     if data["provenance"] is not None:
         emit_json(data["provenance"])
     else:
-        print("Source flake: unavailable (generation was not created by nixman)")
+        emit("Source flake: unavailable (generation was not created by nixman)", "warning")
     for name, version in data["versions"].items():
-        print(f"{name}: {version}")
+        field(name, version)

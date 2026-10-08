@@ -7,6 +7,7 @@ from urllib.parse import unquote, quote, urlsplit, parse_qsl
 
 from .runtime import Error, nix, nix_json, run, WRAPPER_OPTIONS
 from .backends import BACKENDS
+from .terminal import emit
 
 
 def normalize(reference):
@@ -117,7 +118,7 @@ def prepare(reference, directory):
 
 def build(backend, wrapper, directory):
     target = f"{wrapper}#{backend.collection}.nixman.{backend.output}"
-    print("\nBuild plan (dry run):", flush=True)
+    emit("\nBuild plan (dry run):", "heading", flush=True)
     nix("build", "--dry-run", "--no-link", *WRAPPER_OPTIONS, "--no-update-lock-file", target)
     print("\nBuilding the candidate for an exact preview; nothing is activated yet.", flush=True)
     result = nix_json("build", "--json", "--out-link", str(directory / "candidate"),

@@ -21,6 +21,7 @@ pkgs.runCommand "nixman-check"
     export PYTHONPATH=${../../apps/nixman}
     python ${./test_nixman.py}
     python ${./test_interface.py}
+    python ${./test_terminal.py}
     python ${./integration.py}
     export XDG_CACHE_HOME="$TMPDIR/cache"
     export XDG_CONFIG_HOME="$TMPDIR/config"

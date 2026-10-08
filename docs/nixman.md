@@ -69,6 +69,18 @@ EOF cancels, and noninteractive execution requires explicit `--yes` unless it
 is a preview. `update --dry-run` may download and build store objects to produce
 an accurate preview, but does not activate the configuration.
 
+Human-readable output uses color on interactive terminals when `TERM` is set
+and is neither `dumb` nor `unknown`. Headings use cyan, additions and success use
+green, removals and errors use red, and changes and warnings use yellow. Text
+labels and diff markers remain present when color is disabled.
+
+Set a nonempty `NO_COLOR` value to disable color, for example
+`NO_COLOR=1 nixman status`. Redirected output remains uncolored; stdout and stderr
+are checked independently. Nixman also removes Nix closure-diff color codes
+when its output should be plain. Build and activation logs retain the upstream
+tools' formatting. `nixman info`, `--json` reports and completion output are
+always plain, including on a terminal.
+
 ## Flake references and updates
 
 Reference parsing is delegated to Nix, including local paths, registry names,

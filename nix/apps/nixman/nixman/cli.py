@@ -14,6 +14,7 @@ from .profiles import fingerprint, generations, metadata, select
 from .inspection import (status_data, list_data, info_data, display_status, display_list,
                          display_info, emit_json, envelope)
 from .runtime import Error, executable, run
+from .terminal import emit, field, style
 
 
 def confirm(yes, destructive=False, no_changes=False):
@@ -26,7 +27,7 @@ def confirm(yes, destructive=False, no_changes=False):
             prompt = "\nProceed with deletion? [y/N] " if destructive else "\nProceed with activation? [Y/n] "
             if no_changes and not destructive:
                 prompt = "\nContinue with activation and generation registration? [Y/n] "
-            answer = input(prompt).strip().lower()
+            answer = input(style(prompt, "warning" if destructive else "prompt")).strip().lower()
         except EOFError:
             return False
         if answer == "":
@@ -62,7 +63,9 @@ def update(args):
         executable(backend.command)
         initial = fingerprint(backend)
         current = backend.active()
-        print(f"Backend: {backend.name}\nSource: {source['flake']}", flush=True)
+        field("Backend", backend.name)
+        field("Source", source["flake"])
+        sys.stdout.flush()
         candidate = build(backend, wrapper, directory)
         changed = preview(backend, current, candidate)
         if args.dry_run:
@@ -76,7 +79,7 @@ def update(args):
         backend.update(wrapper)
         if backend.active() != candidate:
             raise Error("The upstream command completed, but the active generation does not match the preview. Inspect 'generation list'.")
-        print("\nActivation complete. The source flake is saved in this generation.")
+        emit("\nActivation complete. The source flake is saved in this generation.", "success")
 
 
 def switch(backend, args):
@@ -101,7 +104,7 @@ def switch(backend, args):
         backend.switch(backend.profile(), generation)
         if backend.active() != generation.path:
             raise Error("Activation did not select the expected running generation. Inspect 'generation list'.")
-        print(f"\nActivated generation {generation.id}.")
+        emit(f"\nActivated generation {generation.id}.", "success")
 
 
 def rollback(backend, args):
@@ -114,7 +117,7 @@ def rollback(backend, args):
     if previous is None:
         raise Error("No earlier available generation exists.")
     args.generation = previous.id
-    print(f"Rollback: generation {current.id} -> {previous.id}")
+    emit(f"Rollback: generation {current.id} -> {previous.id}", "warning")
     switch(backend, args)
 
 
@@ -270,11 +273,11 @@ def main(argv=None):
         if getattr(args, "json", False):
             command = " ".join(filter(None, (args.command, getattr(args, "generation_command", None))))
             emit_json(envelope(command, error={"message": str(exc)}))
-        print(f"nixman: {exc}", file=sys.stderr)
+        emit(f"nixman: {exc}", "error", file=sys.stderr)
         if isinstance(exc, subprocess.CalledProcessError):
-            print("If activation started, inspect 'generation list': upstream activation can fail after partially applying changes.", file=sys.stderr)
+            emit("If activation started, inspect 'generation list': upstream activation can fail after partially applying changes.", "warning", file=sys.stderr)
         return 1
     except KeyboardInterrupt:
-        print("\nnixman: interrupted", file=sys.stderr)
+        emit("\nnixman: interrupted", "warning", file=sys.stderr)
         return 130
     return 0

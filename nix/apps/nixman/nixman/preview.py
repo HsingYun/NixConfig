@@ -6,6 +6,7 @@ from pathlib import Path
 
 from .profiles import metadata
 from .runtime import nix, run
+from .terminal import CHANGE_STYLES, emit, external
 
 
 def file_manifest(root, *, normalise_generation=False):
@@ -96,9 +97,9 @@ def native_preview(old, new):
             a, b = left.get(group), right.get(group)
             if isinstance(a or b, list):
                 for mark, name in changes(dict.fromkeys(a or []), dict.fromkeys(b or [])):
-                    print(f"  {mark} {provider}.{group}: {name}")
+                    emit(f"  {mark} {provider}.{group}: {name}", CHANGE_STYLES[mark])
             elif a != b:
-                print(f"  ~ {provider}.{group}: {json.dumps(a)} -> {json.dumps(b)}")
+                emit(f"  ~ {provider}.{group}: {json.dumps(a)} -> {json.dumps(b)}", "change")
     if old is None:
         print("  Previous generation has no recorded plan; '+' means desired, not necessarily absent on this machine.")
     print("  Native changes above describe configuration intent, not a resolved package-manager transaction.")
@@ -107,14 +108,14 @@ def native_preview(old, new):
 
 def preview(backend, old, new):
     old_data, new_data = metadata(old), metadata(new)
-    print(f"\nBaseline:  {old or '(none)'}\nCandidate: {new}", flush=True)
-    print("\nNix closure changes:", flush=True)
+    emit(f"\nBaseline:  {old or '(none)'}\nCandidate: {new}", "heading", flush=True)
+    emit("\nNix closure changes:", "heading", flush=True)
     if old is not None:
-        nix("store", "diff-closures", str(old), str(new))
+        print(external(nix("store", "diff-closures", str(old), str(new), capture=True)), end="", flush=True)
     else:
         print("  Initial activation (no active generation to compare).")
         nix("path-info", "--closure-size", "--human-readable", str(new))
-    print("\nManaged file changes (+ add, - remove, ~ change):")
+    emit("\nManaged file changes (+ add, - remove, ~ change):", "heading")
     subdir = "etc" if backend.system else "home-files"
     if old_data and "managedFiles" in old_data and new_data and "managedFiles" in new_data:
         before, after = declared_files(old_data), declared_files(new_data)
@@ -131,14 +132,14 @@ def preview(backend, old, new):
                     print(f"    {name}")
     rows = list(changes(before, after))
     for mark, name in rows:
-        print(f"  {mark} {name}")
+        emit(f"  {mark} {name}", CHANGE_STYLES[mark])
     if not rows:
         print("  None.")
-    print("\nNative package declarations:")
+    emit("\nNative package declarations:", "heading")
     native_preview(old_data, new_data)
     print("\nActivation also applies services and settings from the candidate configuration.", flush=True)
     changed = not configuration_equal(old, new)
     if not changed:
-        print("No configuration changes detected.")
+        emit("No configuration changes detected.", "success")
         print("Nix may reuse the existing generation. Activation can still repair drift or run native package actions.")
     return changed
