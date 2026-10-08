@@ -23,6 +23,10 @@ let
   # Independent compatibility specification. Update when adding a feature.
   all = platforms;
   support = {
+    autostart = [
+      "arch"
+      "nixos"
+    ];
     commonTools = all;
     efiTools = [
       "arch"

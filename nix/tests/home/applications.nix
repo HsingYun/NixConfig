@@ -125,6 +125,7 @@ let
       override
     ];
     assert (binds enabled)."Mod+T".spawn == enabled.desktop.applications.terminal.command;
+    assert !(enabled.wayland.windowManager.niri.settings ? spawn-at-startup);
     assert (binds enabled)."Mod+B".spawn == enabled.desktop.applications.browser.command;
     assert
       (binds enabled)."Mod+Return".spawn

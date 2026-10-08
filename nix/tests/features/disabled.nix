@@ -38,6 +38,10 @@ let
   # Check repository-specific settings, including integrations, rather than
   # assuming that upstream defaults or shared packages disappear.
   checks = {
+    autostart = {
+      on = cfg: (home cfg).xdg.autostart.enable;
+      off = cfg: !(home cfg).xdg.autostart.enable && (home cfg).xdg.autostart.entries == [ ];
+    };
     mihomo = {
       on = cfg: cfg.services.mihomo.enable && cfg.services.mihomo.tunMode;
       off =

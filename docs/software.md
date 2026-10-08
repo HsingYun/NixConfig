@@ -279,9 +279,12 @@ unconfigured executable. Arch uses its system Nix profile for system requests.
 
 Desktop integration is separate from package retention. For example, disabling
 `programs.ghostty.enable` keeps the feature's explicit package request, but removes
-its default terminal selection, `TERMINAL`, Niri startup and shortcut. Disabling
+its default terminal selection, `TERMINAL`, and Niri terminal shortcut. Disabling
 `xdg.terminal-exec.enable` removes the automatic Niri Mod+Return binding for both
 Nix and native providers. Explicit host shortcuts remain authoritative.
+Desktop login commands belong to the host's [autostart declarations](features.md#desktop-autostart).
+When a host startup command references the selected terminal, removing that role
+also requires changing or disabling the host's startup entry.
 
 For software that needs no additional configuration, declare a package-only feature in the catalog:
 

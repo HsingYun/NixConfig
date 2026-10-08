@@ -137,6 +137,59 @@ declaring one owns all settings in that block, including omitted values
 reverting to Niri defaults. Missing dynamic
 fragments are allowed; malformed existing fragments remain errors.
 
+## Desktop autostart
+
+`features.desktop.autostart.enable = true;` enables user desktop login commands
+on NixOS and Arch. It is disabled by default and has no default applications.
+The host's Home Manager module declares named entries:
+
+```nix
+{ software, ... }:
+{
+  desktop.autostart.entries.browser = {
+    command = [ (software.chrome.command "google-chrome-stable") "--new-window" ];
+  };
+  desktop.autostart.entries.notes = {
+    command = [ "/home/hsingyun/bin/open-notes" "work notes" ];
+    environment.NOTES_MODE = "work";
+    workingDirectory = "/home/hsingyun/Documents";
+  };
+}
+```
+
+Commands are literal argument lists: spaces, `$`, `%` and shell syntax remain
+literal. Invoke a script explicitly for shell logic. Prefer absolute executable
+paths; bare commands use the desktop session's `PATH`. Environment values are
+also literal and stored in the Nix store, so do not put secrets in them. An
+explicit working directory must be absolute and must exist when the command
+starts. Without one, the session launcher's working directory is inherited.
+The host owns its startup selection; entries apply to any XDG Autostart-capable
+desktop session on that host, without detecting or restricting the desktop.
+
+Entries merge through the normal Nix module system. Use stable entry names,
+`lib.mkDefault` for shared defaults, and `entries.<name>.enable = false` to
+disable an inherited entry. Entry names contain letters, digits, `_`, `-` and
+`.` and cannot start with `.`. Disabling an entry removes only this feature's
+generated file; it does not suppress an application's separately supplied
+autostart entry. Keep a single startup owner for each application.
+
+The feature generates namespaced desktop files through Nixpkgs and links them
+through Home Manager's `xdg.autostart`. GNOME and Niri's systemd session consume
+the same XDG mechanism. Activation updates files without launching commands;
+the next desktop login uses them. It does not stop an already running process,
+restart crashed applications, or manage privileged boot services. Existing
+input-method and desktop-shell services keep their own lifecycle. Declaring an
+entry does not install its application: use its feature or the software layer
+separately. The module consumes commands and never selects application roles
+or package providers.
+
+Niri itself no longer starts a terminal by default. [NixOS-PC](../hosts/NixOS-PC/home.nix)
+and [ArchLinux](../hosts/ArchLinux/home.nix) explicitly enable this feature and
+declare the selected terminal directly, without conditional startup policy.
+Update that declaration when changing the host's desired startup applications.
+Pad retains no custom autostart entries. Disable `desktop.autostart.entries.terminal.enable` in either
+host to retain the terminal shortcuts without opening a terminal at login.
+
 ## Configuration ownership and precedence
 
 All platforms use the same rules. Package providers only select installation

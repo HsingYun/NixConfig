@@ -28,6 +28,14 @@ let
 in
 import ./availability.nix { inherit lib platformRegistry; } {
   features = {
+    autostart = {
+      path = [
+        "desktop"
+        "autostart"
+      ];
+      platforms = desktops;
+      homeModules = [ ../../modules/home/features/autostart.nix ];
+    };
     mihomo = {
       platforms = [
         "arch"

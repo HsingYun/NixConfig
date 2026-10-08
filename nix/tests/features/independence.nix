@@ -36,6 +36,11 @@ let
     && hasPackage "tela-icon-theme" cfg
     && (home cfg).dconf.settings."org/gnome/desktop/interface".icon-theme == "Tela";
   checks = {
+    autostart =
+      cfg:
+      (home cfg).xdg.autostart.enable
+      && (home cfg).xdg.autostart.entries == [ ]
+      && !((home cfg).xdg.configFile ? autostart);
     mihomo =
       cfg:
       cfg.services.mihomo.enable

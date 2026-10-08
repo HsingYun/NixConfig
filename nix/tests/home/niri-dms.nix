@@ -186,7 +186,8 @@ let
     assert !(niri.settings ? input);
     assert niri.settings.hotkey-overlay.skip-at-startup == { };
     assert niri.settings.binds."Mod+Tab".toggle-overview == { };
-    assert niri.settings.binds."Mod+T".spawn == niri.settings.spawn-at-startup;
+    assert niri.settings.binds."Mod+T".spawn == enabled.desktop.applications.terminal.command;
+    assert !(niri.settings ? spawn-at-startup);
     # Linux installs Chrome through the software plan, without enabling HM's
     # Chrome module. Its shortcut must still use the selected provider.
     assert !enabled.programs.google-chrome.enable;

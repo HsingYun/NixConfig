@@ -99,6 +99,7 @@ lib.recursiveUpdate hostChecks (
       native-niri-config = import ./helpers/arch/niri.nix { inherit inputs pkgs; };
     }
     // lib.optionalAttrs pkgs.stdenv.hostPlatform.isLinux {
+      desktop-autostart = import ./home/autostart.nix { inherit inputs pkgs hosts; };
       mihomo-service = import ./ports/mihomo-vm.nix { inherit inputs pkgs; };
       native-user-units = import ./home/native-systemd.nix { inherit inputs pkgs; };
       native-system-backend = import ./helpers/common/system-backend.nix { inherit inputs pkgs; };

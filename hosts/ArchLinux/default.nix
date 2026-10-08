@@ -12,6 +12,7 @@
   system = "x86_64-linux";
   features = lib.recursiveUpdate profile.linuxDesktop {
     desktop = {
+      autostart.enable = true;
       dms = {
         settings = {
           matugenTargetMonitor = "DP-5";

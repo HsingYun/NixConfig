@@ -1,6 +1,7 @@
 {
   "ArchLinux": {
     "enabled": [
+      "autostart",
       "chinese",
       "chrome",
       "codex",
@@ -53,6 +54,7 @@
   },
   "NixOS-PC": {
     "enabled": [
+      "autostart",
       "chinese",
       "chrome",
       "codex",
@@ -101,7 +103,6 @@
       "keyring",
       "launcher",
       "mapleMono",
-      "mihomo",
       "mpv",
       "network",
       "nixLd",

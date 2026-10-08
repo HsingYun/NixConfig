@@ -19,7 +19,6 @@ in
       }
     );
     wayland.windowManager.niri.settings = {
-      spawn-at-startup = lib.mkIf (apps.terminal != null) (lib.mkDefault apps.terminal.command);
       binds = lib.mapAttrs (_: lib.mkDefault) (
         lib.optionalAttrs config.xdg.terminal-exec.enable {
           "Mod+Return" = {
