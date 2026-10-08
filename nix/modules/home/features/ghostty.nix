@@ -55,7 +55,6 @@ in
         }
         // lib.optionalAttrs isLinux {
           gtk-titlebar-style = "tabs";
-          gtk-titlebar-hide-when-maximized = true;
           gtk-tabs-location = "top";
           gtk-wide-tabs = false;
           gtk-toolbar-style = "raised-border";
