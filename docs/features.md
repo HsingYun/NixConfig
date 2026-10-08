@@ -219,6 +219,11 @@ features = {
 defaults; upstream modules validate values and generate files. Unrelated defaults
 remain intact. An exceptional conflicting low-level override can use `lib.mkForce`.
 
+On Linux, Ghostty defaults to tabs integrated into the titlebar, hides the
+titlebar when maximized, places tabs at the top, uses content-width tabs, and
+uses flat toolbars. These GTK defaults can be overridden through
+`features.ghostty.settings`.
+
 Niri's Qt theme and Electron Wayland preferences apply independently of Chinese
 input. The Niri–Chinese integration owns input-method environment adjustments
 and follows the configured locale; it only runs for an enabled Fcitx5 input method.

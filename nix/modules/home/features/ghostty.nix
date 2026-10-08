@@ -7,7 +7,7 @@
 }:
 
 let
-  inherit (pkgs.stdenv.hostPlatform) isDarwin;
+  inherit (pkgs.stdenv.hostPlatform) isDarwin isLinux;
 in
 {
   software = {
@@ -52,6 +52,13 @@ in
           shell-integration = "detect";
           shell-integration-features = "ssh-terminfo,ssh-env";
           scrollback-limit = 25000000;
+        }
+        // lib.optionalAttrs isLinux {
+          gtk-titlebar-style = "tabs";
+          gtk-titlebar-hide-when-maximized = true;
+          gtk-tabs-location = "top";
+          gtk-wide-tabs = false;
+          gtk-toolbar-style = "flat";
         }
         // lib.optionalAttrs isDarwin {
           macos-titlebar-style = "transparent";
