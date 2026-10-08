@@ -58,7 +58,7 @@ in
           gtk-titlebar-hide-when-maximized = true;
           gtk-tabs-location = "top";
           gtk-wide-tabs = false;
-          gtk-toolbar-style = "flat";
+          gtk-toolbar-style = "raised-border";
         }
         // lib.optionalAttrs isDarwin {
           macos-titlebar-style = "transparent";
