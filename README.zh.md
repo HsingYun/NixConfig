@@ -49,6 +49,7 @@ nix run github:HsingYun/NixConfig/master#nixman -- update \
 
 # 应用这份配置后，可以直接使用命令
 nixman status
+nixman info
 nixman generation list
 nixman update
 ```

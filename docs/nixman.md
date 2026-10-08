@@ -45,6 +45,7 @@ NixOS and Darwin use the installed `nixos-rebuild` and `darwin-rebuild` commands
 | Command | Behavior |
 | --- | --- |
 | `nixman status` | Show the backend, active and selected generations, and default update source. |
+| `nixman info` | Print the running generation's `nixman.json` as formatted JSON. |
 | `nixman update [FLAKE#HOST]` | Refresh the source, build and preview a candidate, then confirm activation. |
 | `nixman generation list` | List upstream generation numbers; mark running and profile-selected configurations separately. |
 | `nixman generation info ID` | Show creation time, store path, version and recorded provenance. |
@@ -263,6 +264,12 @@ effects or a profile change. Use `status` and `generation list` to distinguish
 the running configuration from the selected profile before retrying.
 
 ## Structured output
+
+`nixman info` prints the running generation's complete `nixman.json`, indented
+with two spaces, without headings or a report envelope. It does not require
+`--json`. If the record is absent or invalid, it leaves stdout empty, reports
+the error on stderr and exits with a nonzero status. It reads the running
+generation even when the profile selects a different generation.
 
 These commands emit a single JSON object on stdout:
 

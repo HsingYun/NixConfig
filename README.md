@@ -52,6 +52,7 @@ nix run github:HsingYun/NixConfig/master#nixman -- update \
 
 # After applying this configuration
 nixman status
+nixman info
 nixman generation list
 nixman update
 ```

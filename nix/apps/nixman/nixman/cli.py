@@ -154,6 +154,7 @@ Examples:
   nixman update 'git+ssh://git@example.com/config?ref=main#host'
   nixman update --dry-run
   nixman status --json
+  nixman info
   nixman generation list
   nixman generation info 12
   nixman generation diff 11 12
@@ -184,6 +185,7 @@ Behavior:
     update_parser = commands.add_parser("update", help="refresh the source flake, preview, then switch")
     update_parser.add_argument("flake", nargs="?", help="FLAKE#HOST; defaults to the active generation's saved source")
     status_parser = commands.add_parser("status", help="show active/selected generations and the saved update source")
+    commands.add_parser("info", help="print the active generation's nixman.json as formatted JSON")
     completion_parser = commands.add_parser("completion", help="print a packaged shell completion script")
     completion_parser.add_argument("shell", choices=("bash", "zsh", "fish"))
     rollback_parser = commands.add_parser("rollback", help="preview and activate the generation before the running one")
@@ -245,6 +247,11 @@ def main(argv=None):
         if args.command == "status":
             data = status_data(backend)
             (emit_json if args.json else display_status)(data)
+        elif args.command == "info":
+            record = metadata(backend.active())
+            if record is None:
+                raise Error("The active generation has no nixman.json. Run 'nixman update FLAKE#HOST' to create a recorded generation.")
+            emit_json(record)
         elif args.command == "rollback":
             rollback(backend, args)
         elif args.generation_command == "list":

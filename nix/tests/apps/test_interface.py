@@ -191,6 +191,29 @@ class InterfaceTests(unittest.TestCase):
         self.assertEqual(info["provenance"], record)
         self.assertTrue(info["generation"]["createdAt"].endswith("+00:00"))
 
+    def test_info_prints_only_the_complete_active_record(self):
+        record = {"schema": 1, "backend": "darwin", "flake": "github:owner/repo#active",
+                  "native": {"homebrew": {"brews": ["vim"]}}, "extra": {"label": "测试"}}
+        (self.paths[2] / "nixman.json").write_text(json.dumps(record))
+        (self.paths[6] / "nixman.json").write_text(json.dumps({**record, "flake": "selected"}))
+        code, result = self.invoke("info")
+        self.assertEqual(code, 0)
+        self.assertEqual(result, record)
+        self.assertEqual(self.output.getvalue(), json.dumps(record, indent=2, ensure_ascii=False) + "\n")
+        self.assertEqual(completion.complete(["inf"], cli.parser()), ["info"])
+
+    def test_info_missing_or_invalid_record_leaves_stdout_empty(self):
+        for content in (None, "invalid JSON", '{"schema": 2, "flake": "source"}'):
+            if content is not None:
+                (self.paths[2] / "nixman.json").write_text(content)
+            self.output.seek(0)
+            self.output.truncate()
+            errors = io.StringIO()
+            with patch.object(cli, "detect", return_value=self.backend), contextlib.redirect_stderr(errors):
+                self.assertEqual(cli.main(["info"]), 1)
+            self.assertEqual(self.output.getvalue(), "")
+            self.assertIn("nixman", errors.getvalue())
+
     def test_json_error_is_parseable_and_nonzero(self):
         with contextlib.redirect_stderr(io.StringIO()):
             code, data = self.invoke("generation", "info", "999", "--json")
