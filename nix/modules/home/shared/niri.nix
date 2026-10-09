@@ -1,5 +1,6 @@
 {
   config,
+  helpers,
   options,
   lib,
   pkgs,
@@ -7,7 +8,8 @@
 }:
 let
   cfg = config.desktop.niri;
-  toKDL = import ../../../assets/helpers/common/kdl.nix { inherit lib; };
+  inherit (helpers) kdl;
+  toKDL = kdl.render { inherit lib; };
   layer = import ../../../assets/helpers/common/config-layers.nix { inherit lib; };
   runtimeSections = lib.genAttrs (builtins.attrNames orders) (
     strategy:
@@ -50,6 +52,8 @@ let
   );
 in
 {
+  imports = [ ../../shared/helpers.nix ];
+
   options.desktop.niri = {
     defaultSettings = lib.mkOption {
       type = options.wayland.windowManager.niri.settings.type;
@@ -110,12 +114,9 @@ in
         ) (lib.filterAttrs (_: settings: settings != { }) runtimeDefaults)
         ++ map (
           fragment:
-          ordered fragment.strategy "runtime" (toKDL {
-            include = {
-              _args = [ fragment.path ];
-              _props.optional = true;
-            };
-          })
+          ordered fragment.strategy "runtime" (
+            toKDL (kdl.node "include" [ fragment.path ] (kdl.props { optional = true; }))
+          )
         ) cfg.runtimeIncludes
       );
     };

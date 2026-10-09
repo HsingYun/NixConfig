@@ -1,7 +1,7 @@
 { pkgs }:
 let
   inherit (pkgs) lib;
-  inherit (import ./recipe-constructors.nix { inherit pkgs; }) nix brew pacman;
+  inherit (import ./recipe-constructors.nix) nix brew pacman;
   base = {
     nano = {
       nix = nix pkgs.nano;

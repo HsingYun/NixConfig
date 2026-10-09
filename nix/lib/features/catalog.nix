@@ -55,11 +55,7 @@ import ./availability.nix { inherit lib platformRegistry; } {
       portScopes = [ "system" ];
     };
     mihomo = {
-      platforms = [
-        "arch"
-        "nixos"
-        "darwin"
-      ];
+      platforms = all;
       contracts = [ "system.mihomo" ];
       systemModules = [ ../../modules/system/features/mihomo.nix ];
       activation = {
@@ -88,10 +84,7 @@ import ./availability.nix { inherit lib platformRegistry; } {
       homeModules = [ ../../modules/home/features/common-tools.nix ];
     };
     efiTools = {
-      platforms = [
-        "arch"
-        "nixos"
-      ];
+      platforms = platformRegistry.withCapability "efi";
       software = [ "efibootmgr" ];
       homeModules = [ ../../modules/home/features/efi-tools.nix ];
     };
@@ -508,6 +501,7 @@ import ./availability.nix { inherit lib platformRegistry; } {
     };
     chinese = {
       contracts = [ "home.input-method" ];
+      portScopes = [ "home" ];
       platforms = desktops;
       options = {
         settings = settingsOption "Fcitx settings: inputMethod, globalOptions and addons";

@@ -1,7 +1,10 @@
 { inputs }:
 let
   inherit (inputs.nixpkgs) lib;
-  resolve = import ../../lib/software/resolve.nix { inherit lib; };
+  resolve = import ../../lib/software/resolve.nix {
+    inherit lib;
+    platformProviders = (import ../../lib/platforms).packageProviders;
+  };
   featureCatalog = (import ../../lib/features/catalog.nix { inherit lib; }).features;
   applicationFeatures = lib.filterAttrs (_: entry: entry ? software) featureCatalog;
   catalog = import ../../lib/software/catalog.nix {

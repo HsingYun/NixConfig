@@ -61,6 +61,82 @@ let
       ++ modules;
     }).config.value;
   probes = {
+    # Recipe eligibility uses nixpkgs' evaluated policy, not a second metadata check.
+    "nixpkgs.meta.available" = pkgs.hello.meta ? available && builtins.isBool pkgs.hello.meta.available;
+    # The Arch GDM port reuses NixOS's AccountsService session utility.
+    "nixos.gdm.session-utility" = lib.isDerivation (
+      inputs.nixpkgs.legacyPackages.x86_64-linux.callPackage
+        "${inputs.nixpkgs}/nixos/modules/services/x11/display-managers/account-service-util.nix"
+        { }
+    );
+    # The Arch port delegates Niri configuration and replaces only native unit installation.
+    "hm.niri.port-interface" =
+      let
+        module = import "${inputs.home-manager}/modules/services/window-managers/niri.nix" {
+          inherit lib pkgs;
+          config = { };
+        };
+      in
+      builtins.attrNames module == [
+        "config"
+        "imports"
+        "meta"
+        "options"
+      ]
+      && builtins.isList module.imports
+      && module.options.wayland.windowManager.niri.package.type.check null
+      && module.options.wayland.windowManager.niri.systemd.enable.type.check true;
+    # Native mpv delegates script placement; upstream owns the unchanged schema and text generation.
+    "hm.mpv.port-interface" =
+      let
+        h = home [ ];
+        upstream = import "${inputs.home-manager}/modules/programs/mpv.nix" {
+          inherit lib pkgs;
+          inherit (h) config options;
+        };
+      in
+      builtins.attrNames upstream == [
+        "config"
+        "meta"
+        "options"
+      ]
+      && upstream.options.programs.mpv.finalPackage.readOnly
+      && upstream.options.programs.mpv.package.type.check null
+      && upstream.options.programs.mpv.scripts.type.check [ pkgs.mpvScripts.modernx ];
+    # The native Vim port reuses these declarations and the unchanged Nix config.
+    "hm.vim.port-interface" =
+      let
+        module = import "${inputs.home-manager}/modules/programs/vim.nix" {
+          inherit lib pkgs;
+          config = { };
+        };
+      in
+      builtins.attrNames module == [
+        "config"
+        "options"
+      ]
+      && module.options.programs.vim.package.readOnly
+      && module.options.programs.vim.packageConfigurable.type.check pkgs.vim
+      && builtins.isList module.options.programs.vim.plugins.default;
+
+    # The Arch keyring port gates only config; upstream owns the Nix service.
+    "hm.gnome-keyring.port-interface" =
+      let
+        module = import "${inputs.home-manager}/modules/services/gnome-keyring.nix" {
+          inherit lib pkgs;
+          config = { };
+        };
+      in
+      builtins.attrNames module == [
+        "config"
+        "meta"
+        "options"
+      ]
+      && module.options.services.gnome-keyring.components.type.check [
+        "pkcs11"
+        "secrets"
+      ];
+
     # entryBetween takes before first and after second: first -> middle -> last.
     "hm.dag.entryBetween-order" =
       let

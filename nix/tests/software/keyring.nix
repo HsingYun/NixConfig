@@ -26,7 +26,8 @@ let
     in
     assert lib.all (a: a.assertion) h.assertions;
     assert h.software.resolved.gnome-keyring.provider == provider;
-    assert h.services.gnome-keyring.enable == (provider == "nix");
+    assert h.services.gnome-keyring.enable;
+    assert (h.services.gnome-keyring.package == null) == (provider == "pacman");
     assert !(h.software.packageOverrides ? gnome-keyring);
     assert (h.xdg.configFile ? "systemd/user/gnome-keyring-daemon.socket") == (provider == "pacman");
     assert

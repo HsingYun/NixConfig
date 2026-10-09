@@ -1,6 +1,6 @@
 { inputs, ... }: {
   imports = [
-    ../../../../modules/home/software/dms-consumer.nix
+    ../../../../modules/home/software/adapters/dms.nix
     inputs.dms.homeModules.dank-material-shell
   ];
 }

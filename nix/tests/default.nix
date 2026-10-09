@@ -79,6 +79,9 @@ in
         platform-registration = pkgs.writeText "platform-registration.json" (
           builtins.toJSON (import ./structure/platforms.nix { inherit lib; })
         );
+        native-privilege = pkgs.writeText "native-privilege.json" (
+          builtins.toJSON (import ./ports/privilege.nix { inherit inputs; })
+        );
         contract-types = pkgs.writeText "contract-types.json" (
           builtins.toJSON (import ./ports/contract-types.nix { inherit lib pkgs; })
         );
@@ -95,18 +98,39 @@ in
         feature-settings = pkgs.writeText "feature-settings.json" (
           builtins.toJSON (import ./home/feature-settings.nix { inherit inputs; })
         );
+        chinese-input = pkgs.writeText "chinese-input.json" (
+          builtins.toJSON (import ./home/chinese.nix { inherit inputs; })
+        );
         host-interface = pkgs.writeText "host-interface.json" (
           builtins.toJSON (import ./hosts/interface.nix { inherit inputs hosts; })
         );
         configuration-layers = pkgs.writeText "configuration-layers.json" (
           builtins.toJSON (import ./helpers/common/config-layers.nix { inherit lib; })
         );
+        kdl-configuration = pkgs.writeText "kdl-configuration.json" (
+          builtins.toJSON (import ./config/kdl.nix { inherit inputs pkgs; })
+        );
         feature-modules = pkgs.writeText "feature-modules.json" featureComposition;
         software = pkgs.writeText "software.json" softwareTests;
+        native-home-conformance = pkgs.writeText "native-home-conformance.json" (
+          builtins.toJSON (import ./ports/home-upstream-conformance.nix { inherit inputs; })
+        );
+        software-demand = pkgs.writeText "software-demand.json" (
+          builtins.toJSON (import ./software/demand.nix { inherit inputs; })
+        );
         software-sources = pkgs.writeText "software-sources.json" (
           builtins.toJSON (import ./software/sources.nix { inherit inputs; })
         );
+        software-package-policy = pkgs.writeText "software-package-policy.json" (
+          builtins.toJSON (import ./software/package-policy.nix { inherit inputs; })
+        );
+        login-session = pkgs.writeText "login-session.json" (
+          builtins.toJSON (import ./ports/login-session.nix { inherit inputs; })
+        );
+        gdm-session = import ./helpers/arch/gdm-session.nix { inherit pkgs; };
         vim-runtime = import ./home/vim.nix { inherit inputs pkgs; };
+        mpv-native-files = import ./home/mpv.nix { inherit inputs pkgs; };
+        gpg-build-demand = import ./home/gpg-keyring.nix { inherit inputs pkgs; };
         display-manager-lifecycle = import ./helpers/arch/display-manager-lifecycle.nix { inherit pkgs; };
         software-runtime = import ./software/runtime.nix { inherit inputs pkgs; };
         mihomo-configuration = import ./ports/mihomo.nix { inherit inputs pkgs; };
@@ -114,10 +138,12 @@ in
         vscode-settings = import ./home/vscode-settings.nix { inherit inputs pkgs; };
         chrome-policy = import ./helpers/arch/chrome-policy.nix { inherit inputs pkgs; };
         pacman-activation = import ./helpers/arch/pacman.nix { inherit inputs pkgs; };
+        native-system-profile = import ./helpers/common/system-profile-activation.nix { inherit pkgs; };
         native-units = import ./helpers/common/systemd.nix { inherit pkgs; };
         network-preflight = import ./helpers/arch/network-preflight.nix { inherit pkgs; };
         native-input-autostart = import ./helpers/arch/autostart.nix { inherit inputs pkgs; };
         native-niri-config = import ./helpers/arch/niri.nix { inherit inputs pkgs; };
+        native-noctalia-config = import ./helpers/arch/noctalia.nix { inherit inputs pkgs; };
       }
       // lib.optionalAttrs pkgs.stdenv.hostPlatform.isLinux {
         desktop-autostart = import ./home/autostart.nix { inherit inputs pkgs hosts; };

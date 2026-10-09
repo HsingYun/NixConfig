@@ -7,5 +7,13 @@
     ./login-manager.nix
     ./niri.nix
   ];
-  native.privilegeCommand = [ "/usr/bin/sudo" ];
+  native = {
+    privilegeCommand = [ "/usr/bin/sudo" ];
+    userCommand = user: [
+      "/usr/bin/sudo"
+      "-u"
+      user
+      "--"
+    ];
+  };
 }

@@ -3,6 +3,7 @@
 {
   imports = [
     ../shared/features.nix
+    ../shared/helpers.nix
     ../software/system.nix
     ../software/nixpkgs.nix
   ];

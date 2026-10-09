@@ -1,7 +1,7 @@
 { pkgs }:
 let
   inherit (pkgs) lib;
-  inherit (import ./recipe-constructors.nix { inherit pkgs; })
+  inherit (import ./recipe-constructors.nix)
     nix
     font
     cask
@@ -299,9 +299,13 @@ lib.foldl'
       pacman = pacman "pcsclite";
     };
     pinentry = {
-      pacman = pacman "pinentry";
+      pacman = pacman "pinentry" // {
+        mainProgram = "pinentry";
+      };
       nix = nix (if pkgs.stdenv.hostPlatform.isDarwin then pkgs.pinentry_mac else pkgs.pinentry-qt);
-      homebrew = brew "pinentry-mac";
+      homebrew = brew "pinentry-mac" // {
+        mainProgram = "pinentry-mac";
+      };
     };
     pipewire = {
       pacman = pacman "pipewire";

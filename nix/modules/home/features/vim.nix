@@ -5,7 +5,6 @@
   ...
 }:
 let
-  usesNixPackage = software.vim.provider == "nix";
   # These two existing plugins are not packaged in the pinned nixpkgs.
   # Keep their sources immutable, just like the nixpkgs plugin set.
   cSupport = pkgs.vimUtils.buildVimPlugin {
@@ -50,27 +49,10 @@ let
   + builtins.readFile ../../../assets/vimrc;
 in
 {
-  software = {
-    requirements = {
-      vim.scopes = [ ];
-      ctags = { };
-    };
-  };
-  # The official module owns the Nix wrapper and its plugin closure. Native
-  # Vim has no HM package=null interface, so use nixpkgs' vimrc generator.
-  programs.vim = lib.mkIf usesNixPackage {
+  software.requirements.ctags = { };
+  programs.vim = {
     enable = lib.mkDefault true;
-
     inherit plugins;
     extraConfig = lib.mkDefault customRC;
-  };
-  home.file.".vimrc" = lib.mkIf (!usesNixPackage) {
-    source = lib.mkDefault (
-      pkgs.vimUtils.vimrcFile {
-        # Match the official HM module's default plugin as well.
-        packages.home-manager.start = [ pkgs.vimPlugins.vim-sensible ] ++ plugins;
-        inherit customRC;
-      }
-    );
   };
 }

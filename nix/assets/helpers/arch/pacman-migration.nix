@@ -2,7 +2,7 @@
 {
   packages,
   pacman ? "/usr/bin/pacman",
-  sudo ? "/usr/bin/sudo",
+  privilegeCommand,
   getent ? "/usr/bin/getent",
   systemctl ? "/usr/bin/systemctl",
 }:
@@ -68,7 +68,7 @@
       done
       # Plain -R validates reverse dependencies. Never cascade, recurse, skip
       # dependency checks, or discard modified package configuration/backups.
-      run ${lib.escapeShellArg sudo} ${lib.escapeShellArg pacman} -R --noconfirm -- "''${obsolete[@]}" || {
+      run ${lib.escapeShellArgs privilegeCommand} ${lib.escapeShellArg pacman} -R --noconfirm -- "''${obsolete[@]}" || {
         echo "Native-to-Nix migration was refused by pacman. Keep the native provider for packages still required by the host." >&2
         exit 1
       }

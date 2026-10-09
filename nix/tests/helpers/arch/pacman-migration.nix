@@ -35,10 +35,10 @@ let
     ${import ../../../assets/helpers/arch/pacman-migration.nix { inherit lib; } {
       inherit
         pacman
-        sudo
         getent
         systemctl
         ;
+      privilegeCommand = [ sudo ];
       packages = [
         "htop"
         "absent"

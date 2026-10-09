@@ -1,6 +1,10 @@
 { inputs, pkgs }:
 let
   inherit (pkgs) lib;
+  resolve = import ../../lib/software/resolve.nix {
+    inherit lib;
+    platformProviders = (import ../../lib/platforms).packageProviders;
+  };
   # Exercise the real Home Manager wrapper and profile assembly with tiny
   # executables, without building a complete media-player closure.
   testPkgs = pkgs.extend (
@@ -30,6 +34,7 @@ let
             homeDirectory = if pkgs.stdenv.hostPlatform.isDarwin then "/Users/test" else "/home/test";
             stateVersion = "26.05";
           };
+          software.platform = if pkgs.stdenv.hostPlatform.isDarwin then "darwin" else "arch";
           features =
             (import ../../lib/features/resolve.nix { inherit lib; } {
               name = "RuntimeFixture";
@@ -67,7 +72,7 @@ let
       ghostty = terminfo "terminal-ghostty";
     };
   };
-  terminfoSelection = import ../../lib/software/resolve.nix { inherit lib; } {
+  terminfoSelection = resolve {
     catalog = { inherit (terminfoCatalog) ncurses ghostty maple-mono; };
     requirements = {
       ncurses = { };
@@ -119,7 +124,7 @@ let
         done
       ''
     );
-  compilerPlan = import ../../lib/software/resolve.nix { inherit lib; } {
+  compilerPlan = resolve {
     pkgs = pkgs // {
       gcc = compiler "gcc";
     };
@@ -142,7 +147,7 @@ let
     };
   };
   develProfiles = import ../../lib/software/profiles.nix { pkgs = compilerPkgs; };
-  develCompilerPlan = import ../../lib/software/resolve.nix { inherit lib; } {
+  develCompilerPlan = resolve {
     catalog = { inherit (develProfiles.devel) gcc clang; };
     requirements = {
       gcc = { };
@@ -155,7 +160,7 @@ let
     name = "devel-compilers-profile";
     paths = develCompilerPlan.installations.nix.homePackages;
   };
-  prioritySelection = import ../../lib/software/resolve.nix { inherit lib; } {
+  prioritySelection = resolve {
     pkgs = compilerPkgs;
     catalog = { inherit (develProfiles.devel) gcc clang; };
     requirements = {
@@ -176,7 +181,7 @@ let
   # A module wrapper can change the input package's priority. Extras must be
   # demoted against that final package, not just against the original input.
   wrappedPlan = import ../../lib/software/materialize.nix { inherit lib; } {
-    selection = import ../../lib/software/resolve.nix { inherit lib; } {
+    selection = resolve {
       pkgs = compilerPkgs;
       catalog.clang.nix.package = compilerPkgs.llvmPackages.clang;
       requirements.clang = {
@@ -222,7 +227,7 @@ let
         chmod +x "$out/bin/llvm-tool" "$dev/bin/llvm-config"
       '';
   outputPlan = import ../../lib/software/materialize.nix { inherit lib; } {
-    selection = import ../../lib/software/resolve.nix { inherit lib; } {
+    selection = resolve {
       inherit pkgs;
       catalog.llvm.nix = {
         package = llvmStub "original";

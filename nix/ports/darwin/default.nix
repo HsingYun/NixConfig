@@ -3,6 +3,11 @@
     "system.mihomo"
     "home.gpg"
   ];
+  packageProviders = [
+    "nix"
+    "homebrew"
+  ];
+  capabilities = [ ];
   managesSystem = true;
   requiresHardwareConfig = false;
   family = "darwin";
@@ -12,10 +17,14 @@
   packageManager = "homebrew";
   defaultSystem = "aarch64-darwin";
   systemModules = [ ./system/default.nix ];
-  homeModules = [ ];
+  homeModules = [
+    ../common/home/capabilities/ghostty.nix
+    ../common/home/capabilities/mpv.nix
+    ../common/home/capabilities/vim.nix
+  ];
   features = {
     macos.systemModules = [ ./system/macos.nix ];
-    chrome.homeModules = [ ./home/chrome.nix ];
-    smartcard.homeModules = [ ./home/smartcard.nix ];
+    chrome.homeModules = [ ./home/features/chrome.nix ];
+    smartcard.homeModules = [ ./home/features/smartcard.nix ];
   };
 }

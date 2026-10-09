@@ -8,6 +8,7 @@
 {
   imports = [
     ../../shared/features.nix
+    ../../shared/helpers.nix
     ../../software/system.nix
     ./profile.nix
     ./systemd.nix
@@ -37,6 +38,11 @@
       privilegeCommand = lib.mkOption {
         type = lib.types.nonEmptyListOf lib.types.str;
         description = "Platform command prefix for privileged native-system operations.";
+        internal = true;
+      };
+      userCommand = lib.mkOption {
+        type = lib.types.functionTo (lib.types.nonEmptyListOf lib.types.str);
+        description = "Platform command prefix for execution as a specified user.";
         internal = true;
       };
       preflight = lib.mkOption {

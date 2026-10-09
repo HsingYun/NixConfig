@@ -1,4 +1,4 @@
-{ profile, ... }:
+{ profile, helpers, ... }:
 {
   platform = "arch";
   packageManager = {
@@ -33,35 +33,27 @@
       };
       niri = {
         settings = {
-          # Installed by this host's packageManager.extraPkg.
           binds."Mod+B".spawn = [ "/usr/bin/microsoft-edge-stable" ];
-          _children = [
-            # Machine-specific outputs; positions use logical pixels after scaling.
-            {
-              output = {
-                _args = [ "DP-4" ];
-                mode = "2560x1440@59.951";
-                scale = 1.5;
-                position._props = {
-                  x = 0;
-                  y = 0;
-                };
-              };
-            }
-            {
-              output = {
-                _args = [ "DP-5" ];
-                mode = "3840x2160@143.996";
-                scale = 2;
-                position._props = {
-                  x = 0;
-                  y = 960;
-                };
-                focus-at-startup = { };
-              };
-            }
-          ];
-        };
+        }
+        // helpers.kdl.children [
+          (helpers.kdl.node "output" [ "DP-4" ] {
+            mode = "2560x1440@59.951";
+            scale = 1.5;
+            position = helpers.kdl.props {
+              x = 0;
+              y = 0;
+            };
+          })
+          (helpers.kdl.node "output" [ "DP-5" ] {
+            mode = "3840x2160@143.996";
+            scale = 2;
+            position = helpers.kdl.props {
+              x = 0;
+              y = 960;
+            };
+            focus-at-startup = { };
+          })
+        ];
       };
     };
   };

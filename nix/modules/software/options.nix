@@ -1,9 +1,17 @@
-{ lib, pkgs, ... }:
+{
+  config,
+  lib,
+  pkgs,
+  ...
+}:
+let
+  platforms = import ../../lib/platforms;
+in
 {
   options.software = {
     platform = lib.mkOption {
-      type = lib.types.enum (import ../../lib/platforms/default.nix).all;
-      default = if pkgs.stdenv.hostPlatform.isDarwin then "darwin" else "arch";
+      type = lib.types.enum platforms.all;
+      description = "Deployment platform supplied by the host; never inferred from the CPU or OS family.";
     };
     packageManager = lib.mkOption {
       type = lib.types.coercedTo lib.types.str (type: { inherit type; }) (
@@ -17,7 +25,7 @@
           };
         }
       );
-      default = if pkgs.stdenv.hostPlatform.isDarwin then "homebrew" else "nix";
+      default = platforms.definitions.${config.software.platform}.packageManager;
     };
     nativePrefix = lib.mkOption {
       type = lib.types.str;

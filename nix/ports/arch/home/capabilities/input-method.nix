@@ -25,10 +25,8 @@ let
     };
   packages = [
     "fcitx5"
-    "fcitx5-rime"
     "fcitx5-gtk"
     "fcitx5-qt"
-    "rime-ice"
   ];
 in
 {
@@ -57,7 +55,7 @@ in
     assertions = [
       {
         assertion = lib.all (name: config.software.resolved.${name}.provider == "pacman") packages;
-        message = "Arch Chinese input uses native Fcitx and ABI-compatible native addons. Keep these packages on pacman.";
+        message = "Arch Fcitx5 uses its native runtime and ABI-compatible GTK/Qt modules. Keep these packages on pacman.";
       }
       {
         assertion = cfg.type == "fcitx5" && cfg.fcitx5.addons == [ ];

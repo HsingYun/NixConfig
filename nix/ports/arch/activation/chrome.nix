@@ -25,6 +25,7 @@ in
     lib.hm.dag.entryAfter [ "installNativePackages" "writeBoundary" ]
       (
         import ../../../assets/helpers/common/owned-root-file.nix { inherit lib pkgs; } {
+          inherit (config.native) privilegeCommand;
           owner = user.username;
           active = policy != { };
           inherit source destination;

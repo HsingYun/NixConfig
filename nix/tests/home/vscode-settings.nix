@@ -14,6 +14,7 @@ let
             homeDirectory = "/test-home";
             stateVersion = "26.05";
           };
+          software.platform = if pkgs.stdenv.hostPlatform.isDarwin then "darwin" else "arch";
           software.packageManager = if pkgs.stdenv.hostPlatform.isDarwin then "homebrew" else "pacman";
           features.vscode.settings = {
             "editor.fontFamily" = "Managed font";

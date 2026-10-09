@@ -225,8 +225,8 @@ let
         services.gpg-agent = {
           enable = lib.mkDefault true;
           enableSshSupport = lib.mkDefault true;
-          pinentry.package = lib.mkDefault pkgs.pinentry-tty;
         };
+        software.packageOverrides.pinentry = lib.mkDefault pkgs.pinentry-tty;
         programs.mpv.enable = lib.mkDefault true;
         programs.ghostty.enable = lib.mkDefault true;
         home.packages = [

@@ -1,7 +1,10 @@
 { inputs }:
 let
   inherit (inputs.nixpkgs) lib;
-  resolve = import ../../lib/software/resolve.nix { inherit lib; };
+  resolve = import ../../lib/software/resolve.nix {
+    inherit lib;
+    platformProviders = (import ../../lib/platforms).packageProviders;
+  };
   make =
     platform: args:
     let

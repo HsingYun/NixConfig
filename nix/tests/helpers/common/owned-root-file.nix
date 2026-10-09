@@ -8,7 +8,8 @@ let
       set -euo pipefail
       source ${inputs.home-manager}/lib/bash/home-manager.sh
       ${import ../../../assets/helpers/common/owned-root-file.nix { inherit lib pkgs; } {
-        inherit active text sudo;
+        inherit active text;
+        privilegeCommand = [ sudo ];
         destination = "test-root/system/policy.rules";
         stateFile = "test-root/state/policy.json";
       }}

@@ -5,6 +5,7 @@
         name: consumer:
         import ../../../modules/software/consumer.nix (
           {
+            scope = "system";
             id = "system-${name}";
             software = name;
             installedScopes = [ "system" ];
@@ -28,7 +29,6 @@
           ];
         };
         dms = {
-          requestWhenEnabled = true;
           enableOptions = [
             [
               "programs"
@@ -43,7 +43,6 @@
           ];
         };
         noctalia = {
-          requestWhenEnabled = true;
           enableOptions = [
             [
               "programs"
@@ -58,7 +57,6 @@
           ];
         };
         noctalia-greeter = {
-          requestWhenEnabled = true;
           enableOptions = [
             [
               "services"

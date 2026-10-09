@@ -6,8 +6,6 @@
 }:
 let
   cfg = config.features.desktop.keyring;
-  keyring = config.software.resolved.gnome-keyring;
-  usesNixPackage = keyring.provider == "nix";
 in
 {
   config = lib.mkIf cfg.enable {
@@ -22,7 +20,7 @@ in
     systemd.user.startServices = lib.mkDefault true;
 
     # Let the official Home Manager module maintain Nix runtime integration.
-    services.gnome-keyring = lib.mkIf usesNixPackage {
+    services.gnome-keyring = {
       enable = lib.mkDefault true;
       components = [
         "pkcs11"

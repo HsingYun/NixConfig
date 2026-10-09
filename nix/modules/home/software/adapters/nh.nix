@@ -1,18 +1,18 @@
-import ../../software/consumer.nix {
-  id = "home-noctalia";
-  software = "noctalia";
+import ../../../software/consumer.nix {
+  scope = "home";
+  id = "home-nh";
+  software = "nh";
   installedScopes = [ "home" ];
-  requestWhenEnabled = true;
   enableOptions = [
     [
       "programs"
-      "noctalia"
+      "nh"
       "enable"
     ]
   ];
   packageOption = [
     "programs"
-    "noctalia"
+    "nh"
     "package"
   ];
 }

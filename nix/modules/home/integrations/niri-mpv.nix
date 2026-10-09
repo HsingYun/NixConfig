@@ -1,8 +1,12 @@
 {
   config,
+  helpers,
   lib,
   ...
 }:
+let
+  inherit (helpers) kdl;
+in
 {
   imports = [ ../shared/niri.nix ];
   config =
@@ -15,15 +19,15 @@
       )
       {
         # Follow general and file-manager defaults, preserving rule precedence.
-        desktop.niri.defaultSettings._children = lib.mkOrder 1600 [
-          {
-            window-rule = {
-              match._props.app-id = "^mpv$";
+        desktop.niri.defaultSettings = kdl.children (
+          lib.mkOrder 1600 [
+            (kdl.node "window-rule" [ ] {
+              match = kdl.props { app-id = "^mpv$"; };
               open-floating = true;
               default-column-width.fixed = 1280;
               default-window-height.fixed = 720;
-            };
-          }
-        ];
+            })
+          ]
+        );
       };
 }

@@ -166,7 +166,12 @@ assert home.software.resolved.zsh.provider == "nix";
 assert home.software.resolved.gnupg.provider == "nix";
 assert home.software.resolved.mpv.provider == "homebrew";
 assert home.programs.mpv.package == null;
-assert home.xdg.configFile ? "mpv/scripts/modernx.lua";
+assert home.xdg.configFile ? "mpv/fonts";
+assert !(home.programs.mpv.config ? script);
+assert lib.all (name: lib.hasInfix name home.xdg.configFile."mpv/mpv.conf".text) [
+  "/modernx.lua"
+  "/thumbfast.lua"
+];
 assert home.software.resolved.pinentry.provider == "homebrew";
 assert home.services.gpg-agent.pinentry.package == null;
 assert lib.hasInfix

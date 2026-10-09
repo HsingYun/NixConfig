@@ -62,8 +62,9 @@ let
         ];
     assert (settings ? macos-titlebar-style) == (enabled && darwin);
     assert !(enabled && darwin) || h.programs.ghostty.package == null;
-    assert
-      (h.xdg.configFile ? "systemd/user/app-com.mitchellh.ghostty.service") == (enabled && !darwin);
+    # Native-host defaults are independent of package selection, even when the
+    # host elects to install Nix packages. Optional integrations are opt-in.
+    assert !(h.xdg.configFile ? "systemd/user/app-com.mitchellh.ghostty.service");
     "${platform}-${if enabled then "on" else "off"}-${
       if shellIntegration == null then "default" else shellIntegration
     }";

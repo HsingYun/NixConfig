@@ -41,9 +41,9 @@ let
         ${import ../../../assets/helpers/arch/display-manager-activation.nix { inherit lib pkgs; } {
           inherit
             systemctl
-            sudo
             service
             ;
+          privilegeCommand = [ sudo ];
           stateFile = "test-root/state/display-manager.json";
           files = [
             {

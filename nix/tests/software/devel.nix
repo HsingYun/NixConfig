@@ -1,15 +1,21 @@
 { pkgs }:
 
 let
-  software = import ../../lib/software/resolve.nix { inherit (pkgs) lib; } {
-    catalog = import ../../lib/software/catalog.nix { inherit pkgs; };
-    requirements = pkgs.lib.genAttrs (builtins.attrNames
-      (import ../../lib/software/profiles.nix { inherit pkgs; }).devel
-    ) (_: { });
-    inherit pkgs;
-    packageManager = "nix";
-    platform = "nixos";
-  };
+  software =
+    import ../../lib/software/resolve.nix
+      {
+        inherit (pkgs) lib;
+        platformProviders = (import ../../lib/platforms).packageProviders;
+      }
+      {
+        catalog = import ../../lib/software/catalog.nix { inherit pkgs; };
+        requirements = pkgs.lib.genAttrs (builtins.attrNames
+          (import ../../lib/software/profiles.nix { inherit pkgs; }).devel
+        ) (_: { });
+        inherit pkgs;
+        packageManager = "nix";
+        platform = "nixos";
+      };
   profile = pkgs.buildEnv {
     name = "devel-test-profile";
     paths = software.installations.nix.homePackages;

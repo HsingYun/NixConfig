@@ -1,7 +1,7 @@
 { pkgs, inputs }:
 let
   inherit (pkgs) lib;
-  render = import ../../../assets/helpers/arch/pacman-activation.nix { inherit lib; };
+  render = import ../../../assets/helpers/arch/pacman-activation.nix { inherit lib pkgs; };
   pacman = pkgs.writeShellScript "pacman-stub" ''
     if [[ $1 == -Qq ]]; then
       printf '%s\n' "$*" >> "$QUERY_LOG"
@@ -15,10 +15,19 @@ let
     fi
   '';
   sudo = pkgs.writeShellScript "sudo-stub" ''
+    export NATIVE_ELEVATED=1
     printf 'sudo\n' >> "$INSTALL_LOG"
     exec "$@"
   '';
   yay = pkgs.writeShellScript "yay-stub" ''
+    set -euo pipefail
+    test "''${NATIVE_ELEVATED:-0}" = 0
+    [[ $1 == --sudo && $3 == --sudoflags && -z $4 ]]
+    test -x "$2"
+    if [[ ''${EXERCISE_YAY_ELEVATION:-0} == 1 ]]; then
+      "$2" ${pkgs.coreutils}/bin/true
+    fi
+    shift 4
     printf 'yay %s\n' "$*" >> "$INSTALL_LOG"
     exit "''${FAIL_AUR:-0}"
   '';
@@ -29,7 +38,8 @@ let
       source ${inputs.home-manager}/lib/bash/home-manager.sh
       ${render (
         {
-          inherit pacman sudo yay;
+          inherit pacman yay;
+          privilegeCommand = [ sudo ];
           packages = [
             "installed"
             "new-repo"
@@ -42,12 +52,24 @@ let
   normal = script { };
   noYay = script { yay = "/missing-yay"; };
   noPacman = script { pacman = "/missing-pacman"; };
-  noSudo = script { sudo = "/missing-sudo"; };
+  noSudo = script { privilegeCommand = [ "/missing-sudo" ]; };
   repoOnly = script {
     aur = [ ];
     yay = "/missing-yay";
   };
   aurOnly = script { packages = [ ]; };
+  argumentPrefix = pkgs.writeShellScript "argument-prefix" ''
+    set -euo pipefail
+    [[ $1 == '--label=two words' ]]
+    shift
+    exec ${sudo} "$@"
+  '';
+  configuredPrefix = script {
+    privilegeCommand = [
+      argumentPrefix
+      "--label=two words"
+    ];
+  };
 in
 pkgs.runCommand "pacman-activation-check" { } ''
   export INSTALL_LOG="$TMPDIR/install.log" QUERY_LOG="$TMPDIR/query.log"
@@ -60,6 +82,13 @@ pkgs.runCommand "pacman-activation-check" { } ''
   yay -S --needed --aur -- new-aur
   EXPECTED
   diff -u expected "$INSTALL_LOG"
+
+  # The same multi-argument prefix reaches pacman directly and yay indirectly;
+  # yay itself must never execute inside that elevated context.
+  clearLogs
+  EXERCISE_YAY_ELEVATION=1 ${configuredPrefix}
+  test "$(grep -c '^sudo$' "$INSTALL_LOG")" -eq 2
+  grep -F 'yay -S --needed --aur -- new-aur' "$INSTALL_LOG"
 
   clearLogs
   if FAIL_QUERY=42 ${normal} > failure 2>&1; then exit 1; fi

@@ -81,8 +81,11 @@ do not add a new feature for each application setting.
 
 Use nested feature options such as `features.desktop.niri.enable = true`.
 A host definition may be a plain attribute set or a function. The loader supplies
-`profile` (shared presets) and `lib` (the locked nixpkgs library) to functions that
-request them. Select one preset with `profiles = profile.linuxDesktop;`, or
+`profile` (shared presets), `lib` (the locked nixpkgs library) and `helpers`
+(configuration construction tools, such as `helpers.kdl`) to functions that
+request them. System and Home Manager modules also receive `helpers` as a module
+argument. Hosts and modules do not need to import individual tool paths.
+Select one preset with `profiles = profile.linuxDesktop;`, or
 compose several with `profiles = [ profile.cli myExtraPreset ];`. Omit `profiles`
 when no preset is needed. Put host-specific differences in `features`.
 

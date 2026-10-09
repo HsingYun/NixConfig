@@ -93,5 +93,8 @@ in
     manager = lib.hasInfix (
       if builtins.elem "system.gnome" port.contracts then "gdm.service" else "greetd.service"
     ) system.native.activation.selectNativeLoginManager.data;
+    defaultSession = lib.any (
+      file: file.destination == "/etc/systemd/system/gdm.service.d/nixconfig.conf"
+    ) system.native.resources.loginManager.desired.files;
   };
 }

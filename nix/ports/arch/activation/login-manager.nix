@@ -1,5 +1,6 @@
 {
   config,
+  inputs,
   lib,
   pkgs,
   user,
@@ -17,6 +18,20 @@ let
     else
       "none";
   greetd = manager == "greetd";
+  configureGdmSession = manager == "gdm" && desktop != null;
+  # Use the same AccountsService implementation as the pinned NixOS GDM
+  # module. The port only adapts native session discovery and unit placement.
+  setSession =
+    pkgs.callPackage
+      "${inputs.nixpkgs}/nixos/modules/services/x11/display-managers/account-service-util.nix"
+      { };
+  gdmSession = import ../../../assets/helpers/arch/gdm-session.nix { inherit lib pkgs; } {
+    session = desktop;
+    setSession = "${setSession}/bin/set-session";
+  };
+  gdmUnit = (pkgs.formats.systemd { }).generate "gdm-nixconfig.conf" {
+    Service.ExecStartPre = [ (toString gdmSession) ];
+  };
   useNoctaliaGreeter = config.services.displayManager.noctalia-greeter.enable;
   noctaliaGreeter = config.services.displayManager.noctalia-greeter;
   useDmsGreeter = config.services.displayManager.dms-greeter.enable;
@@ -67,28 +82,33 @@ let
     gestures { hot-corners { off; }; }
     layout { background-color "#000000"; }
   '';
-  files = lib.optionals greetd (
-    [
-      {
-        source = toString greetdConfig;
-        destination = "/etc/greetd/nixconfig.toml";
+  files =
+    lib.optionals greetd (
+      [
+        {
+          source = toString greetdConfig;
+          destination = "/etc/greetd/nixconfig.toml";
+        }
+        {
+          source = toString greetdUnit;
+          destination = "/etc/systemd/system/greetd.service.d/nixconfig.conf";
+        }
+      ]
+      ++ lib.optional (useNoctaliaGreeter && noctaliaGreeter.settings != { }) {
+        source = toString (
+          (pkgs.formats.toml { }).generate "noctalia-greeter.toml" noctaliaGreeter.settings
+        );
+        destination = "/etc/greetd/nixconfig-noctalia.toml";
       }
-      {
-        source = toString greetdUnit;
-        destination = "/etc/systemd/system/greetd.service.d/nixconfig.conf";
+      ++ lib.optional useDmsGreeter {
+        source = toString niriConfig;
+        destination = "/etc/greetd/nixconfig-niri.kdl";
       }
-    ]
-    ++ lib.optional (useNoctaliaGreeter && noctaliaGreeter.settings != { }) {
-      source = toString (
-        (pkgs.formats.toml { }).generate "noctalia-greeter.toml" noctaliaGreeter.settings
-      );
-      destination = "/etc/greetd/nixconfig-noctalia.toml";
-    }
-    ++ lib.optional useDmsGreeter {
-      source = toString niriConfig;
-      destination = "/etc/greetd/nixconfig-niri.kdl";
-    }
-  );
+    )
+    ++ lib.optional configureGdmSession {
+      source = toString gdmUnit;
+      destination = "/etc/systemd/system/gdm.service.d/nixconfig.conf";
+    };
 in
 {
   config = {
@@ -117,14 +137,22 @@ in
         user = lib.mkDefault "greeter";
       };
     };
-    native.requiredPackages = lib.optional (manager != "none") manager ++ lib.optional greetd greeter;
+    native.requiredPackages =
+      lib.optional (manager != "none") manager
+      ++ lib.optional greetd greeter
+      ++ lib.optional configureGdmSession "accountsservice";
+    native.activation.checkNativeGdmSession = lib.mkIf configureGdmSession (
+      lib.hm.dag.entryBetween [ "linkGeneration" ] [ "installNativePackages" ] ''
+        run ${gdmSession} --check
+      ''
+    );
     native.activation.checkNativeGreeter =
       lib.mkIf (greetd && useNoctaliaGreeter && noctaliaGreeter.settings != { })
         (
           lib.hm.dag.entryBetween [ "linkGeneration" ] [ "installNativePackages" ] ''
             # Verify the actual greeter account can create its config namespace
             # before changing the login manager. Never relax host namespace policy.
-            run /usr/bin/sudo -u ${lib.escapeShellArg config.services.greetd.settings.default_session.user} \
+            run ${lib.escapeShellArgs (config.native.userCommand config.services.greetd.settings.default_session.user)} \
               /usr/bin/bwrap --bind / / -- /usr/bin/true || {
               echo "Noctalia Greeter requires user namespaces for its declarative configuration." >&2
               exit 1
@@ -135,6 +163,7 @@ in
       lib.hm.dag.entryAfter [ "installNativePackages" "linkGeneration" ]
         (
           import ../../../assets/helpers/arch/display-manager-activation.nix { inherit lib pkgs; } {
+            inherit (config.native) privilegeCommand;
             owner = user.username;
             service = if manager == "none" then null else "${manager}.service";
             inherit files;

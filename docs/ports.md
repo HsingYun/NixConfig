@@ -50,7 +50,8 @@ behavior; feature presets and combinations have a separate suite.
 Cases can also declare named `scenarios`, each with direct `configure` inputs
 and a `verify` predicate, to check semantics beyond an enable/disable pair on
 every implementing port. Fcitx scenarios cover empty profile/global settings
-remaining unmanaged, explicitly named addons, and disabling the user service for desktop autostart. Lifecycle helper
+remaining unmanaged, absence of unrequested Chinese preset dependencies, explicitly
+named addons, and disabling the user service for desktop autostart. Lifecycle helper
 tests verify repeated application, transitions, interruption and ownership rules.
 
 Contracts describe public capabilities, not individual implementation files.
@@ -67,8 +68,18 @@ not a claim that every upstream option or operating-system behavior is supported
 
 ## Platform layout
 
+Home port files are grouped by responsibility, not by when they were added.
+`capabilities/` implements an interface, `features/` supplies feature presets,
+and `integrations/` connects existing interfaces. Integrations needed for direct
+upstream configuration are loaded unconditionally and use final option values;
+feature composition integrations are registered with the matching catalog rule.
+Directory entry points use `default.nix`; leaf names identify the capability.
+
+
 ```text
 nix/lib/hosts/profiles.nix      Shared feature presets supplied to hosts
+nix/lib/helpers.nix            Configuration tools supplied as the helpers argument
+nix/lib/config/                Pure configuration construction and serialization
 nix/contracts/
   system/                      Stable contract entry points
     services/                  Individual service declarations
@@ -81,15 +92,18 @@ nix/ports/
     system/
       services/                Individual service implementations
     home/                      User configuration adaptations
-      capabilities/            Always-loaded option implementations
+      capabilities/            Implementations of configurable interfaces
+      features/                Presets loaded with a selected feature
+      integrations/            Coordination between capabilities/scopes
     activation/                Privileged effects and their lifecycle
   nixos/
     default.nix
     system/                    Upstream capabilities, package bindings and presets
-    home/                      Upstream Home Manager integrations
+    home/                      Same capabilities/features/integrations layout
     integrations/              System/home coordination
   nixos-wsl/                   NixOS-WSL specialization
   darwin/                      nix-darwin specialization
+  common/home/capabilities/     Shared native implementations, explicitly imported
 nix/assets/helpers/
   common/                      System backend, systemd, file ownership, dconf and greeter helpers
   arch/                        Arch package, service and desktop activation helpers
@@ -111,7 +125,88 @@ uses deployment-builder metadata rather than distribution-name branches.
 Its system scope owns services, root files, software planning and the system
 Nix profile. Its home scope owns application settings and user units. The shared
 Home Manager activation entry point executes the system port's declared DAG
-nodes, invoking sudo only where needed. AUR builds still run as the user.
+nodes, invoking the port's `native.privilegeCommand` argument vector only where
+root execution is needed. Execution as a specific account uses the separate
+`native.userCommand username` argument vector; shared helpers never construct
+sudo-specific flags. Arch supplies both command prefixes. Protected resource
+verification uses the same root prefix as activation.
+
+AUR builds still run as the user. The pacman adapter invokes yay directly and
+passes a generated command wrapper through yay's `--sudo` option, with empty
+`--sudoflags` to preserve the declared argument vector. Yay itself invokes that
+wrapper when elevation is needed. Arch's root prefix must support yay's sudo
+invocations; yay is never launched through the root prefix.
+
+Ports can extend an upstream package interface where native delegation is missing.
+The shared Vim adapter lives in `nix/ports/common/home/capabilities/`; Arch's
+keyring adapter is `nix/ports/arch/home/capabilities/gnome-keyring.nix`. Both reuse upstream option declarations and execute the
+upstream configuration when a Nix package is selected. Their native branches add
+only configuration/service integration. The module switch uses Home Manager's
+`disabledModules`, and option declarations are replaced as whole declarations,
+not merged into the internals of Nix option types. NixOS retains its original
+modules. Shape probes in `upstream-assumptions.nix` and behavioral conformance
+tests detect incompatible upstream changes.
+
+On Arch, `wayland.windowManager.niri.systemd.enable` exposes the native vendor
+units through Home Manager's XDG data files. As in upstream Home Manager, this
+installs units for `niri-session`; it does not enable, start or restart the
+compositor. The native system port owns the runtime and vendor units. NixOS
+continues to use the original upstream implementation.
+
+Noctalia has one owner for each user's service. An enabled Home Manager service
+uses the upstream unit and its `wayland.systemd.target`; its runtime demand
+selects Nix because the upstream service requires a store package. On Arch,
+the system port supplies a unit only when no Home Manager service is requested,
+using the system interface's target and the selected native or Nix executable.
+When both scopes request the service, the Home Manager unit takes precedence,
+matching user-unit precedence over system-wide user units. Configuration-only
+Home Manager use does not require Nix and preserves the native package preference.
+
+The shared native MPV port extends `programs.mpv.scripts` to native players.
+It uses HM's original option schema and user-configuration generators. When `package = null`,
+the port passes an empty scripts list only to HM's wrapper implementation, while
+its public scripts option retains the user's declarations. The port contributes
+only the additional script-loading directives, using MPV's length-prefixed path
+syntax, before HM's output so they remain outside named profile sections.
+User configuration reaches HM unchanged, including its conditions for rendering
+default profiles when configuration or profiles are nonempty. Generated paths
+never become definitions of the public configuration option.
+Scalar values, list ordering and override priorities keep HM's merge semantics.
+Clearing `config.script` does not clear `scripts`, and clearing `scripts` does
+not clear user-defined script paths. Native configuration
+loads every `scriptName` and `extraScriptsToLoad` from the original package path,
+preserving sibling resources. Font directories are flattened into HM-managed
+`mpv/fonts` links, the upstream player's [default OSD/subtitle font directory](https://mpv.io/manual/stable/#options-osd-fonts-dir)
+on both Linux and macOS. Fonts do not require a Nix player or a fontconfig override.
+
+`programs.mpv.nativeScriptAdapters` is an explicit extension on native ports.
+Each named adapter declares the exact script `package`, the exact `wrapperArgs`
+it implements, and the equivalent `scriptOpts`. The built-in thumbfast adapter
+replaces its known player PATH requirement with an explicit `mpv_path` pointing
+to the selected player. Matching uses package identity and wrapper arguments,
+never just a script filename. All matching declarations contribute settings;
+ordinary module merging reports conflicting defaults instead of silently selecting
+one adapter. Hosts may add or override these declarations through
+`homeConfig`; an adapter must account for every declared wrapper argument.
+Changed or unknown wrapper requirements fall back to Nix. An explicit native
+provider override with unmet requirements fails during software selection.
+Adapter declarations live beside the native MPV implementation in `mpv-script-adapters/`;
+the shared software adapter collects their demand before provider selection.
+
+Nix-selected players receive the unchanged upstream scripts and wrapper arguments.
+NixOS does not import the native port. The same public-input scenarios run against
+original HM, delegated Nix and native implementations on Arch and Darwin. They
+compare merged inputs, generated configuration and Nix wrappers, including scalar
+and list script paths, ordering, forced empty values, disabled programs, and all
+empty/nonempty combinations of configuration, profiles and default profiles.
+Native file-tree tests build real ModernX fonts, verify every resource
+is exposed, and cover additional scripts, duplicate basenames and cleanup.
+
+The common native Ghostty adapter declares optional integration demands and their
+input defaults without replacing HM's implementation. It is loaded only by Arch
+and Darwin. NixOS and NixOS-WSL retain the upstream defaults, package and service
+modules. Demand conditions must not read provider selection: collect intent first,
+resolve software second, and delegate implementation last.
 
 Managing native system configuration is an intentional responsibility of this
 project. Arch's system layer reconciles explicitly owned files, services and
@@ -164,9 +259,14 @@ are introduced.
 
 System Nix profiles are owner-scoped at
 `/nix/var/nix/profiles/nixconfig-system-<username>` and use upstream Nix generation
-management. Reapplying the same output does not create another profile generation.
-The former shared `nixconfig-system` profile is left intact during migration;
-the backend does not delete a profile whose ownership it cannot establish.
+management. The auxiliary system profile retains only its selected generation;
+activation uses `nix-env --delete-generations old` after selecting the package set.
+Reapplying the same output does not create another generation, but still retires
+auxiliary history. Retained Home Manager generations reference their system
+package sets through their activation scripts and keep them reachable to Nix GC.
+Consequently, deployment history belongs to HM alone: deleting an HM generation
+allows its otherwise-unused system packages to be collected. No generation-number
+mapping or separate retention database is maintained.
 Reapplying an older HM generation restores its declared managed configuration;
 native packages remain installed unless explicitly selected for guarded migration.
 There is no automatic rollback of pacman or a claim of whole-machine atomicity.
@@ -201,8 +301,12 @@ both scopes' contributions and returns the same resolved plan to each consumer.
 Upstream modules retain ownership of customized Nix wrappers and their internal
 dependencies.
 
-Helpers follow the same platform boundary as ports. Place a platform-specific
-helper in `nix/assets/helpers/<platform>/`; put reusable code in `helpers/common/`.
+Runtime and activation helpers follow the same platform boundary as ports.
+Place a platform-specific helper in `nix/assets/helpers/<platform>/`; put reusable
+runtime code in `helpers/common/`. Pure configuration constructors and serializers
+belong in `nix/lib/config/`, exposed through `nix/lib/helpers.nix`. The host loader
+and shared module arguments supply the same `helpers` entry point; these tools
+do not define feature options or port contracts.
 Do not create empty platform directories. Shared Python dependencies must remain
 available in the Nix store closure; tests execute the packaged helpers as well as
 checking their source behavior.
@@ -250,6 +354,11 @@ capability registration determines which implementations a platform supplies.
   greeter commands. A known default session must remain enabled when a login
   manager is active; explicit custom greeter commands are preserved. Direct
   service overrides are checked for conflicts.
+  Arch GDM applies its default session at the next GDM start through the same
+  AccountsService utility used by NixOS. Activation validates that the native
+  session is installed before changing the login-manager configuration; it does
+  not restart a running login manager or terminate desktop sessions. Setting
+  the default to `null` removes the managed GDM startup override.
 - Optional host `systemConfig` and `homeConfig` extension modules expose
   upstream-style options when a feature interface does not cover a requirement.
   Shipped hosts express their ordinary configuration through features instead.
@@ -279,8 +388,12 @@ or attempt to sandbox trusted Nix modules.
 
 1. Create `nix/ports/<platform>/default.nix` and register it in
    `nix/lib/platforms/default.nix`. Declare its family, builder,
-   default manager, hardware-configuration requirement and contract list. Platform families and feature availability
-   derive from those declarations; only claim implemented capabilities.
+   default manager, `packageProviders`, hardware-configuration requirement and
+   contract list. The default manager must be in the supported provider list,
+   which must include Nix. `capabilities` declares environment properties such
+   as `efi` for firmware tooling; service interfaces belong in `contracts`.
+   Platform families and feature availability derive from those declarations;
+   only claim implemented capabilities.
 2. Implement or reuse the named contracts under that port. Register every
    required `portScopes` implementation by feature/integration ID. Missing
    feature adapters or required contracts fail catalog validation.
@@ -373,6 +486,11 @@ copying semantics, so validation uses the candidate bytes even if the original
 file later changes. Existing derivations and intentional out-of-store links keep
 their source semantics. Native package and service checks remain owned by their
 existing resources.
+
+Noctalia's native pre-link validation uses the same final-file reader,
+`nix/assets/helpers/common/managed-home-file.nix`. Final source overrides and
+disabled files therefore have the same meaning in both validators. Noctalia's
+`checkConfig` option controls whether its native validation runs.
 
 Tests cover both XDG and final `home.file` overrides, including disabled files,
 renamed targets, and valid/invalid replacement sources. An isolated command fixture

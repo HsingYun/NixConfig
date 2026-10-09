@@ -230,9 +230,8 @@ let
     "arch"
     "nixos"
   ];
-  archHost = import ../../../hosts/ArchLinux {
-    inherit lib;
-    profile.linuxDesktop = (import ../fixtures/feature-input.nix { inherit lib; }) (
+  archHost = (import ../../lib/hosts/load.nix { inherit lib; } (import ../../../hosts/ArchLinux)) // {
+    profiles = (import ../fixtures/feature-input.nix { inherit lib; }) (
       allOff
       // {
         niri = true;

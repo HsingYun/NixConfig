@@ -5,43 +5,29 @@
   ...
 }:
 
-let
-  usesNixPackage = software.mpv.provider == "nix";
-  scripts = [
-    software.mpv-modernx.package
-    software.mpv-thumbfast.package
-  ];
-in
 {
   software = {
     requirements = {
-      # Nix uses HM's wrapper; Arch loads scripts from the user configuration.
-      mpv = {
-        scopes = [ ];
-      };
+      # The preset selects the identity; HM owns installation while enabled.
+      mpv.scopes = [ ];
       mpv-modernx = {
         capabilities = [ "store-package" ];
-        scopes = lib.optionals (!usesNixPackage) [ "home" ];
+        scopes = [ ];
       };
       mpv-thumbfast = {
         capabilities = [ "store-package" ];
-        scopes = lib.optionals (!usesNixPackage) [ "home" ];
+        scopes = [ ];
       };
       source-han-sans = { };
     };
   };
-  xdg.configFile = lib.mkIf (!usesNixPackage && config.programs.mpv.enable) (
-    lib.listToAttrs (
-      map (script: {
-        name = "mpv/scripts/${script.scriptName}";
-        value.source = "${script}/share/mpv/scripts/${script.scriptName}";
-      }) scripts
-    )
-  );
   programs.mpv = {
     enable = lib.mkDefault true;
     defaultProfiles = lib.mkDefault [ "high-quality" ];
-    scripts = lib.mkDefault (lib.optionals usesNixPackage scripts);
+    scripts = lib.mkDefault [
+      software.mpv-modernx.package
+      software.mpv-thumbfast.package
+    ];
     config = lib.mkMerge [
       config.features.mpv.settings
       (lib.mapAttrs (_: lib.mkDefault) {
@@ -69,9 +55,6 @@ in
         osc = lib.mapAttrs (_: lib.mkDefault) {
           language = "chs";
           font = "Source Han Sans SC";
-        };
-        thumbfast = lib.mkIf (!usesNixPackage) {
-          mpv_path = lib.mkDefault (software.mpv.command "mpv");
         };
       }
     ];

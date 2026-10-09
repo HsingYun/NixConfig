@@ -6,7 +6,7 @@ in
 {
   imports = [
     ../../software/plan.nix
-    ./consumers.nix
+    ./adapters
   ];
   config = {
     software.platform = lib.mkIf (cfg.hostContext != null) (lib.mkDefault cfg.hostContext.platform);

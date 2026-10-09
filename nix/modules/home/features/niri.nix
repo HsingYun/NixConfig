@@ -1,9 +1,11 @@
 {
   config,
+  helpers,
   lib,
   ...
 }:
 let
+  inherit (helpers) kdl;
   defaults = {
     input.touchpad = {
       tap = { };
@@ -14,7 +16,7 @@ let
       background-color = "transparent";
       center-focused-column = "never";
       default-column-width.proportion = 0.5;
-      preset-column-widths._children = [
+      preset-column-widths = kdl.children [
         { proportion = 0.33333; }
         { proportion = 0.5; }
         { proportion = 0.66667; }
@@ -25,15 +27,13 @@ let
         inactive-color = "#45475a";
       };
     };
-    _children = [
-      {
-        window-rule = {
-          geometry-corner-radius = 12;
-          clip-to-geometry = true;
-        };
-      }
-    ];
-  };
+  }
+  // kdl.children [
+    (kdl.node "window-rule" [ ] {
+      geometry-corner-radius = 12;
+      clip-to-geometry = true;
+    })
+  ];
 in
 {
   imports = [

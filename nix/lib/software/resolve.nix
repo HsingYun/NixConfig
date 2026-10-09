@@ -1,4 +1,4 @@
-{ lib }:
+{ lib, platformProviders }:
 {
   catalog,
   requirements,
@@ -13,6 +13,9 @@
 let
   manager = import ./manager.nix { inherit lib; } packageManager;
   providers = import ./providers.nix { inherit lib nativePrefix pkgs; };
+  supportedProviders =
+    platformProviders.${platform} or (throw "Software: unknown platform '${platform}'.");
+  supported = provider: builtins.elem provider supportedProviders;
   preferred = manager.type;
   backend = providers.${preferred};
   externalErrors =
@@ -23,7 +26,7 @@ let
         provider:
         if !(providers ? ${provider}) then
           [ "unknown provider '${provider}'" ]
-        else if !(providers.${provider}.supportsPlatform platform) then
+        else if !(supported provider) then
           [ "provider '${provider}' is unavailable on '${platform}'" ]
         else if !builtins.isAttrs manager.extraPkg.${provider} then
           [ "${provider}: expected package groups" ]
@@ -103,9 +106,8 @@ let
   checkManager =
     assert lib.assertMsg (providers ? ${preferred})
       "Software: package manager '${preferred}' has no implemented backend (supported: ${lib.concatStringsSep ", " (builtins.attrNames providers)}).";
-    assert lib.assertMsg (providers.${preferred}.supportsPlatform
-      platform
-    ) "Software: package manager '${preferred}' does not support platform '${platform}'.";
+    assert lib.assertMsg (supported preferred)
+      "Software: package manager '${preferred}' does not support platform '${platform}'.";
     true;
   names = builtins.attrNames requirements;
   select =
@@ -128,7 +130,7 @@ let
         // lib.optionalAttrs (overridden || packageDefaults ? ${name}) {
           nix =
             (entry.nix or { })
-            // (import ./recipe-constructors.nix { inherit pkgs; }).nix (
+            // (import ./recipe-constructors.nix).nix (
               if overridden then packageOverrides.${name} else packageDefaults.${name}
             )
             // {
@@ -138,20 +140,26 @@ let
       usable =
         provider:
         providers ? ${provider}
-        && providers.${provider}.supportsPlatform platform
+        && supported provider
         && recipes ? ${provider}
         && (recipes.${provider}.available or true)
         && lib.all (cap: builtins.elem cap (recipes.${provider}.capabilities or [ ])) capabilities;
       available = lib.filter usable candidates;
       provider =
         if available == [ ] then
-          throw "Software: '${name}' has no usable provider in ${lib.concatStringsSep ", " candidates}; required capabilities: ${lib.concatStringsSep ", " capabilities}."
+          throw (
+            "Software: '${name}' has no usable provider in ${lib.concatStringsSep ", " candidates}; required capabilities: ${lib.concatStringsSep ", " capabilities}."
+            + lib.optionalString (
+              (request.requiredBy or [ ]) != [ ]
+            ) " Requested by: ${lib.concatStringsSep ", " request.requiredBy}."
+          )
         else
           builtins.head available;
       source = recipes.${provider};
     in
     {
       inherit provider capabilities;
+      mainProgram = source.mainProgram or (source.package.meta.mainProgram or null);
       providedCapabilities = source.capabilities or [ ];
       scopes = lib.unique (request.scopes or [ "home" ]);
       reason =
@@ -292,10 +300,9 @@ assert lib.assertMsg (lib.all (name: catalog ? ${name} && catalog.${name} ? nix)
 assert lib.assertMsg (lib.all (name: catalog ? ${name}) (
   builtins.attrNames providerOverrides
 )) "Software: providerOverrides contains an unknown software identifier.";
-assert lib.assertMsg (lib.all
-  (provider: providers ? ${provider} && providers.${provider}.supportsPlatform platform)
-  (builtins.attrValues providerOverrides)
-) "Software: providerOverrides selects an unsupported provider.";
+assert lib.assertMsg (lib.all (provider: providers ? ${provider} && supported provider) (
+  builtins.attrValues providerOverrides
+)) "Software: providerOverrides selects an unsupported provider.";
 assert lib.assertMsg (lib.all
   (name: !(providerOverrides ? ${name}) || providerOverrides.${name} == "nix")
   (builtins.attrNames packageOverrides)

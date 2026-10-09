@@ -36,6 +36,21 @@ in
 assert load { platform = "arch"; } == { platform = "arch"; };
 assert (load ({ profile }: { profiles = profile.cli; })).profiles == profile.cli;
 assert
+  (load (
+    { helpers }: {
+      settings = helpers.kdl.children [ (helpers.kdl.node "output" [ "DP-1" ] { scale = 2; }) ];
+    }
+  )).settings == {
+    _children = [
+      {
+        output = {
+          _args = [ "DP-1" ];
+          scale = 2;
+        };
+      }
+    ];
+  };
+assert
   (load ({ lib }: { features = lib.mkIf true { vim.enable = true; }; })).features._type == "if";
 assert (profileDefaults { }).config.chrome.enable;
 assert !(profileDefaults { chrome.enable = false; }).config.chrome.enable;

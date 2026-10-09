@@ -1,11 +1,18 @@
-{ lib }:
+{ lib, pkgs }:
 {
   packages,
   aur,
   pacman ? "/usr/bin/pacman",
   yay ? "/usr/bin/yay",
-  sudo ? "/usr/bin/sudo",
+  privilegeCommand,
 }:
+let
+  # yay accepts one executable and whitespace-split flags. A wrapper preserves
+  # the port's complete argument vector without lossy string serialization.
+  elevate = pkgs.writeShellScript "native-package-elevate" ''
+    exec ${lib.escapeShellArgs privilegeCommand} "$@"
+  '';
+in
 # A subshell keeps Arch build tools available without changing the rest of HM's PATH.
 ''
   (
@@ -50,16 +57,16 @@
           exit 1
         fi
       fi
-      if (( ''${#repoTargets[@]} + ''${#aurTargets[@]} > 0 )) && [[ ! -x ${lib.escapeShellArg sudo} ]]; then
-        echo "Software: sudo is required to install native packages." >&2
+      if (( ''${#repoTargets[@]} + ''${#aurTargets[@]} > 0 )) && ! command -v ${lib.escapeShellArg (builtins.head privilegeCommand)} >/dev/null 2>&1; then
+        echo "Software: the configured privilege command is required to install native packages." >&2
         exit 1
       fi
     fi
     if (( ''${#repoTargets[@]} > 0 )); then
-      run ${lib.escapeShellArg sudo} ${lib.escapeShellArg pacman} -S --needed -- "''${repoTargets[@]}" || exit $?
+      run ${lib.escapeShellArgs privilegeCommand} ${lib.escapeShellArg pacman} -S --needed -- "''${repoTargets[@]}" || exit $?
     fi
     if (( ''${#aurTargets[@]} > 0 )); then
-      run ${lib.escapeShellArg yay} -S --needed --aur -- "''${aurTargets[@]}" || exit $?
+      run ${lib.escapeShellArg yay} --sudo ${elevate} --sudoflags "" -S --needed --aur -- "''${aurTargets[@]}" || exit $?
     fi
   )
 ''

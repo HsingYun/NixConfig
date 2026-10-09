@@ -4,7 +4,10 @@ let
   catalog = import ../../lib/software/catalog.nix {
     pkgs = inputs.nixpkgs.legacyPackages.aarch64-darwin;
   };
-  resolve = import ../../lib/software/resolve.nix { inherit lib; };
+  resolve = import ../../lib/software/resolve.nix {
+    inherit lib;
+    platformProviders = (import ../../lib/platforms).packageProviders;
+  };
   fixture = {
     editor = {
       nix = {

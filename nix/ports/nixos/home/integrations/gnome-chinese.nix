@@ -6,7 +6,7 @@
 }:
 {
   imports = [
-    (import ../../../modules/home/integrations/gnome-chinese.nix {
+    (import ../../../../modules/home/integrations/gnome-chinese.nix {
       enabled =
         osConfig.services.desktopManager.gnome.enable
         && config.i18n.inputMethod.enable

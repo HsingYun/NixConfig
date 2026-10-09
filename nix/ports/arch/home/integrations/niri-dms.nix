@@ -6,7 +6,7 @@
 }:
 {
   imports = [
-    (import ../../../modules/home/integrations/niri-dms.nix {
+    (import ../../../../modules/home/integrations/niri-dms.nix {
       enabled =
         (osConfig.programs.dms-shell.enable && osConfig.programs.dms-shell.systemd.enable)
         || (

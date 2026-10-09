@@ -5,6 +5,10 @@
 { registry, catalog }:
 let
   ports = registry.definitions;
+  providers = import ../software/providers.nix {
+    inherit lib;
+    nativePrefix = "";
+  };
   strings = value: builtins.isList value && lib.all (v: builtins.isString v && v != "") value;
   uniqueStrings = value: strings value && lib.unique value == value;
   modules =
@@ -28,6 +32,8 @@ let
       ) (builtins.attrNames value);
   required = [
     "contracts"
+    "packageProviders"
+    "capabilities"
     "managesSystem"
     "requiresHardwareConfig"
     "family"
@@ -41,6 +47,8 @@ let
   ];
   schema = {
     contracts = uniqueStrings;
+    packageProviders = uniqueStrings;
+    capabilities = uniqueStrings;
     managesSystem = builtins.isBool;
     requiresHardwareConfig = builtins.isBool;
     family =
@@ -84,6 +92,18 @@ else
     lib.optional (
       !uniqueStrings ports.${platform}.contracts
     ) "Port ${platform}: contracts must be unique names."
+    ++ lib.optional (
+      !(builtins.elem ports.${platform}.packageManager ports.${platform}.packageProviders)
+    ) "Port ${platform}: default package manager must be a supported provider."
+    ++ lib.optional (
+      !(builtins.elem "nix" ports.${platform}.packageProviders)
+    ) "Port ${platform}: Nix must remain available for package overrides and fallback."
+    ++ lib.concatMap (
+      provider:
+      lib.optional (
+        !(providers ? ${provider})
+      ) "Port ${platform}: unknown package provider '${provider}'."
+    ) ports.${platform}.packageProviders
     ++ lib.concatMap (
       name: lib.optional (!(contracts ? ${name})) "Port ${platform}: unknown contract '${name}'."
     ) ports.${platform}.contracts

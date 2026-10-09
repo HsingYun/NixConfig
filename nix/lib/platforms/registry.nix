@@ -6,6 +6,8 @@ let
 in
 {
   inherit definitions;
+  packageProviders = builtins.mapAttrs (_: port: port.packageProviders) definitions;
+  withCapability = capability: select (port: builtins.elem capability port.capabilities);
   all = builtins.attrNames definitions;
   linux = select (port: port.family == "linux");
   nixos = select (port: port.upstreamNixos);

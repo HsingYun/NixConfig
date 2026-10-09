@@ -2,7 +2,6 @@
   config,
   lib,
   pkgs,
-  software,
   ...
 }:
 
@@ -19,9 +18,6 @@ in
   programs.ghostty = {
     enable = lib.mkDefault true;
 
-    systemd.enable = lib.mkDefault (
-      builtins.elem "systemd-service" software.ghostty.providedCapabilities
-    );
     enableZshIntegration = lib.mkDefault true;
     settings = lib.mkMerge [
       config.features.ghostty.settings

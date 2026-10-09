@@ -5,6 +5,7 @@ let
   args = {
     inherit lib;
     profile = import ./profiles.nix;
+    helpers = import ../helpers.nix;
   };
 in
 host (builtins.intersectAttrs (lib.functionArgs host) args)

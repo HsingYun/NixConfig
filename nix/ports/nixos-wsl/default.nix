@@ -7,6 +7,8 @@
     "system.smartcard"
     "system.chrome"
   ];
+  packageProviders = [ "nix" ];
+  capabilities = [ ];
   managesSystem = true;
   requiresHardwareConfig = false;
   family = "linux";
@@ -18,10 +20,10 @@
   systemPolicy = ../nixos/integrations;
   systemModules = [ ./system/default.nix ];
   homeModules = [
-    ../nixos/home/launcher.nix
-    ../nixos/home/keyring.nix
+    ../nixos/home/capabilities/launcher.nix
+    ../nixos/home/features/gnome-keyring.nix
   ];
   features.nixLd.systemModules = [ ../nixos/system/nix-ld.nix ];
   features.usbip.systemModules = [ ./system/usbip.nix ];
-  integrations.gpg-smartcard.homeModules = [ ../nixos/home/smartcard.nix ];
+  integrations.gpg-smartcard.homeModules = [ ../nixos/home/integrations/gpg-smartcard.nix ];
 }

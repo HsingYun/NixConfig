@@ -11,6 +11,7 @@ in
   imports = [ ./plan.nix ];
   software = {
     requirements = home.software.requirements;
+    consumers = home.software.consumers;
     providerOverrides = home.software.providerOverrides;
     packageOverrides = home.software.packageOverrides;
     runtimeArtifacts = home.software.runtimeArtifacts;

@@ -46,6 +46,21 @@ let
     platform = "example";
     overrides.desktop.niri.enable = true;
   };
+  software =
+    import ../../lib/software/resolve.nix
+      {
+        inherit lib;
+        platformProviders = registry.packageProviders;
+      }
+      {
+        platform = "example";
+        packageManager = registry.definitions.example.packageManager;
+        catalog.tool.pacman = {
+          type = "package";
+          name = "native-tool";
+        };
+        requirements.tool = { };
+      };
   partial = resolve {
     name = "PartialDesktop";
     platform = "gnomeOnly";
@@ -132,6 +147,27 @@ assert builtins.elem "gnomeOnly" catalog.features.gnome.platforms;
 assert !(builtins.elem "gnomeOnly" catalog.features.niri.platforms);
 assert !(builtins.elem "gnomeOnly" catalog.features.dms.platforms);
 assert selected.errors == [ ] && selected.selected.desktop == "niri";
+assert builtins.elem "example" catalog.features.mihomo.platforms;
+assert builtins.elem "example" catalog.features.efiTools.platforms;
+assert !(builtins.elem "nixos-wsl" catalog.features.efiTools.platforms);
+assert software.resolved.tool.provider == "pacman";
+assert software.installations.pacman.packages == [ "native-tool" ];
+assert lib.any (error: lib.hasInfix "default package manager" error) (
+  errorsFor (port: port // { packageProviders = [ "nix" ]; })
+);
+assert lib.any (error: lib.hasInfix "unknown package provider" error) (
+  errorsFor (
+    port:
+    port
+    // {
+      packageProviders = [
+        "nix"
+        "pacman"
+        "apt"
+      ];
+    }
+  )
+);
 assert builtins.elem "example" catalog.integrations.chrome-browser.platforms;
 assert lib.any (error: lib.hasInfix "typo" error) (errorsFor (port: port // { typo = true; }));
 assert lib.any (error: lib.hasInfix "builder" error) (
@@ -149,6 +185,7 @@ assert lib.any (error: lib.hasInfix "home implementation" error) (
 {
   nativeFixtureUsesDeploymentMetadata = true;
   desktopFamilyExtendsWithoutPlatformBranches = true;
+  packageAndFeatureSupportFollowPortRegistration = true;
   partialDesktopPortNeedsOnlyImplementedCapabilities = true;
   invalidPortMetadataRejected = true;
   missingImplementationRejected = true;

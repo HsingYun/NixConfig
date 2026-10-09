@@ -16,6 +16,7 @@ let
       module = import ../../../ports/arch/activation/chrome.nix {
         inherit lib pkgs;
         user.username = "test";
+        config.native.privilegeCommand = [ sudo ];
         config.programs.chromium = {
           enable = enabled;
           extraOpts = policy;
@@ -23,8 +24,8 @@ let
       };
       activation =
         lib.replaceStrings
-          [ destination state "/usr/bin/sudo" ]
-          [ "test-root/policies/nixconfig-extensions.json" "test-root/state/chrome.json" (toString sudo) ]
+          [ destination state ]
+          [ "test-root/policies/nixconfig-extensions.json" "test-root/state/chrome.json" ]
           module.native.activation.installChromePolicy.data;
     in
     pkgs.writeShellScript "chrome-policy-test" ''

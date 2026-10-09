@@ -23,6 +23,11 @@
     "system.power"
     "system.storage"
   ];
+  packageProviders = [
+    "nix"
+    "pacman"
+  ];
+  capabilities = [ "efi" ];
   managesSystem = true;
   requiresHardwareConfig = false;
   family = "linux";
@@ -36,6 +41,7 @@
   ];
   homeModules = [ ./home ];
   features = {
+    chinese.homeModules = [ ./home/features/chinese.nix ];
     noctalia.systemModules = [ ../../modules/system/features/noctalia.nix ];
     dms = {
       systemModules = [ ../../modules/system/features/dms.nix ];
@@ -44,16 +50,16 @@
       systemModules = [ ../../modules/system/features/niri.nix ];
     };
     gnome = {
-      homeModules = [ ./home/gnome.nix ];
+      homeModules = [ ./home/features/gnome.nix ];
       systemModules = [ ../../modules/system/features/gnome.nix ];
     };
   };
   integrations = {
     niri-dms = {
-      homeModules = [ ./home/niri-dms.nix ];
+      homeModules = [ ./home/integrations/niri-dms.nix ];
     };
     gnome-chinese = {
-      homeModules = [ ./home/gnome-chinese.nix ];
+      homeModules = [ ./home/integrations/gnome-chinese.nix ];
     };
   };
 }

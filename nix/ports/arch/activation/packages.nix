@@ -40,26 +40,22 @@ in
     '';
   };
   native.activation = {
-    removeReplacedNativePackages =
-      lib.mkIf
+    removeReplacedNativePackages = lib.mkIf (replacements != [ ]) (
+      lib.hm.dag.entryBetween
+        [ "linkGeneration" ]
+        [ "installPackages" "systemProfile" "installNativePackages" ]
         (
-          config.software.platform == "arch"
-
-          && replacements != [ ]
+          import ../../../assets/helpers/arch/pacman-migration.nix { inherit lib; } {
+            inherit (config.native) privilegeCommand;
+            packages = replacements;
+          }
         )
-        (
-          lib.hm.dag.entryBetween
-            [ "linkGeneration" ]
-            [ "installPackages" "systemProfile" "installNativePackages" ]
-            (
-              import ../../../assets/helpers/arch/pacman-migration.nix { inherit lib; } {
-                packages = replacements;
-              }
-            )
-        );
+    );
     installNativePackages = lib.mkIf (plan.packages != [ ] || plan.aur != [ ]) (
       lib.hm.dag.entryBetween [ "linkGeneration" "systemProfile" ] [ "writeBoundary" ] (
-        import ../../../assets/helpers/arch/pacman-activation.nix { inherit lib; } plan
+        import ../../../assets/helpers/arch/pacman-activation.nix { inherit lib pkgs; } (
+          plan // { inherit (config.native) privilegeCommand; }
+        )
       )
     );
   };

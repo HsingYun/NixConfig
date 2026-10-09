@@ -265,6 +265,12 @@ collector, including its handling of stale build remnants. It does not expire
 generation links. Changes to the previewed state cause an abort before
 execution; Nix remains responsible for liveness checks while collecting.
 
+For native hosts such as Arch, the auxiliary system package profile keeps only
+its selected generation after activation. Retained HM generations keep their
+corresponding Nix system packages reachable; removing those HM generations allows
+unreferenced packages to be collected. Pacman/AUR packages are unaffected by Nix
+profile or store cleanup.
+
 Store cleanup previews include an estimated size, summing each unique planned
 path's `narSize` from `nix path-info --json --json-format 1 --stdin`. The batch query reads Nix
 metadata without traversing dependency closures or scanning file contents.

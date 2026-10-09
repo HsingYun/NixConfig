@@ -49,7 +49,7 @@ let
       osConfig.services.desktopManager.gnome.enable = true;
     };
     modules = [
-      ../../ports/nixos/home/gnome-chinese.nix
+      ../../ports/nixos/home/integrations/gnome-chinese.nix
       {
         software.platform = "nixos";
         home = {
@@ -83,7 +83,7 @@ let
       inherit pkgs;
       modules = [
         ../../modules/home/software
-        ../../ports/nixos/home/chinese.nix
+        ../../ports/nixos/home/features/chinese.nix
         {
           software.platform = "nixos";
           home = {

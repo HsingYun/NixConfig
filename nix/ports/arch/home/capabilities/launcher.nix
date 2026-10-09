@@ -22,7 +22,7 @@ in
   home.activation.launcherOverrides =
     lib.hm.dag.entryAfter [ "linkGeneration" "installNativePackages" "removeReplacedNativePackages" ]
       ''
-        run ${lib.getExe pkgs.python3} ${../../../assets/helpers}/arch/launcher.py ${rules} \
+        run ${lib.getExe pkgs.python3} ${../../../../assets/helpers}/arch/launcher.py ${rules} \
           ${lib.escapeShellArg config.xdg.dataHome} ${lib.escapeShellArg config.xdg.stateHome} \
           ${pkgs.desktop-file-utils}/bin/desktop-file-install
       '';

@@ -17,7 +17,9 @@ let
     manager: extra:
     inputs.home-manager.lib.homeManagerConfiguration {
       pkgs = vimPkgs;
+      extraSpecialArgs = { inherit inputs; };
       modules = [
+        ../../ports/common/home/capabilities/vim.nix
         ../../modules/home/software
         ../../modules/home/features/vim.nix
         extra
@@ -95,7 +97,8 @@ let
 in
 assert lib.all (a: a.assertion) (nix.assertions ++ native.assertions);
 assert nix.programs.vim.enable && !(nix.home.file ? ".vimrc");
-assert !native.programs.vim.enable && native.home.file ? ".vimrc";
+assert
+  native.programs.vim.enable && native.programs.vim.package == null && native.home.file ? ".vimrc";
 assert native.software.resolved.vim.provider == manager;
 assert native.software.resolved.ctags.provider == manager;
 assert (

@@ -16,7 +16,7 @@ in
   # The upstream HM module always installs its Nix runtime. This adapter only
   # manages data and links Arch's service, keeping the native runtime intact.
   imports = [
-    ../../../../modules/home/software/dms-consumer.nix
+    ../../../../modules/home/software/adapters/dms.nix
     ../../../../contracts/home/dms.nix
   ];
   config = lib.mkMerge [

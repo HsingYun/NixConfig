@@ -1,10 +1,9 @@
-{ pkgs }:
 let
-  inherit (pkgs) lib;
   nix = package: {
     inherit package;
-    available =
-      lib.meta.availableOn pkgs.stdenv.hostPlatform package && !(package.meta.broken or false);
+    # nixpkgs owns platform, license and problem policy, including explicit
+    # host permissions. Derivations without that metadata retain Nix's checks.
+    available = package.meta.available or true;
     capabilities = [ "store-package" ];
   };
   font =

@@ -20,6 +20,7 @@ let
       ) outputs;
   validName =
     name: builtins.isString name && builtins.match "[A-Za-z0-9][A-Za-z0-9+._/@:-]*" name != null;
+  validProgram = value: builtins.isString value && builtins.match "[A-Za-z0-9_+.-]+" value != null;
   namesFor =
     type: entries:
     lib.unique (map (entry: entry.nativeName) (lib.filter (entry: entry.nativeType == type) entries));
@@ -42,7 +43,7 @@ in
     externalRecipe =
       _: name:
       assert lib.assertMsg (pkgs != null) "Software: Nix extraPkg requires a package set.";
-      (import ./recipe-constructors.nix { inherit pkgs; }).nix (
+      (import ./recipe-constructors.nix).nix (
         lib.attrByPath (lib.splitString "." name) (throw "Software: unknown Nix package '${name}'.") pkgs
       );
     inherit validName;
@@ -65,8 +66,6 @@ in
         )
       );
 
-    # Host composition validates platform identities; Nix needs no port-specific restriction.
-    supportsPlatform = _: true;
     fallback = [ ];
     resolve = source: {
       package = source.package;
@@ -102,17 +101,18 @@ in
       "available"
       "binDirs"
       "commandDir"
+      "mainProgram"
     ];
     validate =
       source:
       source ? name
       && validName source.name
+      && (!(source ? mainProgram) || validProgram source.mainProgram)
       && builtins.elem (source.type or null) [
         "brew"
         "cask"
       ];
 
-    supportsPlatform = platform: platform == "darwin";
     fallback = [ "nix" ];
     resolve =
       source:
@@ -146,6 +146,7 @@ in
       "type"
       "capabilities"
       "available"
+      "mainProgram"
     ];
     externalGroups = {
       packages = "package";
@@ -157,13 +158,13 @@ in
       source:
       source ? name
       && validName source.name
+      && (!(source ? mainProgram) || validProgram source.mainProgram)
       && !(lib.hasInfix "/" source.name)
       && !(lib.hasInfix ":" source.name)
       && builtins.elem (source.type or null) [
         "package"
         "aur"
       ];
-    supportsPlatform = platform: platform == "arch";
     fallback = [ "nix" ];
     resolve = source: {
       package = null;

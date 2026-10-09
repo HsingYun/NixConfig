@@ -2,6 +2,7 @@
 {
   imports = [
     (import ../../software/consumer.nix {
+      scope = "system";
       id = "system-mihomo";
       software = "mihomo";
       packageOption = [
@@ -16,7 +17,6 @@
           "enable"
         ]
       ];
-      requestWhenEnabled = true;
     })
   ];
   software.requirements.mihomo = lib.mkIf config.services.mihomo.enable { scopes = [ "system" ]; };

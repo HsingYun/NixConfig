@@ -32,10 +32,14 @@ in
         test "$(${pkgs.coreutils}/bin/readlink -f ${lib.escapeShellArg config.native.profileDirectory})" = ${profile}
       '';
     };
-    activation.systemProfile = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
-      if [[ $(${pkgs.coreutils}/bin/readlink -f ${lib.escapeShellArg config.native.profileDirectory} || true) != ${profile} ]]; then
-        run ${lib.escapeShellArgs config.native.privilegeCommand} ${pkgs.nix}/bin/nix-env --profile ${lib.escapeShellArg config.native.profileDirectory} --set ${profile}
-      fi
-    '';
+    activation.systemProfile = lib.hm.dag.entryAfter [ "writeBoundary" ] (
+      import ../../../assets/helpers/common/system-profile-activation.nix { inherit lib; } {
+        inherit (config.native) privilegeCommand;
+        nixEnv = "${pkgs.nix}/bin/nix-env";
+        readlink = "${pkgs.coreutils}/bin/readlink";
+        profilePath = config.native.profileDirectory;
+        packageSet = toString profile;
+      }
+    );
   };
 }

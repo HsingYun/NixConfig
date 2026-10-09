@@ -117,6 +117,39 @@ belong exclusively in host definitions. Shared features do not select hardware.
 For example, ArchLinux sets `desktop.dms.settings.matugenTargetMonitor = "DP-5"`
 alongside its dual-monitor Niri configuration.
 
+For repeated or parameterized nodes, the supplied `helpers.kdl` argument
+provides small constructors for Home Manager's existing KDL representation.
+The implementation lives in `nix/lib/config/kdl.nix`:
+
+```nix
+{ helpers, ... }:
+{
+  features.desktop.niri.settings = {
+    layout.gaps = 12;
+  } // helpers.kdl.children [
+    (helpers.kdl.node "output" [ "DP-1" ] {
+      scale = 1.5;
+      position = helpers.kdl.props { x = 0; y = 0; };
+    })
+    (helpers.kdl.node "window-rule" [ ] {
+      match = helpers.kdl.props { app-id = "^mpv$"; };
+      open-floating = true;
+    })
+  ];
+}
+```
+
+`node name args body` constructs one named node; `props` constructs named
+properties, and `children` preserves the order of repeated nodes. These are
+ordinary attribute sets using the upstream `_args`, `_props` and `_children`
+fields, not a separate configuration schema. The raw upstream form remains
+valid. Pass list overrides inside `children`, for example
+`helpers.kdl.children (lib.mkForce [ ])` to clear ordered nodes. Use `lib.mkMerge`
+when combining multiple `children` contributions in one module: Nix's `//`
+replaces an existing `_children` attribute rather than concatenating its list.
+Home Manager modules serialize through `helpers.kdl.render { inherit lib; }`,
+which delegates to the upstream KDL generator with the shared escaping policy.
+
 Without runtime fragments, Niri defaults use ordinary Home Manager settings:
 overriding one touchpad field retains the other feature defaults, and `mkForce`
 can replace the declared settings. Ordered default rules precede host rules.
@@ -343,6 +376,11 @@ applications and user services receive the updated environment. Niri retains
 Wayland input support. See the
 [settings lifecycle](software.md#desktop-input-and-settings-lifecycle) for removal semantics.
 
+On Arch, the Chinese feature requests native Rime and the Rime Ice AUR package.
+Enabling only `homeConfig.i18n.inputMethod` with `type = "fcitx5"` provides the
+base runtime and GTK/Qt modules without choosing an input engine or requesting
+Rime Ice. Other native addons can be installed through `packageManager.extraPkg`.
+
 ## Applications
 
 Role names are registered once in [`nix/lib/desktop/roles.nix`](../nix/lib/desktop/roles.nix).
@@ -414,7 +452,11 @@ Niri/MPV integration. Installing an application alone does not select a role.
 - `ghostty` uses [shared terminal settings](../nix/modules/home/features/ghostty.nix)
   with Darwin-specific additions. Its font dependency is supplied automatically.
 - `mpv` configures ModernX and thumbfast. Nix uses the upstream wrapper; native
-  players load script links. Linux desktop presets enable it. Darwin defaults
+  players load scripts and their resources through the same `programs.mpv.scripts`
+  option. The default scripts work with pacman/Homebrew MPV, including fonts and
+  the thumbnail subprocess. Unsupported wrapper requirements fall back to Nix.
+  Overriding that list changes script selection on either provider; no feature
+  preset is required to use the interface. Linux desktop presets enable it. Darwin defaults
   to IINA, and explicitly enabling mpv there prefers Homebrew.
 
 `devel` and `commonTools` are software groups defined in

@@ -23,6 +23,8 @@
     "system.power"
     "system.storage"
   ];
+  packageProviders = [ "nix" ];
+  capabilities = [ "efi" ];
   managesSystem = true;
   requiresHardwareConfig = true;
   family = "linux";
@@ -34,43 +36,43 @@
   systemPolicy = ./integrations;
   systemModules = [ ./system/default.nix ];
   homeModules = [
-    ./home/keyring.nix
-    ./home/launcher.nix
+    ./home/capabilities/launcher.nix
     ./home/capabilities/niri.nix
     ./home/capabilities/dms.nix
-    ../../modules/home/software/noctalia-consumer.nix
+    ../../modules/home/software/adapters/noctalia.nix
   ];
   features = {
+    keyring.homeModules = [ ./home/features/gnome-keyring.nix ];
     network.systemModules = [ ./system/network.nix ];
     plymouth.systemModules = [ ./system/plymouth.nix ];
     nixLd.systemModules = [ ./system/nix-ld.nix ];
     wallpaper.systemModules = [ ./system/greeter-wallpaper.nix ];
-    launcher.homeModules = [ ./home/launcher-feature.nix ];
+    launcher.homeModules = [ ./home/features/launcher.nix ];
     printing.systemModules = [ ./system/printing.nix ];
     chinese = {
       systemModules = [ ./system/chinese.nix ];
-      homeModules = [ ./home/chinese.nix ];
+      homeModules = [ ./home/features/chinese.nix ];
     };
     noctalia.systemModules = [ ./system/noctalia.nix ];
     dms = {
-      homeModules = [ ./home/dms.nix ];
+      homeModules = [ ./home/features/dms.nix ];
       systemModules = [ ./system/dms.nix ];
     };
     niri = {
       systemModules = [ ./system/niri.nix ];
     };
     gnome = {
-      homeModules = [ ./home/gnome.nix ];
+      homeModules = [ ./home/features/gnome.nix ];
       systemModules = [ ./system/gnome.nix ];
     };
   };
   integrations = {
-    gpg-smartcard.homeModules = [ ./home/smartcard.nix ];
+    gpg-smartcard.homeModules = [ ./home/integrations/gpg-smartcard.nix ];
     niri-dms = {
-      homeModules = [ ./home/niri-dms.nix ];
+      homeModules = [ ./home/integrations/niri-dms.nix ];
     };
     gnome-chinese = {
-      homeModules = [ ./home/gnome-chinese.nix ];
+      homeModules = [ ./home/integrations/gnome-chinese.nix ];
     };
   };
 }

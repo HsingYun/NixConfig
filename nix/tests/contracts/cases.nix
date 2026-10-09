@@ -107,6 +107,26 @@ in
       };
     };
     observe = homeFile "niri/config.kdl";
+    scenarios.sessionUnits = {
+      configure = {
+        system.programs.niri.enable = true;
+        home.wayland.windowManager.niri = {
+          enable = true;
+          systemd.enable = true;
+          settings.input.keyboard.xkb.layout = "us";
+        };
+      };
+      verify =
+        { home, ... }:
+        home.wayland.windowManager.niri.systemd.enable
+        && (
+          if home.wayland.windowManager.niri.package == null then
+            home.xdg.dataFile ? "systemd/user/niri.service"
+            && home.xdg.dataFile ? "systemd/user/niri-shutdown.target"
+          else
+            builtins.elem home.wayland.windowManager.niri.package home.systemd.user.packages
+        );
+    };
   };
   "home.noctalia" = {
     configure = { enabled, ... }: {
@@ -172,7 +192,12 @@ in
         };
         verify =
           { home, ... }:
-          !hasInputFiles home && home.systemd.user.services ? fcitx5-daemon;
+          !hasInputFiles home
+          && home.systemd.user.services ? fcitx5-daemon
+          # A bare capability must not acquire the Chinese preset's dependencies.
+          && !(home.software.resolved ? fcitx5-rime)
+          && !(home.software.resolved ? rime-ice)
+          && home.i18n.inputMethod.fcitx5.addons == [ ];
       };
       explicitEmptyAddon = {
         configure.home.i18n.inputMethod = {

@@ -20,7 +20,10 @@ let
   };
   pkgs = inputs.nixpkgs.legacyPackages.x86_64-linux;
   materialize = import ../../lib/software/materialize.nix { inherit lib; };
-  resolve = import ../../lib/software/resolve.nix { inherit lib; };
+  resolve = import ../../lib/software/resolve.nix {
+    inherit lib;
+    platformProviders = (import ../../lib/platforms).packageProviders;
+  };
   scopes = [
     [ ]
     [ "home" ]

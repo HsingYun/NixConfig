@@ -161,5 +161,19 @@ class Lifecycle(unittest.TestCase):
         self.apply(None)
         self.assertFalse(dest.exists())
 
+    def test_gdm_session_update_and_unset_preserve_running_manager(self):
+        root = self.path.parent
+        source, dest = root / "session-unit", root / "gdm.service.d/nixconfig.conf"
+        files = [{"source": str(source), "destination": str(dest), "stateFile": str(root / "session-state")}]
+        for session in ("gnome", "niri"):
+            source.write_text(f"[Service]\nExecStartPre=/set-session {session}\n")
+            module.reconcile(self.path, "host", "gdm.service", files, self.systemd)
+            self.assertEqual(dest.read_text(), source.read_text())
+        self.systemd.actions.clear()
+        module.reconcile(self.path, "host", "gdm.service", [], self.systemd)
+        self.assertFalse(dest.exists())
+        self.assertEqual(self.systemd.selected, "gdm.service")
+        self.assertEqual(self.systemd.actions, [("daemon-reload",)])
+
 
 unittest.main()
