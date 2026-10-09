@@ -80,7 +80,7 @@ lib.foldl'
     };
     dms = {
       nix = nix pkgs.dms-shell;
-      pacman = pacman "dms-shell-niri";
+      pacman = pacman "dms-shell";
     };
     dms-greeter = {
       pacman = aur "greetd-dms-greeter-git";

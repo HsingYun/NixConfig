@@ -21,6 +21,10 @@ in
     enableZshIntegration = lib.mkDefault true;
     settings = lib.mkMerge [
       config.features.ghostty.settings
+      (lib.mkIf isLinux {
+        # Desktop integrations may refine the base style; host settings win.
+        gtk-titlebar-style = lib.mkOptionDefault "tabs";
+      })
       (lib.mapAttrs (_: lib.mkDefault) (
         {
           font-family = "Maple Mono NF CN";
@@ -50,7 +54,6 @@ in
           scrollback-limit = 25000000;
         }
         // lib.optionalAttrs isLinux {
-          gtk-titlebar-style = "tabs";
           gtk-tabs-location = "top";
           gtk-wide-tabs = false;
           gtk-toolbar-style = "raised-border";

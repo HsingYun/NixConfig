@@ -545,6 +545,14 @@ import ./availability.nix { inherit lib platformRegistry; } {
   };
 
   integrations = {
+    niri-ghostty = {
+      platforms = desktops;
+      owners = [
+        "niri"
+        "ghostty"
+      ];
+      homeModules = [ ../../modules/home/integrations/niri-ghostty.nix ];
+    };
     niri-chinese = {
       platforms = desktops;
       owners = [

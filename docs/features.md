@@ -34,6 +34,14 @@ features.desktop = {
 };
 ```
 
+When the Niri feature and Home Manager's Ghostty program are both enabled,
+Ghostty defaults to `gtk-titlebar-style = native` and `window-decoration = server`.
+This removes the titlebar in Niri without forcing Ghostty to run undecorated in
+GNOME, where it falls back to client-side decorations. Tabs remain available;
+the tab bar is normally hidden with a single tab. The integration does not install
+or enable Ghostty. Override these defaults through `features.ghostty.settings`
+(when the Ghostty feature is enabled) or `homeConfig.programs.ghostty.settings`.
+
 ### Noctalia
 
 `features.desktop.noctalia` provides Noctalia v5 on NixOS and Arch. It is disabled
