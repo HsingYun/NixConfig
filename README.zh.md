@@ -178,19 +178,37 @@ nix/
 
 ## 验证
 
-先检查所有平台的配置求值，包括已注册主机的完整系统或 Home Manager 激活输出：
+如需完整的纯求值检查，可检查所有平台及已注册主机的完整系统或 Home Manager 激活输出：
 
 ```sh
 nix flake check --no-build --all-systems
 ```
 
-再在当前平台构建并执行检查：
+在当前平台构建并执行已注册的检查：
 
 ```sh
-nix flake check --print-build-logs
+nix build --no-link --print-build-logs --impure --expr '
+  let flake = builtins.getFlake (toString ./.);
+  in builtins.attrValues flake.checks.${builtins.currentSystem}
+'
 ```
 
-CI 在 x86_64 Linux 和 Apple Silicon macOS 上分别执行原生检查。`host-*` 检查会求值完整主机输出及其断言；`home-profile-*` 检查实际构建各主机的 Home Manager 软件目录以发现文件冲突，但不会激活配置或构建整台机器。`--no-build` 无法发现这类构建冲突。功能测试逐项检查独立开关，对依赖、冲突和桌面选择保留局部组合覆盖。
+CI 分为 7 个并行组：公共逻辑、功能组合、平台契约、Linux 运行时辅助程序、Linux 主机软件目录与工具链、Linux VM 测试、Darwin 原生检查。每组直接用一次纯模式的 `nix build` 完成求值与构建，不再先全量求值一遍。`nix/tests/default.nix` 注册测试，`nix/tests/ci/` 定义分组并生成 `lib.ciMatrix`；规划阶段只读取检查名称，验证每项检查恰好分配一次。新增主机会自动加入对应平台组，新增测试需要明确分组。
+
+Linux 各主机的软件目录和工具链共用一个 runner，以复用大型依赖；两个 VM 测试也共用一个 runner。Magic Nix Cache 通过 GitHub Actions 缓存复用本地构建的 store 路径，官方 `cache.nixos.org` 已有的依赖不重复上传。首次运行或缓存被清理后仍需构建。每组会在 workflow 摘要中记录求值与构建耗时。
+
+查看分组或在本地复现其中一组（需选择与本机 builder 平台匹配的组）：
+
+```sh
+nix eval --json .#lib.ciMatrix
+nix eval --json .#lib.ciMatrix \
+  | jq -r '.include[] | select(.name == "eval-features") | .installables[]' \
+  | xargs nix build --no-link --print-build-logs
+```
+
+锁文件更新工作流先运行轻量的上游兼容性探测和分组覆盖检查，再创建 PR 并触发同一套分组检查。最终的 `Check complete` 汇总关卡要求规划和全部分组成功；失败、取消或跳过均不能通过。合并前须等待所有组通过。`nix flake check --system` 仍会求值 NixOS 配置，不能作为只运行当前平台检查的入口。
+
+`host-*` 检查会求值完整主机输出及其断言；`home-profile-*` 检查实际构建各主机的 Home Manager 软件目录以发现文件冲突，但不会激活配置或构建整台机器。`--no-build` 无法发现这类构建冲突。功能测试逐项检查独立开关，对依赖、冲突和桌面选择保留局部组合覆盖。
 
 部署前，在对应平台单独构建实际输出，例如：
 

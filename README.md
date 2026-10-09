@@ -223,13 +223,13 @@ nix/
 
 ## Validation
 
-First evaluate every platform, including the complete system or Home Manager activation output of each registered host:
+For a complete evaluation-only pass over every platform, including the full system or Home Manager activation output of each registered host:
 
 ```sh
 nix flake check --no-build --all-systems
 ```
 
-Then build and run only the checks registered for the current platform:
+To build and run only the checks registered for the current platform:
 
 ```sh
 nix build --no-link --print-build-logs --impure --expr '
@@ -238,7 +238,20 @@ nix build --no-link --print-build-logs --impure --expr '
 '
 ```
 
-Linux CI evaluates the entire flake and runs platform-independent and Linux-specific tests. Apple Silicon macOS runs only its native checks, including cross-platform tools and configuration helpers that need Darwin build/runtime coverage. Test ownership is declared in `nix/tests/default.nix`; the workflow builds that platform's registered checks without a separate test list. `nix flake check --system` still evaluates NixOS configurations, so it is not the platform-only entry point.
+CI builds checks directly in seven parallel groups: common logic, feature combinations, platform contracts, Linux runtime helpers, Linux host profiles/toolchains, Linux VM tests, and Darwin native checks. It does not run a full-flake evaluation before evaluating the same tests again for their builds. The registry in `nix/tests/default.nix` and grouping in `nix/tests/ci/` generate `lib.ciMatrix`; planning checks that every registered check is assigned exactly once without evaluating its derivation. New hosts automatically join their native profile group; new checks must be assigned a group.
+
+Each group uses one pure `nix build` invocation to share evaluation and build dependencies. Linux profiles stay together to reuse their large package closures, and the two VM tests share one runner. Magic Nix Cache reuses locally built store paths through GitHub Actions' cache, without re-uploading dependencies available from `cache.nixos.org`. Cold runs and cache eviction still require builds. Each job reports its elapsed evaluation/build time in the workflow summary.
+
+To inspect the groups or reproduce one locally (choose a group matching your builder platform):
+
+```sh
+nix eval --json .#lib.ciMatrix
+nix eval --json .#lib.ciMatrix \
+  | jq -r '.include[] | select(.name == "eval-features") | .installables[]' \
+  | xargs nix build --no-link --print-build-logs
+```
+
+The lock updater runs quick upstream probes and coverage validation before opening its PR, then dispatches the same grouped workflow for full validation. The final `Check complete` gate requires planning and every group to succeed; failed, cancelled or skipped groups cannot pass it. All groups must pass before merging. `nix flake check --system` still evaluates NixOS configurations, so it is not the platform-only entry point.
 
 The `host-*` checks evaluate complete host outputs and their assertions. The `home-profile-*` checks build each host's actual Home Manager package directory to catch file collisions; they do not activate it or build the entire system. `--no-build` cannot detect these collisions. Feature tests exercise independent toggles individually and retain local combinations for dependencies, conflicts, and desktop choices.
 

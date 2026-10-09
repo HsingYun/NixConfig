@@ -230,6 +230,8 @@ let
         !(home cfg).wayland.windowManager.niri.enable
         && !(hasDmsBindings cfg)
         && !((home cfg).wayland.windowManager.niri.settings ? screenshot-path)
+        && (home cfg).programs.ghostty.settings.gtk-titlebar-style == [ "tabs" ]
+        && !((home cfg).programs.ghostty.settings ? window-decoration)
         && cfg.programs.dms-shell.enable;
     };
     dms = {
@@ -251,13 +253,16 @@ let
         && !((home cfg).xdg.configFile ? "noctalia/config.toml");
     };
     ghostty = {
+      # The all-on baseline enables Niri even when GNOME is the default session.
       on =
         cfg:
         (home cfg).programs.ghostty.settings ? theme
-        && !((home cfg).programs.ghostty.settings ? window-decoration);
+        && (home cfg).programs.ghostty.settings.gtk-titlebar-style == [ "native" ]
+        && (home cfg).programs.ghostty.settings.window-decoration == [ "server" ];
       off =
         cfg:
         !((home cfg).programs.ghostty.settings ? theme)
+        && !((home cfg).programs.ghostty.settings ? gtk-titlebar-style)
         && !((home cfg).programs.ghostty.settings ? window-decoration)
         && !((home cfg).home.sessionVariables ? TERMINAL);
     };

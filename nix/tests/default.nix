@@ -1,4 +1,10 @@
-{ inputs, hosts }:
+{
+  inputs,
+  hosts,
+  packages,
+  apps,
+  formatter,
+}:
 let
   inherit (inputs.nixpkgs) lib;
   hostChecks = lib.foldlAttrs (
@@ -47,6 +53,18 @@ let
   );
   # Public-interface and cross-platform evaluation scenarios run once on Linux.
   evaluationReports = {
+    ci-plan = builtins.toJSON {
+      coverage = ciMatrix;
+      regressions = import ./ci/test-plan.nix { inherit lib; };
+    };
+    flake-outputs = import ./structure/flake-outputs.nix {
+      inherit
+        lib
+        packages
+        apps
+        formatter
+        ;
+    };
     application-selection = builtins.toJSON (import ./home/applications.nix { inherit inputs; });
     chinese-input = builtins.toJSON (import ./home/chinese.nix { inherit inputs; });
     configuration-layers = builtins.toJSON (import ./config/layers.nix { inherit lib; });
@@ -75,9 +93,6 @@ let
     );
     software-sources = builtins.toJSON (import ./software/sources.nix { inherit inputs; });
   };
-in
-{
-  inherit upstreamAssumptions;
   checks = lib.recursiveUpdate hostChecks (
     lib.genAttrs testSystems (
       system:
@@ -140,4 +155,8 @@ in
       )
     )
   );
+  ciMatrix = import ./ci { inherit lib checks hostChecks; };
+in
+{
+  inherit upstreamAssumptions checks ciMatrix;
 }

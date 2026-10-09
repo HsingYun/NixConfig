@@ -29,8 +29,8 @@ jobs:
         run: nix flake update
       - name: Verify upstream assumptions
         run: nix eval --json --show-trace .#lib.upstreamAssumptions
-      - name: Evaluate all hosts and checks
-        run: nix flake check --no-build --all-systems
+      - name: Validate check coverage
+        run: nix eval --json --no-update-lock-file .#lib.ciMatrix
       - name: Create or update pull request
         id: pr
         uses: peter-evans/create-pull-request@5f6978faf089d4d20b00c7766989d076bb2fc7f1 # v8.1.1
@@ -46,16 +46,16 @@ jobs:
           body: |
             Update all flake inputs to the latest revisions allowed by `flake.nix`.
 
-            All hosts and checks passed evaluation with the updated lock file.
+            Upstream compatibility probes and CI check coverage passed with the updated lock file.
             The updater separately dispatches the `Check` workflow on this branch
-            to build native checks on Linux and Apple Silicon macOS.
-            Wait for both native checks to pass before merging.
+            to evaluate and build every check in parallel groups on Linux and Apple Silicon macOS.
+            Wait for all Check jobs to pass before merging.
 
             Workflow: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
 
             After merging, apply the updated configuration on each target machine.
             Homebrew and pacman/AUR packages are not versioned by this lock file.
-      - name: Run native checks on the update branch
+      - name: Run grouped checks on the update branch
         if: steps.pr.outputs.pull-request-number && steps.pr.outputs.pull-request-operation != 'closed'
         env:
           GH_TOKEN: ${{ github.token }}
@@ -63,4 +63,4 @@ jobs:
           PR_URL: ${{ steps.pr.outputs.pull-request-url }}
         run: |
           gh workflow run check.yml --repo "$GITHUB_REPOSITORY" --ref "$UPDATE_BRANCH"
-          printf 'Pull request: %s\n\nNative checks dispatched; wait for the Check workflow before merging.\n' "$PR_URL" >> "$GITHUB_STEP_SUMMARY"
+          printf 'Pull request: %s\n\nGrouped checks dispatched; wait for the Check workflow before merging.\n' "$PR_URL" >> "$GITHUB_STEP_SUMMARY"

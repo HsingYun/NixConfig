@@ -444,9 +444,9 @@ autostart options, nullable submodule defaults and overrides, and override prior
 own error context. These probes use upstream modules directly, without evaluating
 repository hosts, features or ports. Port-interface probes check consumed fields
 and unhandled behavior directives, allowing unrelated metadata additions.
-Both CI workflows run them before the full
-configuration checks; the same report is also registered as `upstream-assumptions`
-in the flake checks. Run the independent diagnostic entry point with:
+The lock updater runs these probes before opening a PR. The grouped Check
+workflow includes the same `upstream-assumptions` report once per native platform.
+Run the independent diagnostic entry point with:
 
 ```sh
 nix eval --json --show-trace .#lib.upstreamAssumptions
@@ -479,9 +479,14 @@ application roles, without the feature policies or software coordinator.
 Linux owns runner-independent evaluation reports, nixman unit tests, and the
 Linux/Arch lifecycle suites. Each native runner builds its host package directories
 and exercises platform-sensitive tools, configuration files, and nixman integration
-and completions. The test registry defines this division; CI consumes its checks
-directly. Full-flake evaluation runs on Linux because `nix flake check --system`
-also evaluates NixOS configurations on macOS.
+and completions. The test registry defines this division; `nix/tests/ci/` assigns
+every check to exactly one job and generates `lib.ciMatrix` from check names
+without evaluating test bodies. CI builds each group in one pure Nix invocation;
+there is no preceding full-flake evaluation to repeat during the build. The
+`flake-outputs` report evaluates packages, apps and formatters for all declared
+systems, while `host-*` reports evaluate complete host outputs. Full-flake
+evaluation remains available locally; `nix flake check --system` also evaluates
+NixOS configurations on macOS.
 
 Evaluation, building a profile and testing an isolated helper do not constitute
 a successful Arch login or hardware deployment. Live platform verification is

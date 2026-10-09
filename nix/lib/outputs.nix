@@ -21,7 +21,15 @@ let
     "aarch64-linux"
     "aarch64-darwin"
   ];
-  tests = import ../tests { inherit inputs hosts; };
+  tests = import ../tests {
+    inherit
+      inputs
+      hosts
+      packages
+      apps
+      formatter
+      ;
+  };
   packages = lib.genAttrs appSystems (
     system:
     let
@@ -35,9 +43,6 @@ let
     }
   );
 
-in
-{
-  inherit packages;
   apps = lib.mapAttrs (_: value: rec {
     nixman = {
       type = "app";
@@ -47,12 +52,21 @@ in
     default = nixman;
   }) packages;
 
+  formatter = {
+    x86_64-linux = inputs.nixpkgs.legacyPackages.x86_64-linux.nixfmt;
+    aarch64-darwin = inputs.nixpkgs.legacyPackages.aarch64-darwin.nixfmt;
+  };
+
+in
+{
+  inherit packages apps formatter;
+
   nixosConfigurations = select "nixosConfigurations";
   darwinConfigurations = select "darwinConfigurations";
   homeConfigurations = select "homeConfigurations";
   lib = {
     # This diagnostic entry point must remain independent of host evaluation.
-    inherit (tests) upstreamAssumptions;
+    inherit (tests) upstreamAssumptions ciMatrix;
     softwarePlans = lib.mapAttrs (_: plan: plan.report) softwarePlans;
     softwareManifests = lib.mapAttrs (_: plan: {
       inherit (plan) manager externalReport;
@@ -66,9 +80,4 @@ in
   };
 
   inherit (tests) checks;
-
-  formatter = {
-    x86_64-linux = inputs.nixpkgs.legacyPackages.x86_64-linux.nixfmt;
-    aarch64-darwin = inputs.nixpkgs.legacyPackages.aarch64-darwin.nixfmt;
-  };
 }

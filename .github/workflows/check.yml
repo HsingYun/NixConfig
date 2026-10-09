@@ -13,16 +13,29 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  plan:
+    name: Plan checks
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    outputs:
+      matrix: ${{ steps.plan.outputs.matrix }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - uses: cachix/install-nix-action@13d8dd58da0234aa297dedd986986ccb8e7f3e24 # v31
+      - name: Assign every check exactly once
+        id: plan
+        run: |
+          matrix=$(nix eval --json --no-update-lock-file .#lib.ciMatrix)
+          printf 'matrix=%s\n' "$matrix" >> "$GITHUB_OUTPUT"
+
   check:
-    name: ${{ matrix.system }}
+    name: ${{ matrix.name }}
+    needs: plan
     strategy:
       fail-fast: false
-      matrix:
-        include:
-          - runner: ubuntu-24.04
-            system: x86_64-linux
-          - runner: macos-15
-            system: aarch64-darwin
+      matrix: ${{ fromJSON(needs.plan.outputs.matrix) }}
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 60
     steps:
@@ -30,16 +43,42 @@ jobs:
         with:
           persist-credentials: false
       - uses: cachix/install-nix-action@13d8dd58da0234aa297dedd986986ccb8e7f3e24 # v31
-      - name: Verify upstream assumptions
-        run: nix eval --json --show-trace ".#lib.upstreamAssumptions.${{ matrix.system }}"
-      - name: Evaluate all hosts and checks
-        if: matrix.system == 'x86_64-linux'
-        run: nix flake check --no-build --all-systems
-      - name: Build native checks
+      # Cache individual locally built store paths; dependencies already on
+      # cache.nixos.org are not uploaded again. No separate cache account needed.
+      - uses: DeterminateSystems/magic-nix-cache-action@84c0677f58dcedf3b91f8223ce36a9ea5b3c84b7 # v15
+        with:
+          use-gha-cache: enabled
+          use-flakehub: disabled
+          diagnostic-endpoint: ""
+      - name: Evaluate and build assigned checks
+        shell: bash
         env:
-          CHECK_SYSTEM: ${{ matrix.system }}
+          CHECK_INSTALLABLES: ${{ toJSON(matrix.installables) }}
         run: |
-          nix build --no-link --print-build-logs --impure --expr '
-            let flake = builtins.getFlake (toString ./.);
-            in builtins.attrValues flake.checks.${builtins.getEnv "CHECK_SYSTEM"}
-          '
+          installables=()
+          while IFS= read -r installable; do
+            installables+=("$installable")
+          done < <(jq -er '.[]' <<< "$CHECK_INSTALLABLES")
+          test "${#installables[@]}" -gt 0
+          start=$SECONDS
+          status=0
+          nix build --no-link --print-build-logs --no-update-lock-file \
+            --keep-going "${installables[@]}" || status=$?
+          printf 'Evaluation and build: %s seconds; exit status: %s\n' \
+            "$((SECONDS - start))" "$status" >> "$GITHUB_STEP_SUMMARY"
+          exit "$status"
+
+  complete:
+    name: Check complete
+    if: ${{ always() }}
+    needs: [plan, check]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Require every group to pass
+        env:
+          PLAN_RESULT: ${{ needs.plan.result }}
+          CHECK_RESULT: ${{ needs.check.result }}
+        run: |
+          test "$PLAN_RESULT" = success
+          test "$CHECK_RESULT" = success
