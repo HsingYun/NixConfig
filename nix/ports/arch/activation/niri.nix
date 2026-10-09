@@ -1,12 +1,13 @@
 {
   config,
+  helpers,
   lib,
   user,
   ...
 }:
 let
   home = config.home-manager.users.${user.username};
-  file = import ../../../assets/helpers/common/managed-home-file.nix { inherit lib; } {
+  file = helpers.managedHomeFile { inherit lib; } {
     inherit home;
     name = "${home.xdg.configHome}/niri/config.kdl";
   };

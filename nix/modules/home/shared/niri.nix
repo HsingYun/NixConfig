@@ -10,7 +10,7 @@ let
   cfg = config.desktop.niri;
   inherit (helpers) kdl;
   toKDL = kdl.render { inherit lib; };
-  layer = import ../../../assets/helpers/common/config-layers.nix { inherit lib; };
+  layer = helpers.configLayers { inherit lib; };
   runtimeSections = lib.genAttrs (builtins.attrNames orders) (
     strategy:
     lib.unique (

@@ -2,6 +2,17 @@
 let
   inherit (inputs.nixpkgs) lib;
   inherit (inputs.home-manager.lib) hm;
+  # Ports consume config/options; only Niri forwards imports. Metadata does not
+  # affect delegation, but unhandled module loading or typing directives do.
+  portModule =
+    forwardsImports: module:
+    module ? config
+    && module ? options
+    && (
+      if forwardsImports then builtins.isList (module.imports or null) else (module.imports or [ ]) == [ ]
+    )
+    && (module.disabledModules or [ ]) == [ ]
+    && (module.freeformType or null) == null;
   home =
     modules:
     inputs.home-manager.lib.homeManagerConfiguration {
@@ -77,13 +88,7 @@ let
           config = { };
         };
       in
-      builtins.attrNames module == [
-        "config"
-        "imports"
-        "meta"
-        "options"
-      ]
-      && builtins.isList module.imports
+      portModule true module
       && module.options.wayland.windowManager.niri.package.type.check null
       && module.options.wayland.windowManager.niri.systemd.enable.type.check true;
     # Native mpv delegates script placement; upstream owns the unchanged schema and text generation.
@@ -95,11 +100,7 @@ let
           inherit (h) config options;
         };
       in
-      builtins.attrNames upstream == [
-        "config"
-        "meta"
-        "options"
-      ]
+      portModule false upstream
       && upstream.options.programs.mpv.finalPackage.readOnly
       && upstream.options.programs.mpv.package.type.check null
       && upstream.options.programs.mpv.scripts.type.check [ pkgs.mpvScripts.modernx ];
@@ -111,10 +112,7 @@ let
           config = { };
         };
       in
-      builtins.attrNames module == [
-        "config"
-        "options"
-      ]
+      portModule false module
       && module.options.programs.vim.package.readOnly
       && module.options.programs.vim.packageConfigurable.type.check pkgs.vim
       && builtins.isList module.options.programs.vim.plugins.default;
@@ -127,11 +125,7 @@ let
           config = { };
         };
       in
-      builtins.attrNames module == [
-        "config"
-        "meta"
-        "options"
-      ]
+      portModule false module
       && module.options.services.gnome-keyring.components.type.check [
         "pkcs11"
         "secrets"
@@ -252,6 +246,37 @@ let
       ] == "forced";
   };
 in
+# Keep the probe boundary narrow: additive metadata is harmless, while ignored
+# imports, disabled modules or freeform typing could change the port's behavior.
+assert portModule false {
+  config = { };
+  options = { };
+  meta.maintainers = [ ];
+  _file = "probe.nix";
+};
+assert
+  !(portModule false {
+    config = { };
+    options = { };
+    imports = [ { } ];
+  });
+assert portModule true {
+  config = { };
+  options = { };
+  imports = [ { } ];
+};
+assert
+  !(portModule false {
+    config = { };
+    options = { };
+    disabledModules = [ "probe.nix" ];
+  });
+assert
+  !(portModule false {
+    config = { };
+    options = { };
+    freeformType = lib.types.attrs;
+  });
 builtins.mapAttrs (
   name: passed:
   builtins.addErrorContext "Upstream assumption '${name}' failed:" (

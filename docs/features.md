@@ -318,7 +318,7 @@ values. For example, an HM-managed DMS settings JSON is declarative even though
 DMS-generated Niri fragments are runtime layers; GNOME dconf continues to apply
 declared values through the official module.
 
-The business-independent `nix/assets/helpers/common/config-layers.nix` orders
+The business-independent `helpers.configLayers` (`nix/lib/config/layers.nix`) orders
 serialized fragments for `last-wins` and `first-wins` parsers using standard Nix
 module ordering. It validates adapter-supplied ordering positions rather than
 assuming that upstream modules share a universal order. It does not parse

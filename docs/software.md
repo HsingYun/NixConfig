@@ -252,11 +252,12 @@ only declare capabilities for resources they request themselves.
 
 Zsh, GnuPG for the managed GPG agent, nh, and mpv script resources currently have this requirement. Pinentry follows the selected provider: upstream manages Nix pinentry packages directly; external pinentry uses `package = null` and a `pinentry-program` line pointing to the resolved command. GPG agent configuration and service ownership remain upstream. Git, Vim, Ghostty, commonTools and ordinary development tools can prefer native providers. On Arch, the default MPV preset uses pacman with `programs.mpv.package = null`; HM generates configuration loading the pinned scripts from their original store paths, including additional scripts and sibling resources. Script fonts are exposed through MPV's own `mpv/fonts` directory, which also works on macOS without fontconfig. The native thumbfast adapter points its subprocess at the selected player. Unhandled script wrapper requirements or explicit `extraMakeWrapperArgs` select the upstream Nix wrapper; a forced incompatible native provider fails. The Nix wrapper remains active when mpv resolves to Nix, including NixOS and explicit package overrides. Homebrew mpv uses the same upstream configuration-only interface as pacman mpv. The shared Linux desktop preset enables mpv; Darwin defaults to IINA without mpv. Explicitly enabling mpv on Darwin prefers Homebrew.
 
-Managed upstream interfaces have individual modules in
-[`home/software/adapters`](../nix/modules/home/software/adapters). An interface
-module owns its package bindings, conditional demands and implementation-only
-settings. Git and Git LFS share one module; GPG, its agent and pinentry share
-another. The explicit `adapters/default.nix` imports register built-in interfaces
+Managed upstream interfaces live in
+[`home/software/adapters`](../nix/modules/home/software/adapters). Pure binding
+declarations share `bindings.nix`, including Git and Git LFS. Interfaces with
+conditional demands or implementation-only settings, such as GPG and MPV,
+keep their bindings and logic together in individual modules. GPG, its agent
+and pinentry share one module. The explicit `adapters/default.nix` imports register built-in interfaces
 independently of feature selection. Each consumer is instantiated through
 [`consumer.nix`](../nix/modules/software/consumer.nix), which generates the package
 default, consistency assertion and runtime artifact together. Feature modules
@@ -450,9 +451,10 @@ nix eval --json .#lib.softwareManifests.ArchLinux
 - Register a new feature in `lib/features/catalog.nix` and add its settings module
   when needed. Package-only features can declare `software` without a module.
 - Add a recipe to the software catalog only for an unregistered software identity.
-- For a new managed upstream interface, add one module under
-  `modules/home/software/adapters/` and import it from `adapters/default.nix`.
-  Keep bindings, semantic demands and implementation-only settings together.
+- For a new built-in interface with only static bindings, add an entry to
+  `modules/home/software/adapters/bindings.nix`. If it requires conditional
+  demands or implementation-only settings, keep those and its bindings in a
+  dedicated adapter module, imported from `adapters/default.nix`.
   Optional interfaces such as DMS and Noctalia are imported by the port that
   supplies their options, instead of the built-in index.
 - Extend a port only when native implementation differs. Reuse the same public

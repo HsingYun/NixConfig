@@ -79,7 +79,7 @@ Directory entry points use `default.nix`; leaf names identify the capability.
 ```text
 nix/lib/hosts/profiles.nix      Shared feature presets supplied to hosts
 nix/lib/helpers.nix            Configuration tools supplied as the helpers argument
-nix/lib/config/                Pure configuration construction and serialization
+nix/lib/config/                Pure configuration construction, layering and file selection
 nix/contracts/
   system/                      Stable contract entry points
     services/                  Individual service declarations
@@ -440,7 +440,9 @@ systemd; failed activations must be inspectable and retryable.
 upstream behavior used by the framework: DAG ordering, Home Manager helpers and
 autostart options, nullable submodule defaults and overrides, and override priorities. Each probe has its
 own error context. These probes use upstream modules directly, without evaluating
-repository hosts, features or ports. Both CI workflows run them before the full
+repository hosts, features or ports. Port-interface probes check consumed fields
+and unhandled behavior directives, allowing unrelated metadata additions.
+Both CI workflows run them before the full
 configuration checks; the same report is also registered as `upstream-assumptions`
 in the flake checks. Run the independent diagnostic entry point with:
 
@@ -488,7 +490,7 @@ their source semantics. Native package and service checks remain owned by their
 existing resources.
 
 Noctalia's native pre-link validation uses the same final-file reader,
-`nix/assets/helpers/common/managed-home-file.nix`. Final source overrides and
+`helpers.managedHomeFile` (`nix/lib/config/managed-home-file.nix`). Final source overrides and
 disabled files therefore have the same meaning in both validators. Noctalia's
 `checkConfig` option controls whether its native validation runs.
 

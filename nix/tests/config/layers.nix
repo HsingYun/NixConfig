@@ -6,10 +6,7 @@ let
     30
   ];
   layer =
-    args:
-    (import ../../../assets/helpers/common/config-layers.nix { inherit lib; }) (
-      { inherit order; } // args
-    );
+    args: ((import ../../lib/helpers.nix).configLayers { inherit lib; }) ({ inherit order; } // args);
   render =
     strategy:
     (lib.evalModules {

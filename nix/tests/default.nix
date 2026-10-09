@@ -105,7 +105,7 @@ in
           builtins.toJSON (import ./hosts/interface.nix { inherit inputs hosts; })
         );
         configuration-layers = pkgs.writeText "configuration-layers.json" (
-          builtins.toJSON (import ./helpers/common/config-layers.nix { inherit lib; })
+          builtins.toJSON (import ./config/layers.nix { inherit lib; })
         );
         kdl-configuration = pkgs.writeText "kdl-configuration.json" (
           builtins.toJSON (import ./config/kdl.nix { inherit inputs pkgs; })

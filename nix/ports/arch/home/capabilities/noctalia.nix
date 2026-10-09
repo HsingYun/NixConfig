@@ -1,5 +1,6 @@
 {
   config,
+  helpers,
   lib,
   osConfig,
   software,
@@ -8,7 +9,7 @@
 let
   cfg = osConfig.programs.noctalia;
   home = config.programs.noctalia;
-  file = import ../../../../assets/helpers/common/managed-home-file.nix { inherit lib; } {
+  file = helpers.managedHomeFile { inherit lib; } {
     home = config;
     name = "${config.xdg.configHome}/noctalia/config.toml";
   };
