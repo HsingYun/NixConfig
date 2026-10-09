@@ -81,6 +81,119 @@ class NixmanTests(unittest.TestCase):
         backend.active.return_value = None
         self.assertEqual(profiles.generations(backend), [])
 
+    def test_populated_profile_without_links_is_rejected_independently_of_payload_format(self):
+        for marker in ("manifest.json", "manifest.nix", "hm-version", "darwin-version", "arbitrary-file"):
+            target = self.root / marker.replace('.', '-')
+            target.mkdir()
+            (target / marker).write_text('{}')
+            profile = self.root / (target.name + "-profile")
+            profile.symlink_to(target)
+            (self.root / (target.name + "-other-1-link")).symlink_to(target)
+            backend = Mock()
+            backend.active.return_value = target
+            for path in (profile, target):
+                with self.subTest(marker=marker, profile=path):
+                    backend.profile.return_value = path
+                    for read in (profiles.generations, profiles.fingerprint):
+                        with self.assertRaisesRegex(runtime.Error, "no numbered generation links") as error:
+                            read(backend)
+                        self.assertIn(str(path), str(error.exception))
+
+    def test_profile_selector_must_identify_its_own_numbered_link(self):
+        target = self.root / "target"
+        target.mkdir()
+        profile = self.root / "system"
+        (self.root / "system-1-link").symlink_to(target)
+        elsewhere = self.root / "elsewhere"
+        elsewhere.mkdir()
+        (elsewhere / "system-1-link").symlink_to(target)
+        backend = Mock()
+        backend.profile.return_value = profile
+        backend.active.return_value = target
+        for destination in (None, target, "system-2-link", elsewhere / "system-1-link"):
+            with self.subTest(destination=destination):
+                if destination is not None:
+                    profile.symlink_to(destination)
+                with self.assertRaisesRegex(runtime.Error, "Invalid profile"):
+                    profiles.generations(backend)
+                if profile.is_symlink():
+                    profile.unlink()
+        profile.symlink_to(self.root / "system-1-link")
+        self.assertTrue(profiles.generations(backend)[0].selected)
+
+    def test_non_link_generation_entries_are_invalid(self):
+        profile = self.root / "system"
+        entry = self.root / "system-1-link"
+        entry.mkdir()
+        profile.symlink_to(entry)
+        backend = Mock()
+        backend.profile.return_value = profile
+        with self.assertRaisesRegex(runtime.Error, "numbered generation entry.*not a symbolic link"):
+            profiles.generations(backend)
+
+    def test_dangling_selector_without_generations_is_not_uninitialized(self):
+        profile = self.root / "system"
+        profile.symlink_to("system-1-link")
+        backend = Mock()
+        backend.profile.return_value = profile
+        with self.assertRaisesRegex(runtime.Error, "no numbered generation links"):
+            profiles.generations(backend)
+
+    def test_regular_file_is_not_an_uninitialized_profile(self):
+        profile = self.root / "system"
+        profile.touch()
+        backend = Mock()
+        backend.profile.return_value = profile
+        with self.assertRaisesRegex(runtime.Error, "Invalid profile"):
+            profiles.fingerprint(backend)
+
+    def test_empty_directory_with_history_is_not_uninitialized(self):
+        profile = self.root / "system"
+        profile.mkdir()
+        (self.root / "system-1-link").symlink_to(self.root / "collected")
+        backend = Mock()
+        backend.profile.return_value = profile
+        with self.assertRaisesRegex(runtime.Error, "profile selector.*not a symbolic link"):
+            profiles.generations(backend)
+
+    def test_manifest_with_generation_links_can_be_enumerated(self):
+        target = self.root / "target"
+        target.mkdir()
+        (target / "manifest.json").write_text('{}')
+        (self.root / "system-1-link").symlink_to(target)
+        # Collected targets still have a generation identity until their links are removed.
+        (self.root / "system-2-link").symlink_to(self.root / "collected")
+        profile = self.root / "system"
+        profile.symlink_to("system-1-link")
+        backend = Mock()
+        backend.profile.return_value = profile
+        backend.active.return_value = target
+        self.assertEqual([(g.id, g.selected, g.active) for g in profiles.generations(backend)],
+                         [(2, False, False), (1, True, True)])
+        with self.assertRaisesRegex(runtime.Error, "garbage-collected or is unavailable"):
+            profiles.select(backend, 2)
+        profile.unlink()
+        profile.symlink_to("system-2-link")
+        self.assertTrue(profiles.generations(backend)[0].selected)
+
+    def test_empty_profile_directory_remains_empty(self):
+        backend = Mock()
+        backend.profile.return_value = self.root
+        backend.active.return_value = None
+        self.assertEqual(profiles.generations(backend), [])
+
+    def test_generation_cleanup_rejects_manifest_without_links_before_confirmation(self):
+        (self.root / "manifest.json").write_text('{}')
+        backend = Mock()
+        backend.profile.return_value = self.root
+        backend.active.return_value = self.root
+        confirm = Mock()
+        args = argparse.Namespace(count=None, dry_run=False, yes=True)
+        with patch.object(cleanup, "run") as run, self.assertRaisesRegex(runtime.Error, "no numbered generation links"):
+            cleanup.generation_gc(backend, args, confirm)
+        confirm.assert_not_called()
+        run.assert_not_called()
+
     def test_home_profile_precedence_matches_upstream(self):
         state, nix_state = self.root / "user", self.root / "nix"
         user = backends.pwd.getpwuid(os.getuid()).pw_name

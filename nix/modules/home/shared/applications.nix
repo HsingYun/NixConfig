@@ -1,6 +1,10 @@
-{ lib, ... }:
+{ lib, options, ... }:
+let
+  roles = import ../../../lib/desktop/roles.nix;
+  unknownRoles = lib.subtractLists roles (builtins.attrNames options.desktop.applications);
+in
 {
-  options.desktop.applications = lib.genAttrs [ "browser" "terminal" "fileManager" ] (
+  options.desktop.applications = lib.genAttrs roles (
     role:
     lib.mkOption {
       default = null;
@@ -25,4 +29,11 @@
       );
     }
   );
+  # Policies can extend registered roles, but cannot silently declare new ones.
+  config.assertions = [
+    {
+      assertion = unknownRoles == [ ];
+      message = "Unregistered desktop application roles: ${lib.concatStringsSep ", " unknownRoles}. Register roles in nix/lib/desktop/roles.nix before declaring application policies.";
+    }
+  ];
 }

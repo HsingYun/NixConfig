@@ -345,6 +345,12 @@ Wayland input support. See the
 
 ## Applications
 
+Role names are registered once in [`nix/lib/desktop/roles.nix`](../nix/lib/desktop/roles.nix).
+The application schema and autostart role selector use this registry. Shared
+validation rejects option declarations for unregistered roles, including those
+added by default policies. Policies may provide defaults for only some roles;
+registering a role does not install an application or add desktop integrations.
+
 `homeConfig.desktop.applications` selects desktop roles independently of Niri.
 `browser`, `terminal` and `fileManager` accept `null` (disable automatic integration)
 or an attribute set with `command` (an argv list) and optional `desktopId`.

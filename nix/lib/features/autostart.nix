@@ -1,6 +1,7 @@
 { lib }:
 let
   schema = import ../desktop/autostart.nix { inherit lib; };
+  roles = import ../desktop/roles.nix;
 in
 {
   default = { };
@@ -14,13 +15,7 @@ in
           description = "Explicit command, mutually exclusive with application.";
         };
         application = lib.mkOption {
-          type = lib.types.nullOr (
-            lib.types.enum [
-              "terminal"
-              "browser"
-              "fileManager"
-            ]
-          );
+          type = lib.types.nullOr (lib.types.enum roles);
           default = null;
           description = "Selected application role, mutually exclusive with command.";
         };

@@ -21,6 +21,7 @@ let
     "aarch64-linux"
     "aarch64-darwin"
   ];
+  tests = import ../tests { inherit inputs hosts; };
   packages = lib.genAttrs appSystems (
     system:
     let
@@ -50,6 +51,8 @@ in
   darwinConfigurations = select "darwinConfigurations";
   homeConfigurations = select "homeConfigurations";
   lib = {
+    # This diagnostic entry point must remain independent of host evaluation.
+    inherit (tests) upstreamAssumptions;
     softwarePlans = lib.mapAttrs (_: plan: plan.report) softwarePlans;
     softwareManifests = lib.mapAttrs (_: plan: {
       inherit (plan) manager externalReport;
@@ -62,7 +65,7 @@ in
     }) softwarePlans;
   };
 
-  checks = import ../tests { inherit inputs hosts; };
+  inherit (tests) checks;
 
   formatter = {
     x86_64-linux = inputs.nixpkgs.legacyPackages.x86_64-linux.nixfmt;

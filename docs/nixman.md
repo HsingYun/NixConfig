@@ -62,6 +62,13 @@ Existing-generation commands identify the backend from the current generation's
 provenance record or upstream version markers. NixOS-WSL uses the NixOS backend.
 System commands manage the default `/nix/var/nix/profiles/system` profile. Home
 Manager profile discovery follows upstream's XDG/per-user profile precedence.
+Profile validation uses upstream's link layout, independently of manifest or
+version files. A missing profile or an empty profile directory is uninitialized
+only when no numbered generation entries exist. An initialized profile must be
+a symbolic link to one of its own numbered generation links. Generation
+inspection, update preview and generation cleanup reject inconsistent layouts. Missing
+store targets remain listed as unavailable generations. Validation only reads
+the layout; Nix retains ownership of profile creation and generation changes.
 
 Commands that activate or delete accept `--dry-run` and `--yes` (`-y`). The
 default activation prompt is `[Y/n]`; the default deletion prompt is `[y/N]`.

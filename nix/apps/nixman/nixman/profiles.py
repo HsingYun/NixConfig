@@ -18,21 +18,46 @@ class Generation:
     created_at: float | None = None
 
 
-def generations(backend):
-    profile = backend.profile()
-    if not profile.exists() and not profile.is_symlink():
-        return []
-    active = backend.active()
-    selected = profile.readlink().name if profile.is_symlink() else None
-    result = []
+def _profile_links(profile):
+    """Validate upstream's selector/numbered-link layout without inspecting payload formats."""
+    def invalid(reason):
+        raise Error(f"Invalid profile {profile}: {reason}. Check the profile layout before continuing.")
+
+    entries = []
     # Like nixos-rebuild list-generations, inspect upstream profile links.
     # nix-env --list-generations locks the profile even for a read, requiring
     # unnecessary root access for system profiles on current Nix versions.
-    for entry in profile.parent.glob(f"{profile.name}-*-link"):
+    siblings = profile.parent.iterdir() if profile.parent.is_dir() else []
+    for entry in siblings:
         match = re.fullmatch(re.escape(profile.name) + r"-(\d+)-link", entry.name)
         if not match:
             continue
-        number = int(match[1])
+        if not entry.is_symlink():
+            invalid(f"numbered generation entry {entry.name} is not a symbolic link")
+        entries.append((int(match[1]), entry))
+
+    if not entries:
+        if not profile.is_symlink() and (
+            not profile.exists() or (profile.is_dir() and next(profile.iterdir(), None) is None)
+        ):
+            return None, []
+        invalid(f"profile is populated or is a symbolic link, but has no numbered generation links ({profile.name}-<number>-link)")
+
+    if not profile.is_symlink():
+        invalid("numbered generation links exist, but the profile selector is missing or is not a symbolic link")
+    selected = profile.parent / profile.readlink()
+    if selected.parent.resolve() != profile.parent.resolve() or selected.name not in {entry.name for _, entry in entries}:
+        invalid("profile selector does not point to one of its numbered generation links")
+    # Missing store targets remain visible as unavailable generations. Their
+    # identity comes from the numbered link, not the payload's continued existence.
+    return selected.name, entries
+
+
+def generations(backend):
+    selected, entries = _profile_links(backend.profile())
+    active = backend.active()
+    result = []
+    for number, entry in entries:
         path = entry.resolve()
         created_at = entry.lstat().st_mtime
         date = datetime.fromtimestamp(created_at).astimezone().strftime("%Y-%m-%d %H:%M:%S")
@@ -67,5 +92,6 @@ def metadata(path):
 
 def fingerprint(backend):
     profile = backend.profile()
+    _profile_links(profile)
     link = str(profile.readlink()) if profile.is_symlink() else None
     return link, str(profile.resolve()) if profile.exists() else None, str(backend.active())

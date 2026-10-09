@@ -323,6 +323,22 @@ resolved; the backend never guesses which existing login service it may disable.
 No cross-resource atomic rollback is claimed for native package managers or
 systemd; failed activations must be inspectable and retryable.
 
+`nix/tests/upstream-assumptions.nix` contains named, minimal probes for the pinned
+upstream behavior used by the framework: DAG ordering, Home Manager helpers and
+autostart options, nullable submodule defaults and overrides, and override priorities. Each probe has its
+own error context. These probes use upstream modules directly, without evaluating
+repository hosts, features or ports. Both CI workflows run them before the full
+configuration checks; the same report is also registered as `upstream-assumptions`
+in the flake checks. Run the independent diagnostic entry point with:
+
+```sh
+nix eval --json --show-trace .#lib.upstreamAssumptions
+```
+
+This evaluates the Linux and Darwin probes without building or activating a
+configuration. These compatibility probes complement the feature and lifecycle
+tests; they do not replace them.
+
 `nix/tests/contracts/` requires a behavior case for every public contract and runs
 it for every port claiming that contract. Type probes and behavior cases have
 separate CI checks. Each named observation is checked independently: enabling requires all expected
