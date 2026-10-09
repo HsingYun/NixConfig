@@ -120,8 +120,10 @@ System and home remain separate Nix module scopes. Arch has a real system
 configuration exposed at `homeConfigurations.<host>.systemConfiguration.config`.
 Home modules receive that final system configuration through the standard
 `osConfig` argument. Host construction also supplies internal `views.system`
-and `views.home` for output assembly and cross-platform checks. Test bootstrap
-uses deployment-builder metadata rather than distribution-name branches.
+and `views.home` for output assembly and cross-platform checks. Its `system`
+metadata allows checks to select hosts without evaluating other platforms.
+Test bootstrap uses deployment-builder metadata rather than distribution-name
+branches.
 Its system scope owns services, root files, software planning and the system
 Nix profile. Its home scope owns application settings and user units. The shared
 Home Manager activation entry point executes the system port's declared DAG
@@ -471,6 +473,15 @@ existing hosts' feature sets and default desktops. The existing NixOS matrix cov
 upstream customizations and desktop combinations. `software-sources.nix` checks
 mixed native/Nix/AUR requests. Helper tests exercise ownership, retirement,
 conflicts and interrupted execution without mutating the real machine.
+
+Role-consumer independence is checked with upstream Home Manager and explicit
+application roles, without the feature policies or software coordinator.
+Linux owns runner-independent evaluation reports, nixman unit tests, and the
+Linux/Arch lifecycle suites. Each native runner builds its host package directories
+and exercises platform-sensitive tools, configuration files, and nixman integration
+and completions. The test registry defines this division; CI consumes its checks
+directly. Full-flake evaluation runs on Linux because `nix flake check --system`
+also evaluates NixOS configurations on macOS.
 
 Evaluation, building a profile and testing an isolated helper do not constitute
 a successful Arch login or hardware deployment. Live platform verification is

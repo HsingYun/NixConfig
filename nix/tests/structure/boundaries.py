@@ -54,10 +54,8 @@ for adapter in sorted(adapter_directory.glob("*.nix")):
     if adapter not in registered_adapters:
         errors.append(f"{adapter.relative_to(root)}: interface adapter has no production import")
 
-# Role consumers may implement desktop policy, but cannot reselect concrete apps.
-role_consumer = (root / "modules/home/integrations/applications.nix").read_text()
-if re.search(r"\b(?:software|features)\b", role_consumer):
-    errors.append("home/integrations/applications.nix: consume selected roles, not feature/package selection")
+# Role-consumer independence is checked by isolated Home Manager evaluation in
+# tests/home/application-roles.nix.
 # Test registration belongs to tests; the output assembler only imports its entry.
 for match in references.finditer((root / "lib/outputs.nix").read_text()):
     target = (root / "lib" / match[1]).resolve()

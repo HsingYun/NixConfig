@@ -36,4 +36,10 @@ jobs:
         if: matrix.system == 'x86_64-linux'
         run: nix flake check --no-build --all-systems
       - name: Build native checks
-        run: nix flake check --system "${{ matrix.system }}" --print-build-logs
+        env:
+          CHECK_SYSTEM: ${{ matrix.system }}
+        run: |
+          nix build --no-link --print-build-logs --impure --expr '
+            let flake = builtins.getFlake (toString ./.);
+            in builtins.attrValues flake.checks.${builtins.getEnv "CHECK_SYSTEM"}
+          '

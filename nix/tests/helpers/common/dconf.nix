@@ -8,24 +8,11 @@ let
     (inputs.home-manager.lib.homeManagerConfiguration {
       pkgs = testPkgs;
       modules = [
-        # Exercise the Linux cleanup hook on both native CI runners.
-        (
-          { lib, ... }:
-          import ../../../modules/home/shared/dconf.nix {
-            inherit lib;
-            pkgs = testPkgs // {
-              stdenv = pkgs.stdenv // {
-                hostPlatform = pkgs.stdenv.hostPlatform // {
-                  isLinux = true;
-                };
-              };
-            };
-          }
-        )
+        ../../../modules/home/shared/dconf.nix
         {
           home = {
             username = "test";
-            homeDirectory = if pkgs.stdenv.hostPlatform.isDarwin then "/Users/test" else "/home/test";
+            homeDirectory = "/home/test";
             stateVersion = "26.05";
           };
           dconf = {
@@ -47,8 +34,8 @@ let
   };
   new = generation { } { kept.example.retained = true; };
   empty = generation { } { };
-  # Exercise generation transitions without a graphical session, including on
-  # macOS CI. The recorder substitutes only the dconf/DBus process boundary.
+  # Exercise generation transitions without a graphical session. The recorder
+  # substitutes only the dconf/DBus process boundary.
   recorder = pkgs.writeShellScriptBin "dconf" ''
     profile=default
     if [[ -n ''${DCONF_PROFILE:-} ]]; then

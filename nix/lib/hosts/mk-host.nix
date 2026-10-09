@@ -63,6 +63,7 @@ name: definition:
   in
   rec {
     inherit (selected) output;
+    system = actualSystem;
     views = import ./configuration-views.nix { inherit output username configuration; };
     username = actualUser.username;
     configuration =

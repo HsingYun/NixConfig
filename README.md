@@ -229,13 +229,18 @@ First evaluate every platform, including the complete system or Home Manager act
 nix flake check --no-build --all-systems
 ```
 
-Then build and run checks for the current platform:
+Then build and run only the checks registered for the current platform:
 
 ```sh
-nix flake check --print-build-logs
+nix build --no-link --print-build-logs --impure --expr '
+  let flake = builtins.getFlake (toString ./.);
+  in builtins.attrValues flake.checks.${builtins.currentSystem}
+'
 ```
 
-CI runs native checks on x86_64 Linux and Apple Silicon macOS. The `host-*` checks evaluate complete host outputs and their assertions. The `home-profile-*` checks build each host's actual Home Manager package directory to catch file collisions; they do not activate it or build the entire system. `--no-build` cannot detect these collisions. Feature tests exercise independent toggles individually and retain local combinations for dependencies, conflicts, and desktop choices.
+Linux CI evaluates the entire flake and runs platform-independent and Linux-specific tests. Apple Silicon macOS runs only its native checks, including cross-platform tools and configuration helpers that need Darwin build/runtime coverage. Test ownership is declared in `nix/tests/default.nix`; the workflow builds that platform's registered checks without a separate test list. `nix flake check --system` still evaluates NixOS configurations, so it is not the platform-only entry point.
+
+The `host-*` checks evaluate complete host outputs and their assertions. The `home-profile-*` checks build each host's actual Home Manager package directory to catch file collisions; they do not activate it or build the entire system. `--no-build` cannot detect these collisions. Feature tests exercise independent toggles individually and retain local combinations for dependencies, conflicts, and desktop choices.
 
 Before deployment, build the actual output on its matching platform, for example:
 

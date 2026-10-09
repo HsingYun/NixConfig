@@ -193,7 +193,7 @@ let
     assert (binds override)."Mod+B".spawn == [ "/explicit/browser" ];
     provider;
 in
-assert import ./application-roles.nix { inherit lib; };
+assert import ./application-roles.nix { inherit inputs lib; };
 assert lib.all (h: lib.all (a: a.assertion) h.assertions) [
   standalone
   commandOnly

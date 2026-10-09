@@ -1,4 +1,4 @@
-{ lib }:
+{ inputs, lib }:
 let
   roles = import ../../lib/desktop/roles.nix;
   evaluate =
@@ -51,7 +51,68 @@ let
     }
   ];
   invalidAutostart = evaluate [ { entries.probe.application = "unregistered"; } ];
+  # The consumer must work with upstream HM and selected roles alone, without
+  # importing this repository's feature policies or software coordinator.
+  consumer =
+    system: applications:
+    (inputs.home-manager.lib.homeManagerConfiguration {
+      pkgs = inputs.nixpkgs.legacyPackages.${system};
+      modules = [
+        ../../modules/home/integrations/applications.nix
+        {
+          home = {
+            username = "test";
+            homeDirectory = if lib.hasSuffix "-darwin" system then "/Users/test" else "/home/test";
+            stateVersion = "26.05";
+          };
+          desktop.applications = applications;
+        }
+      ];
+    }).config;
+  consumerIndependent =
+    system:
+    let
+      applications = lib.genAttrs roles (role: {
+        command = [ "/example/${role}" ];
+        desktopId = "example-${role}.desktop";
+      });
+      active = consumer system applications;
+      inactive = consumer system { };
+      linux = lib.hasSuffix "-linux" system;
+    in
+    assert lib.all (cfg: !(cfg ? features) && !(cfg ? software)) [
+      active
+      inactive
+    ];
+    assert lib.all (cfg: lib.all (check: check.assertion) cfg.assertions) [
+      active
+      inactive
+    ];
+    assert active.home.sessionVariables.TERMINAL == "/example/terminal";
+    assert !(inactive.home.sessionVariables ? TERMINAL);
+    assert active.xdg.terminal-exec.enable == linux;
+    assert active.xdg.mimeApps.enable == linux;
+    assert !inactive.xdg.terminal-exec.enable && !inactive.xdg.mimeApps.enable;
+    assert !linux || active.xdg.terminal-exec.settings.default == [ "example-terminal.desktop" ];
+    assert
+      !linux
+      ||
+        lib.all (mime: active.xdg.mimeApps.defaultApplications.${mime} == [ "example-browser.desktop" ])
+          [
+            "text/html"
+            "application/xhtml+xml"
+            "x-scheme-handler/http"
+            "x-scheme-handler/https"
+          ];
+    assert
+      !linux
+      || active.xdg.mimeApps.defaultApplications."inode/directory" == [ "example-fileManager.desktop" ];
+    true;
 in
+assert lib.all consumerIndependent [
+  "x86_64-linux"
+  "aarch64-darwin"
+];
 assert valid empty && valid selected && valid partial;
 assert builtins.attrNames empty.config.desktop.applications == lib.sort builtins.lessThan roles;
 assert lib.all (role: empty.config.desktop.applications.${role} == null) roles;
