@@ -218,6 +218,26 @@ features = {
 
 Sensor orientation and touchscreen calibration are hardware-specific; inspect
 the existing Pad host for examples without copying its device-specific values.
+
+Pad also installs the [FT9362 driver](https://github.com/HsingYun/ft9362-driver)
+for USB `2808:0752`, pinned by `flake.lock`, and its udev rules. The rules grant
+device access to the active local session; the declared `plugdev` group has no
+members by default. Pad enables fprintd and PAM fingerprint authentication using
+this development driver. **Matching is currently bypassed: a successful capture
+may authenticate any finger.** The driver shares NixConfig's locked nixpkgs.
+After rebuilding Pad, reboot or reconnect the device to apply its permissions,
+then run `fprintd-enroll` and `fprintd-verify` as the user who will log in.
+
+For raw capture, stop fprintd first if it holds the device, then run the tools
+from the driver's local checkout:
+
+```sh
+cd /home/hsingyun/Develop/ft9362-driver
+nix develop -c python tools/capture.py
+# Or, for terminal capture:
+nix develop -c python tools/capture.py --cli --count 3 --timeout 30
+```
+
 For an ARM machine select `system = "aarch64-linux"`, supply its real hardware
 and boot configuration, and check package availability for the selected features.
 

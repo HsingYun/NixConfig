@@ -71,6 +71,27 @@
         "type": "github"
       }
     },
+    "ft9362-driver": {
+      "inputs": {
+        "nixpkgs": [
+          "nixpkgs"
+        ]
+      },
+      "locked": {
+        "lastModified": 1791721998,
+        "narHash": "sha256-g9OFqTpWUIjpnWqahIx0RpvmJoNtXDaO15pnZadNAyg=",
+        "owner": "HsingYun",
+        "repo": "ft9362-driver",
+        "rev": "9f7ef1a56348f318477f8512e61af8598b00636a",
+        "type": "github"
+      },
+      "original": {
+        "owner": "HsingYun",
+        "ref": "master",
+        "repo": "ft9362-driver",
+        "type": "github"
+      }
+    },
     "home-manager": {
       "inputs": {
         "nixpkgs": [
@@ -173,6 +194,7 @@
     "root": {
       "inputs": {
         "dms": "dms",
+        "ft9362-driver": "ft9362-driver",
         "home-manager": "home-manager",
         "nix-darwin": "nix-darwin",
         "nixos-hardware": "nixos-hardware",

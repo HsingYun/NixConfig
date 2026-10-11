@@ -9,6 +9,9 @@
   ...
 }:
 
+let
+  ft9362 = inputs.ft9362-driver.packages.${pkgs.stdenv.hostPlatform.system}.libfprint;
+in
 {
   imports = [
     inputs.nixos-hardware.nixosModules.gpd-pocket-4
@@ -40,6 +43,16 @@
   boot.initrd.kernelModules = [ ];
   boot.kernelModules = [ "kvm-amd" ];
   boot.extraModulePackages = [ ];
+
+  # Development driver for FT9362 (2808:0752): matching is currently bypassed.
+  # Fingerprint authentication is explicitly enabled for this development device.
+  environment.systemPackages = [ ft9362 ];
+  services.udev.packages = [ ft9362 ];
+  users.groups.plugdev = { };
+  services.fprintd = {
+    enable = true;
+    package = pkgs.fprintd.override { libfprint = ft9362; };
+  };
 
   fileSystems."/" = {
     device = "/dev/disk/by-uuid/f5f14941-0a88-4cc9-9e98-a280a1980d11";
