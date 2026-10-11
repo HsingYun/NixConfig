@@ -9,6 +9,9 @@
     ./desktop.nix
   ];
 
+  # GNOME Settings hides fingerprint enrollment without org.gnome.login-screen.
+  services.desktopManager.gnome.sessionPath = [ pkgs.gdm ];
+
   environment.gnome.excludePackages = with pkgs; [
     baobab
     decibels
