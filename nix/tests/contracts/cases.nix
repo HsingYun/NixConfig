@@ -76,7 +76,7 @@ in
     configure = { enabled, ... }: {
       system.programs = {
         niri.enable = enabled;
-        dms-shell.enable = enabled;
+        dux-shell.enable = enabled;
       };
     };
   };
@@ -173,7 +173,7 @@ in
         settings.contractProbe = true;
       };
     };
-    observe = homeFile "DankMaterialShell/settings.json";
+    observe = homeFile "dms/settings.json";
   };
   "home.input-method" = {
     configure = { enabled, ... }: {

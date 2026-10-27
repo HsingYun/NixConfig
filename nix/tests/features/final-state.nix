@@ -37,7 +37,7 @@ let
       system = {
         services.desktopManager.gnome.enable = true;
         services.displayManager.defaultSession = "gnome";
-        services.displayManager.dms-greeter.enable = true;
+        services.displayManager.dux-greeter.enable = true;
         programs.niri.enable = enableCompositor;
       };
     };

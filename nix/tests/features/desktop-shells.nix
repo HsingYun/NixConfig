@@ -74,7 +74,7 @@ let
       };
       greeterConflict = make platform {
         features.noctalia = true;
-        system.services.displayManager.dms-greeter.enable = true;
+        system.services.displayManager.dux-greeter.enable = true;
       };
       gnome = make platform {
         features = {
@@ -112,21 +112,21 @@ let
         in
         valid cfg
         && cfg.home.features.desktop.${shell}.enable
-        && running cfg (if shell == "dms" then "dms-shell" else shell)
+        && running cfg (if shell == "dms" then "dux-shell" else shell)
       )
       [
         "dms"
         "noctalia"
       ];
-    assert running only "noctalia" && !(running only "dms-shell");
-    assert running both "dms-shell" && !(running both "noctalia");
-    assert running selected "noctalia" && !(running selected "dms-shell");
+    assert running only "noctalia" && !(running only "dux-shell");
+    assert running both "dux-shell" && !(running both "noctalia");
+    assert running selected "noctalia" && !(running selected "dux-shell");
     assert lib.hasInfix "panel-toggle" (binds only) && lib.hasInfix "panel-toggle" (binds selected);
     assert !lib.hasInfix "spotlight" (binds selected) && lib.hasInfix "spotlight" (binds both);
     assert !neither.home.programs.noctalia.enable && !(neither.home.software.resolved ? noctalia);
-    assert !selected.system.services.displayManager.dms-greeter.enable;
+    assert !selected.system.services.displayManager.dux-greeter.enable;
     assert selected.system.services.displayManager.noctalia-greeter.enable;
-    assert both.system.services.displayManager.dms-greeter.enable;
+    assert both.system.services.displayManager.dux-greeter.enable;
     assert !both.system.services.displayManager.noctalia-greeter.enable;
     assert selected.system.services.displayManager.noctalia-greeter.settings.session.default == "niri";
     assert lib.hasInfix "noctalia-greeter-session"
@@ -160,7 +160,7 @@ let
                 (lib.setAttrByPath (path ++ [ "enable" ]) true)
                 {
                   software.packageOverrides.${name} =
-                    pkgs.${if name == "dms" then "dms-shell" else name}.overrideAttrs
+                    pkgs.${if name == "dms" then "dux-shell" else name}.overrideAttrs
                       { pname = "custom-${name}"; };
                 }
               ];
@@ -173,7 +173,7 @@ let
       {
         dms = [
           "programs"
-          "dms-shell"
+          "dux-shell"
         ];
         noctalia = [
           "programs"

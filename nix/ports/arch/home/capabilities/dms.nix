@@ -9,7 +9,7 @@ let
   cfg = config.programs.dank-material-shell;
   json = pkgs.formats.json { };
   runService =
-    (osConfig.programs.dms-shell.enable && osConfig.programs.dms-shell.systemd.enable)
+    (osConfig.programs.dux-shell.enable && osConfig.programs.dux-shell.systemd.enable)
     || (cfg.enable && cfg.systemd.enable);
 in
 {
@@ -36,14 +36,14 @@ in
         ++ lib.optional cfg.enableCalendarEvents "khal"
       ) (_: { });
       xdg = {
-        stateFile."DankMaterialShell/session.json" = lib.mkIf (cfg.session != { }) {
+        stateFile."dms/session.json" = lib.mkIf (cfg.session != { }) {
           source = json.generate "dms-session.json" cfg.session;
         };
         configFile = {
-          "DankMaterialShell/settings.json" = lib.mkIf (cfg.settings != { }) {
+          "dms/settings.json" = lib.mkIf (cfg.settings != { }) {
             source = json.generate "dms-settings.json" cfg.settings;
           };
-          "DankMaterialShell/clsettings.json" = lib.mkIf (cfg.clipboardSettings != { }) {
+          "dms/clsettings.json" = lib.mkIf (cfg.clipboardSettings != { }) {
             source = json.generate "dms-clipboard.json" cfg.clipboardSettings;
           };
         };

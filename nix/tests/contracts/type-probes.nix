@@ -136,7 +136,7 @@ let
     (withBooleans {
       programs = {
         niri.enable = true;
-        dms-shell = {
+        dux-shell = {
           enable = true;
           systemd.enable = true;
         };
@@ -146,7 +146,7 @@ let
         displayManager = {
           defaultSession = "niri";
           gdm.enable = true;
-          dms-greeter.enable = true;
+          dux-greeter.enable = true;
         };
         greetd = {
           enable = true;

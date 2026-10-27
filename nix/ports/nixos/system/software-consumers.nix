@@ -32,13 +32,13 @@
           enableOptions = [
             [
               "programs"
-              "dms-shell"
+              "dux-shell"
               "enable"
             ]
           ];
           packageOption = [
             "programs"
-            "dms-shell"
+            "dux-shell"
             "package"
           ];
         };

@@ -8,16 +8,16 @@ let
   stacks = import ../../../lib/features/desktop-stacks.nix;
   session = config.services.displayManager.defaultSession;
   useNoctaliaGreeter = config.services.displayManager.noctalia-greeter.enable;
-  useDmsGreeter = config.services.displayManager.dms-greeter.enable;
+  useDmsGreeter = config.services.displayManager.dux-greeter.enable;
   command = if session == null then null else stacks.${session}.command or null;
 in
 {
   services = {
-    displayManager.dms-greeter = {
+    displayManager.dux-greeter = {
       package = lib.mkIf (useDmsGreeter && session != null) (
         lib.mkDefault (
           import ../../../assets/helpers/common/greeter-session.nix { inherit lib pkgs; } {
-            command = "${pkgs.dms-greeter}/bin/dms-greeter";
+            command = "${pkgs.dux-greeter}/bin/dms-greeter";
             cacheDir = "/var/lib/dms-greeter";
             desktop = session;
           }

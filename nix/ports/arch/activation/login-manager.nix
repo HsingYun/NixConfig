@@ -34,7 +34,7 @@ let
   };
   useNoctaliaGreeter = config.services.displayManager.noctalia-greeter.enable;
   noctaliaGreeter = config.services.displayManager.noctalia-greeter;
-  useDmsGreeter = config.services.displayManager.dms-greeter.enable;
+  useDmsGreeter = config.services.displayManager.dux-greeter.enable;
   greeter =
     if useDmsGreeter then
       "dms-greeter"

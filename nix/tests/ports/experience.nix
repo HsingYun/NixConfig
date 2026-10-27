@@ -209,7 +209,7 @@ assert lib.all
     false
     true
   ];
-assert (allDesktop "niri" true).services.displayManager.dms-greeter.enable;
+assert (allDesktop "niri" true).services.displayManager.dux-greeter.enable;
 assert !(allDesktop "niri" true).security.pam.services.greetd.enableGnomeKeyring;
 assert !(allDesktop "niri" false).security.pam.services.greetd.enableGnomeKeyring;
 assert pc.security.pam.services.greetd.enableGnomeKeyring;

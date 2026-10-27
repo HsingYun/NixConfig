@@ -232,14 +232,14 @@ let
         && !((home cfg).wayland.windowManager.niri.settings ? screenshot-path)
         && (home cfg).programs.ghostty.settings.gtk-titlebar-style == [ "tabs" ]
         && !((home cfg).programs.ghostty.settings ? window-decoration)
-        && cfg.programs.dms-shell.enable;
+        && cfg.programs.dux-shell.enable;
     };
     dms = {
-      on = cfg: cfg.programs.dms-shell.enable && hasDmsBindings cfg;
+      on = cfg: cfg.programs.dux-shell.enable && hasDmsBindings cfg;
       off =
         cfg:
-        !cfg.programs.dms-shell.enable
-        && !cfg.services.displayManager.dms-greeter.enable
+        !cfg.programs.dux-shell.enable
+        && !cfg.services.displayManager.dux-greeter.enable
         && !(hasDmsBindings cfg)
         && !(cfg.security.pam.services ? dankshell)
         && (home cfg).wayland.windowManager.niri.enable;

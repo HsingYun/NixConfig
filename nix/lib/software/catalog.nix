@@ -79,11 +79,11 @@ lib.foldl'
       pacman = pacman "cups-filters";
     };
     dms = {
-      nix = nix pkgs.dms-shell;
-      pacman = pacman "dms-shell";
+      nix = nix pkgs.dux-shell;
+      pacman = pacman "dux-shell";
     };
     dms-greeter = {
-      pacman = aur "greetd-dms-greeter-git";
+      pacman = aur "dux-greeter-git";
     };
     edge = {
       nix = nix pkgs.microsoft-edge;

@@ -22,8 +22,8 @@ let
 in
 {
   # The greeter runs before login, so use a system-readable copy of the settings.
-  services.displayManager.dms-greeter.configFiles =
-    lib.mkIf (config.services.displayManager.dms-greeter.enable && lock != null)
+  services.displayManager.dux-greeter.configFiles =
+    lib.mkIf (config.services.displayManager.dux-greeter.enable && lock != null)
       [
         "${session}/session.json"
         "${settings}/settings.json"

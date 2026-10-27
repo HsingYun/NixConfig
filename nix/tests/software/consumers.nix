@@ -151,6 +151,7 @@ assert toString custom.gtk.iconTheme.package == toString custom.software.resolve
 assert builtins.elem (toString custom.gtk.iconTheme.package) (map toString custom.home.packages);
 assert !(builtins.tryEval bypass.home.username).success;
 {
+  bindings = import ./consumer-bindings.nix { inherit lib; };
   managedThemeUsesSelectedPackage = true;
   optionalUpstreamConsumerFollowsSelectedProvider = true;
   directConsumersParticipateWithoutFeatures = builtins.attrNames directConsumers;

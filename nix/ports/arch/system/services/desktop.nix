@@ -45,22 +45,22 @@ in
         "xdg-desktop-portal-gtk"
       ];
     })
-    (lib.mkIf cfg.programs.dms-shell.enable { native.requiredPackages = [ "dms" ]; })
+    (lib.mkIf cfg.programs.dux-shell.enable { native.requiredPackages = [ "dms" ]; })
     {
-      services.greetd.enable = lib.mkIf cfg.services.displayManager.dms-greeter.enable (
+      services.greetd.enable = lib.mkIf cfg.services.displayManager.dux-greeter.enable (
         lib.mkDefault true
       );
       assertions = [
         {
-          assertion = !cfg.services.displayManager.dms-greeter.enable || cfg.services.greetd.enable;
+          assertion = !cfg.services.displayManager.dux-greeter.enable || cfg.services.greetd.enable;
           message = "DMS greeter requires greetd.";
         }
         {
-          assertion = !cfg.services.displayManager.dms-greeter.enable || cfg.programs.niri.enable;
+          assertion = !cfg.services.displayManager.dux-greeter.enable || cfg.programs.niri.enable;
           message = "The Arch DMS greeter requires its Niri compositor to be enabled through programs.niri.enable.";
         }
         {
-          assertion = !cfg.programs.dms-shell.enable || cfg.programs.niri.enable;
+          assertion = !cfg.programs.dux-shell.enable || cfg.programs.niri.enable;
           message = "The Arch DMS session port requires Niri.";
         }
       ];

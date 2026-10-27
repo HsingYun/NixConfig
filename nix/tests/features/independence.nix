@@ -190,12 +190,12 @@ let
       && (home cfg).xdg.userDirs.enable
       && (home cfg).xdg.terminal-exec.enable
       && !(home cfg).xdg.localBinInPath
-      && !cfg.programs.dms-shell.enable;
+      && !cfg.programs.dux-shell.enable;
     dms =
       cfg:
-      cfg.programs.dms-shell.enable
+      cfg.programs.dux-shell.enable
       && cfg.programs.niri.enable
-      && cfg.services.displayManager.dms-greeter.enable
+      && cfg.services.displayManager.dux-greeter.enable
       && cfg.services.displayManager.defaultSession == "niri"
       && desktopServices cfg
       && !(home cfg).wayland.windowManager.niri.enable;
@@ -205,7 +205,7 @@ let
       && cfg.programs.noctalia.systemd.enable
       && cfg.programs.niri.enable
       && cfg.services.greetd.enable
-      && !cfg.programs.dms-shell.enable
+      && !cfg.programs.dux-shell.enable
       && (home cfg).programs.noctalia.enable;
     ghostty =
       cfg:

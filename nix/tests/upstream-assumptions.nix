@@ -72,6 +72,45 @@ let
       ++ modules;
     }).config.value;
   probes = {
+    # Inspect public declarations after NixOS module evaluation, independent of file layout.
+    "nixos.dms.canonical-options" =
+      !pkgs.stdenv.hostPlatform.isLinux
+      || (
+        let
+          options =
+            (lib.nixosSystem {
+              modules = [ { nixpkgs.hostPlatform = pkgs.stdenv.hostPlatform.system; } ];
+            }).options;
+          shell = options.programs.dux-shell;
+          greeter = options.services.displayManager.dux-greeter;
+        in
+        lib.isOption shell.enable
+        && shell.package.type.check pkgs.dux-shell
+        && lib.isOption greeter.enable
+        && greeter.package.type.check pkgs.dux-greeter
+      );
+    # The upstream HM namespace remains stable while its managed files live under dms/.
+    "hm.dms.configuration-files" =
+      !pkgs.stdenv.hostPlatform.isLinux
+      || (
+        let
+          cfg =
+            (home [
+              inputs.dms.homeModules.dank-material-shell
+              {
+                programs.dank-material-shell = {
+                  enable = true;
+                  settings.probe = true;
+                  session.probe = true;
+                  clipboardSettings.probe = true;
+                };
+              }
+            ]).config;
+        in
+        cfg.xdg.configFile ? "dms/settings.json"
+        && cfg.xdg.configFile ? "dms/clsettings.json"
+        && cfg.xdg.stateFile ? "dms/session.json"
+      );
     # Recipe eligibility uses nixpkgs' evaluated policy, not a second metadata check.
     "nixpkgs.meta.available" = pkgs.hello.meta ? available && builtins.isBool pkgs.hello.meta.available;
     # The Arch GDM port reuses NixOS's AccountsService session utility.

@@ -1,8 +1,8 @@
 # Session shells share one selection policy; greeters remain separate.
 {
   dms = {
-    systemProgram = "dms-shell";
-    greeter = "dms-greeter";
+    systemProgram = "dux-shell";
+    greeter = "dux-greeter";
     greeterContract = "system.dms";
     homeProgram = "dank-material-shell";
   };

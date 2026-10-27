@@ -5,7 +5,7 @@
   ...
 }:
 let
-  system = osConfig.programs.dms-shell;
+  system = osConfig.programs.dux-shell;
   home = config.programs.dank-material-shell;
   systemRunning = system.enable && system.systemd.enable;
 in

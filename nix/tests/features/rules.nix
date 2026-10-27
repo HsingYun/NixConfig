@@ -298,7 +298,7 @@ let
                 if expectedDesktop != "niri" then
                   null
                 else if c.dms then
-                  "dms-greeter"
+                  "dux-greeter"
                 else
                   "tuigreet"
               )

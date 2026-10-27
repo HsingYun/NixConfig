@@ -80,7 +80,7 @@ let
         && dms.session.wallpaperPath == "/test/desktop.png"
         && dms.session.isLightMode
         && !dms.systemd.enable
-        && cfg.programs.dms-shell.systemd.enable;
+        && cfg.programs.dux-shell.systemd.enable;
     }
     {
       name = "dms-runtime-owned-configuration";
@@ -98,8 +98,7 @@ let
         let
           home = cfg.home-manager.users.test;
         in
-        !(home.xdg.configFile ? "DankMaterialShell/settings.json")
-        && !(home.xdg.stateFile ? "DankMaterialShell/session.json");
+        !(home.xdg.configFile ? "dms/settings.json") && !(home.xdg.stateFile ? "dms/session.json");
     }
     {
       name = "external-plymouth";
@@ -140,14 +139,14 @@ let
       features = allOff // {
         niri = true;
       };
-      systemConfig.programs.dms-shell.enable = true;
+      systemConfig.programs.dux-shell.enable = true;
       verify =
         cfg:
         lib.hasAttrByPath [
           "binds"
           "Mod+Space"
         ] cfg.home-manager.users.test.wayland.windowManager.niri.settings
-        && !cfg.services.displayManager.dms-greeter.enable;
+        && !cfg.services.displayManager.dux-greeter.enable;
     }
     {
       name = "devel-without-other-features";
@@ -291,24 +290,24 @@ let
       name = "external-dms-without-our-niri-requirement";
       features = allOff;
       systemConfig = { lib, ... }: {
-        programs.dms-shell = {
+        programs.dux-shell = {
           enable = lib.mkDefault true;
           systemd.target = lib.mkDefault "graphical-session.target";
         };
       };
       verify =
         cfg:
-        cfg.programs.dms-shell.enable
+        cfg.programs.dux-shell.enable
         && !cfg.programs.niri.enable
-        && cfg.programs.dms-shell.systemd.target == "graphical-session.target";
+        && cfg.programs.dux-shell.systemd.target == "graphical-session.target";
     }
     {
       name = "external-niri-and-dms-greeter";
       features = allOff;
       systemConfig = { lib, ... }: {
         programs.niri.enable = lib.mkDefault true;
-        programs.dms-shell.enable = lib.mkDefault true;
-        services.displayManager.dms-greeter = {
+        programs.dux-shell.enable = lib.mkDefault true;
+        services.displayManager.dux-greeter = {
           enable = lib.mkDefault true;
           compositor.name = "niri";
         };
@@ -316,7 +315,7 @@ let
       verify =
         cfg:
         cfg.programs.niri.enable
-        && cfg.services.displayManager.dms-greeter.enable
+        && cfg.services.displayManager.dux-greeter.enable
         && !cfg.home-manager.users.test.wayland.windowManager.niri.enable;
     }
     {
@@ -328,8 +327,8 @@ let
       verify =
         cfg:
         cfg.programs.niri.enable
-        && cfg.programs.dms-shell.enable
-        && cfg.programs.dms-shell.systemd.target == "niri.service"
+        && cfg.programs.dux-shell.enable
+        && cfg.programs.dux-shell.systemd.target == "niri.service"
         && !cfg.home-manager.users.test.wayland.windowManager.niri.enable;
     }
     {

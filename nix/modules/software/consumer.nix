@@ -24,9 +24,36 @@
 }:
 let
   cfg = config.software;
-  enabled = lib.all (path: lib.getAttrFromPath path config) enableOptions && when config;
+  # Bind declared leaf options, never a renamed subtree's opaque alias. Besides
+  # losing type metadata, that indirection can feed package demand back into enablement.
+  optionAt =
+    path:
+    let
+      descend =
+        node: parts:
+        if parts == [ ] then
+          node
+        else
+          let
+            children = if lib.isOption node then node.type.getSubOptions node.loc else node;
+          in
+          if builtins.isAttrs children && children ? ${builtins.head parts} then
+            descend children.${builtins.head parts} (builtins.tail parts)
+          else
+            null;
+    in
+    descend options path;
+  enabled =
+    assert lib.assertMsg
+      (lib.all (path: lib.isOption (optionAt path)) (
+        [ packageOption ]
+        ++ enableOptions
+        ++ lib.optional (runtimePackageOption != null) runtimePackageOption
+      ))
+      "Software consumer '${id}': packageOption, enableOptions and runtimePackageOption must name declared leaf options. Use canonical upstream paths, not whole-group aliases.";
+    lib.all (path: lib.getAttrFromPath path config) enableOptions && when config;
   managed = cfg.resolved ? ${software};
-  active = managed && enabled;
+  active = enabled && managed;
   # Subfeatures can need a store executable even when the package option is
   # nullable. Conditions read intent, never the selected package or provider.
   evaluatedDemands = lib.mapAttrs (_: demand: {
@@ -65,7 +92,7 @@ in
           capabilities = lib.unique (
             capabilities
             ++ lib.concatMap (demand: demand.capabilities) (builtins.attrValues activeDemands)
-            ++ lib.optional (!(lib.getAttrFromPath packageOption options).type.check null) "store-package"
+            ++ lib.optional (!(optionAt packageOption).type.check null) "store-package"
           );
           inherit
             software
@@ -87,6 +114,8 @@ in
         message = "Software consumer '${id}': ${lib.concatStringsSep "." packageOption} bypasses the selected package. Use software.packageOverrides.${software} instead.";
       };
     }
+    # Gate the entire definition so an inactive binding cannot instantiate a
+    # nullable submodule (for example gtk.iconTheme).
     (lib.mkIf (active && bindingOwner == id) (lib.setAttrByPath packageOption (lib.mkDefault selected)))
   ];
 }

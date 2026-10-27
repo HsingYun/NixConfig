@@ -331,7 +331,7 @@ import ./availability.nix { inherit lib platformRegistry; } {
         scope = "system";
         option = [
           "programs"
-          "dms-shell"
+          "dux-shell"
           "enable"
         ];
       };

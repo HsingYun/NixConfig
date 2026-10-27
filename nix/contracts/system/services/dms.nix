@@ -1,10 +1,10 @@
 { lib, ... }: {
-  options.programs.dms-shell = {
+  options.programs.dux-shell = {
     enable = lib.mkEnableOption "DMS";
     systemd.enable = lib.mkOption {
       type = lib.types.bool;
       default = true;
     };
   };
-  options.services.displayManager.dms-greeter.enable = lib.mkEnableOption "DMS greeter";
+  options.services.displayManager.dux-greeter.enable = lib.mkEnableOption "DMS greeter";
 }

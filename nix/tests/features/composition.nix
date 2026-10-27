@@ -55,7 +55,7 @@ let
       !cfg.services.greetd.enable
       || cfg.security.pam.services.greetd.enableGnomeKeyring == home.features.desktop.keyring.enable;
     assert
-      cfg.services.displayManager.dms-greeter.enable
+      cfg.services.displayManager.dux-greeter.enable
       == (case.loginManager == "greetd" && case.desktop == "niri" && (case.features.dms or false));
     assert cfg.services.pcscd.enable == smartcard;
     assert home.services.gpg-agent.enable == gpg;
@@ -72,7 +72,7 @@ let
       || builtins.elem "kimpanel@kde.org" (
         map (v: v.value) home.dconf.settings."org/gnome/shell".enabled-extensions.value
       );
-    assert !(case.features.dms or false) || cfg.programs.dms-shell.systemd.target == "niri.service";
+    assert !(case.features.dms or false) || cfg.programs.dux-shell.systemd.target == "niri.service";
     case.name;
   verifyConflict =
     case:
