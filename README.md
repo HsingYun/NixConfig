@@ -1,5 +1,7 @@
 # NixConfig
 
+[![Check](https://github.com/HsingYun/NixConfig/actions/workflows/check.yml/badge.svg)](https://github.com/HsingYun/NixConfig/actions/workflows/check.yml)
+
 English · [简体中文](README.zh.md)
 
 Declarative system and user configurations for NixOS, WSL, macOS, and Linux. Hosts share a common configuration with independent feature selection and local overrides.
