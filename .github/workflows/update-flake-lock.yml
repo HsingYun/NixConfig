@@ -18,10 +18,12 @@ jobs:
     if: github.repository == 'HsingYun/NixConfig'
     runs-on: ubuntu-24.04
     timeout-minutes: 60
+    outputs:
+      pr: ${{ steps.target.outputs.pr }}
+      sha: ${{ steps.target.outputs.sha }}
     permissions:
       contents: write
       pull-requests: write
-      actions: write
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
@@ -50,7 +52,7 @@ jobs:
             Update all flake inputs to the latest revisions allowed by `flake.nix`.
 
             Upstream compatibility probes and CI check coverage passed with the updated lock file.
-            The updater separately dispatches the `Check` workflow on this branch
+            The updater calls the reusable `Check` workflow for the exact PR commit
             to evaluate and build every check in parallel groups on Linux and Apple Silicon macOS.
             The update is automatically merged after all Check jobs pass,
             provided the PR still contains only this checked lock-file update
@@ -60,12 +62,122 @@ jobs:
 
             After merging, apply the updated configuration on each target machine.
             Homebrew and pacman/AUR packages are not versioned by this lock file.
-      - name: Run grouped checks on the update branch
+      - name: Select the update commit
+        id: target
         if: steps.pr.outputs.pull-request-number && steps.pr.outputs.pull-request-operation != 'closed'
         env:
-          GH_TOKEN: ${{ github.token }}
-          UPDATE_BRANCH: ${{ steps.pr.outputs.pull-request-branch }}
+          PR_NUMBER: ${{ steps.pr.outputs.pull-request-number }}
+          PR_SHA: ${{ steps.pr.outputs.pull-request-head-sha }}
           PR_URL: ${{ steps.pr.outputs.pull-request-url }}
         run: |
-          gh workflow run check.yml --repo "$GITHUB_REPOSITORY" --ref "$UPDATE_BRANCH"
-          printf 'Pull request: %s\n\nGrouped checks dispatched; the verified lock-file update will be merged automatically after Check succeeds.\n' "$PR_URL" >> "$GITHUB_STEP_SUMMARY"
+          test -n "$PR_SHA"
+          printf 'pr=%s\nsha=%s\n' "$PR_NUMBER" "$PR_SHA" >> "$GITHUB_OUTPUT"
+          printf 'Pull request: %s\n\nChecking commit %s before merging.\n' "$PR_URL" "$PR_SHA" >> "$GITHUB_STEP_SUMMARY"
+
+  check:
+    needs: update
+    if: needs.update.outputs.pr != ''
+    permissions:
+      contents: read
+      checks: read
+      pull-requests: read
+    uses: ./.github/workflows/check.yml
+    with:
+      ref: ${{ needs.update.outputs.sha }}
+
+  record:
+    name: Record PR check result
+    needs: [update, check]
+    if: ${{ always() && needs.update.result == 'success' && needs.update.outputs.pr != '' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      checks: write
+    steps:
+      # Reusable jobs belong to the caller's commit; explicitly attest the tested PR SHA.
+      - name: Record the result on the checked commit
+        env:
+          GH_TOKEN: ${{ github.token }}
+          CHECKED_SHA: ${{ needs.update.outputs.sha }}
+          CHECK_RESULT: ${{ needs.check.result }}
+        run: |
+          conclusion=failure
+          if [ "$CHECK_RESULT" = success ]; then conclusion=success; fi
+          if [ "$CHECK_RESULT" = cancelled ]; then conclusion=cancelled; fi
+          gh api --method POST "repos/$GITHUB_REPOSITORY/check-runs" \
+            -f name='Check complete' -f head_sha="$CHECKED_SHA" \
+            -f status=completed -f conclusion="$conclusion" \
+            -f details_url="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID" \
+            -f external_id="flake-update:$GITHUB_RUN_ID:$GITHUB_RUN_ATTEMPT" > /dev/null
+
+  merge:
+    needs: [update, check, record]
+    permissions:
+      contents: read
+      pull-requests: read
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      # Use only API metadata; never check out or execute the update branch here.
+      - name: Verify the checked update
+        id: update
+        env:
+          GH_TOKEN: ${{ github.token }}
+          CHECKED_SHA: ${{ needs.update.outputs.sha }}
+          EXPECTED_PR: ${{ needs.update.outputs.pr }}
+        shell: bash
+        run: |
+          default_branch=$(gh api "repos/$GITHUB_REPOSITORY" --jq '.default_branch')
+          encoded_branch=$(jq -rn --arg branch "$default_branch" '$branch | @uri')
+          rules=$(gh api --paginate --slurp "repos/$GITHUB_REPOSITORY/rules/branches/$encoded_branch")
+          # GitHub must enforce freshness atomically with the merge, not just here.
+          if ! jq -e 'add | any(.type == "required_status_checks" and
+            .parameters.strict_required_status_checks_policy == true and
+            any(.parameters.required_status_checks[]; .context == "Check complete"))' \
+            <<< "$rules" > /dev/null; then
+            echo "::error::The default branch needs an active ruleset requiring Check complete and an up-to-date branch, with no bypass actors."
+            exit 1
+          fi
+          prs=$(gh api --method GET "repos/$GITHUB_REPOSITORY/pulls" \
+            -f state=open -f head="$GITHUB_REPOSITORY_OWNER:update-flake-lock" \
+            -f base="$default_branch")
+          pr=$(jq -cer --arg repo "$GITHUB_REPOSITORY" --arg sha "$CHECKED_SHA" \
+            --arg base "$default_branch" --argjson number "$EXPECTED_PR" '
+            map(select(.number == $number and .head.repo.full_name == $repo and
+              .base.repo.full_name == $repo and .base.ref == $base and
+              .head.ref == "update-flake-lock" and .head.sha == $sha and
+              .state == "open" and .draft == false)) |
+            if length == 1 then .[0] else empty end' <<< "$prs") || {
+              echo "No matching open update PR for the checked commit; skipping."
+              exit 0
+            }
+          number=$(jq -r '.number' <<< "$pr")
+          files=$(gh api --paginate --slurp "repos/$GITHUB_REPOSITORY/pulls/$number/files")
+          jq -e 'add | length == 1 and
+            .[0].filename == "flake.lock" and .[0].status == "modified"' \
+            <<< "$files" > /dev/null
+          base_sha=$(jq -r '.base.sha' <<< "$pr")
+          comparison=$(gh api "repos/$GITHUB_REPOSITORY/compare/$base_sha...$CHECKED_SHA")
+          if ! jq -e '.behind_by == 0 and .status == "ahead"' <<< "$comparison" > /dev/null; then
+            echo "The update is behind the default branch; run the updater again before merging."
+            exit 0
+          fi
+          printf 'number=%s\nsha=%s\n' "$number" "$CHECKED_SHA" >> "$GITHUB_OUTPUT"
+
+      - name: Merge the verified update
+        if: steps.update.outputs.number != ''
+        env:
+          GH_TOKEN: ${{ secrets.FLAKE_UPDATE_MERGE_TOKEN }}
+          PR_NUMBER: ${{ steps.update.outputs.number }}
+          CHECKED_SHA: ${{ steps.update.outputs.sha }}
+        shell: bash
+        run: |
+          if [ -z "$GH_TOKEN" ]; then
+            echo "::error::Repository secret FLAKE_UPDATE_MERGE_TOKEN is required."
+            exit 1
+          fi
+          result=$(gh api --method PUT "repos/$GITHUB_REPOSITORY/pulls/$PR_NUMBER/merge" \
+            -f sha="$CHECKED_SHA" -f merge_method=merge)
+          jq -e '.merged == true' <<< "$result" > /dev/null
+          printf 'Merged flake.lock update PR #%s after Check passed for %s.\n' \
+            "$PR_NUMBER" "$CHECKED_SHA" >> "$GITHUB_STEP_SUMMARY"

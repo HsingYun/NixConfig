@@ -4,6 +4,12 @@ on:
   push:
   pull_request:
   workflow_dispatch:
+  workflow_call:
+    inputs:
+      ref:
+        description: Exact commit to check
+        required: true
+        type: string
 
 permissions:
   contents: read
@@ -13,8 +19,34 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  reuse:
+    name: Look for verified merge
+    if: github.event_name == 'push' && github.ref == format('refs/heads/{0}', github.event.repository.default_branch)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      checks: read
+      pull-requests: read
+    outputs:
+      verified: ${{ steps.merge.outputs.verified }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - name: Reuse checks only for an identical merged tree
+        id: merge
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 .github/scripts/verified_merge.py
+
   plan:
     name: Plan checks
+    needs: reuse
+    if: >-
+      always() && !cancelled() &&
+      (needs.reuse.result == 'skipped' ||
+       (needs.reuse.result == 'success' && needs.reuse.outputs.verified != 'true'))
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     outputs:
@@ -22,6 +54,7 @@ jobs:
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
+          ref: ${{ inputs.ref || github.sha }}
           persist-credentials: false
       - uses: cachix/install-nix-action@13d8dd58da0234aa297dedd986986ccb8e7f3e24 # v31
       - name: Assign every check exactly once
@@ -33,6 +66,7 @@ jobs:
   check:
     name: ${{ matrix.name }}
     needs: plan
+    if: ${{ !cancelled() && needs.plan.result == 'success' }}
     strategy:
       fail-fast: false
       matrix: ${{ fromJSON(needs.plan.outputs.matrix) }}
@@ -41,6 +75,7 @@ jobs:
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
+          ref: ${{ inputs.ref || github.sha }}
           persist-credentials: false
       - uses: cachix/install-nix-action@13d8dd58da0234aa297dedd986986ccb8e7f3e24 # v31
       # Cache individual locally built store paths; dependencies already on
@@ -71,7 +106,7 @@ jobs:
   complete:
     name: Check complete
     if: ${{ always() }}
-    needs: [plan, check]
+    needs: [reuse, plan, check]
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     steps:
@@ -79,6 +114,12 @@ jobs:
         env:
           PLAN_RESULT: ${{ needs.plan.result }}
           CHECK_RESULT: ${{ needs.check.result }}
+          REUSE_RESULT: ${{ needs.reuse.result }}
+          VERIFIED_MERGE: ${{ needs.reuse.outputs.verified }}
         run: |
+          if [ "$REUSE_RESULT" = success ] && [ "$VERIFIED_MERGE" = true ]; then
+            echo 'Reused successful PR checks for the identical merged tree; no rebuild was run.' >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
           test "$PLAN_RESULT" = success
           test "$CHECK_RESULT" = success
