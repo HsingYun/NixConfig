@@ -2,6 +2,8 @@ name: Update flake.lock
 
 on:
   workflow_dispatch:
+  schedule:
+    - cron: '0 20 * * *' # Daily at 04:00 Asia/Shanghai (UTC+8).
 
 permissions:
   contents: read
@@ -9,6 +11,7 @@ permissions:
 concurrency:
   group: update-flake-lock
   cancel-in-progress: false
+  queue: max
 
 jobs:
   update:
@@ -49,7 +52,9 @@ jobs:
             Upstream compatibility probes and CI check coverage passed with the updated lock file.
             The updater separately dispatches the `Check` workflow on this branch
             to evaluate and build every check in parallel groups on Linux and Apple Silicon macOS.
-            Wait for all Check jobs to pass before merging.
+            The update is automatically merged after all Check jobs pass,
+            provided the PR still contains only this checked lock-file update
+            and includes the current default branch.
 
             Workflow: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
 
@@ -63,4 +68,4 @@ jobs:
           PR_URL: ${{ steps.pr.outputs.pull-request-url }}
         run: |
           gh workflow run check.yml --repo "$GITHUB_REPOSITORY" --ref "$UPDATE_BRANCH"
-          printf 'Pull request: %s\n\nGrouped checks dispatched; wait for the Check workflow before merging.\n' "$PR_URL" >> "$GITHUB_STEP_SUMMARY"
+          printf 'Pull request: %s\n\nGrouped checks dispatched; the verified lock-file update will be merged automatically after Check succeeds.\n' "$PR_URL" >> "$GITHUB_STEP_SUMMARY"
