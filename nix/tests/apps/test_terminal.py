@@ -3,11 +3,10 @@ import contextlib
 import io
 import json
 from pathlib import Path
-from types import SimpleNamespace
 import unittest
 from unittest.mock import patch
 
-from nixman import cli, inspection, preview, terminal
+from nixman import cli, comparison, inspection, preview, terminal
 
 
 class TTY(io.StringIO):
@@ -60,11 +59,16 @@ class TerminalTests(unittest.TestCase):
     def test_plain_and_colored_preview_have_identical_content(self):
         outputs = []
         for out in (io.StringIO(), TTY()):
-            with contextlib.redirect_stdout(out), patch.object(preview, "metadata", return_value={
-                    "managedFiles": {}, "native": {}}), \
-                    patch.object(preview, "nix", return_value="pkg: \x1b[32m1 -> 2\x1b[0m\n"), \
-                    patch.object(preview, "configuration_equal", return_value=False):
-                preview.preview(SimpleNamespace(system=True), Path("/old"), Path("/new"))
+            data = {"managedFiles": {}, "native": {}}
+            evidence = comparison.Comparison(
+                comparison.Snapshot(Path("/old"), data, comparison.StoredFiles(Path("/old")), {}),
+                comparison.Snapshot(Path("/new"), data, comparison.StoredFiles(Path("/new")), {}),
+                declared=True, system=True,
+            )
+            evidence.changed = True
+            with contextlib.redirect_stdout(out), \
+                    patch.object(preview, "nix", return_value="pkg: \x1b[32m1 -> 2\x1b[0m\n"):
+                preview.preview(evidence)
             outputs.append(out.getvalue())
         self.assertNotIn("\x1b", outputs[0])
         self.assertIn("\x1b", outputs[1])

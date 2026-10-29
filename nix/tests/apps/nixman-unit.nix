@@ -5,5 +5,6 @@ pkgs.runCommand "nixman-unit-check" { nativeBuildInputs = [ pkgs.python3 ]; } ''
   python ${./test_nixman.py}
   python ${./test_interface.py}
   python ${./test_terminal.py}
+  python ${./test_diff.py}
   touch "$out"
 ''

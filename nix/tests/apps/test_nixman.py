@@ -8,9 +8,9 @@ from pathlib import Path
 import subprocess
 import tempfile
 import unittest
-from unittest.mock import Mock, patch
+from unittest.mock import ANY, Mock, patch
 
-from nixman import backends, cleanup, cli, flake, preview, profiles, runtime
+from nixman import backends, cleanup, cli, comparison, flake, preview, profiles, runtime
 
 
 class NixmanTests(unittest.TestCase):
@@ -397,7 +397,20 @@ class NixmanTests(unittest.TestCase):
         backend, args, mocks = self.update_context()
         mocks["preview"].return_value = False
         cli.update(args)
-        mocks["confirm"].assert_called_once_with(False, no_changes=True)
+        mocks["confirm"].assert_called_once_with(False, no_changes=True, view_diff=ANY)
+
+    def test_update_views_the_same_candidate_before_confirming(self):
+        backend, args, mocks = self.update_context()
+        def review(*_args, **kwargs):
+            kwargs["view_diff"]()
+            return False
+        mocks["confirm"].side_effect = review
+        with patch.object(cli, "view_diff") as viewer:
+            cli.update(args)
+            viewer.assert_called_once_with(mocks["preview"].call_args.args[0])
+            self.assertEqual(viewer.call_args.args[0].before.path, self.root / "old")
+            self.assertEqual(viewer.call_args.args[0].after.path, self.root / "new")
+        backend.update.assert_not_called()
 
     def test_no_change_detection_ignores_only_provenance_and_self_references(self):
         old, new = self.root / "old", self.root / "new"
@@ -410,16 +423,17 @@ class NixmanTests(unittest.TestCase):
         def closure(args, capture):
             root = args[-1]
             return f"{root}\n{(root / 'nixman.json').resolve()}\n/nix/store/shared-runtime\n"
-        with patch.object(preview, "run", side_effect=closure):
-            self.assertTrue(preview.configuration_equal(old, new))
+        with patch.object(comparison, "run", side_effect=closure), \
+                patch.dict(os.environ, {"NIX_STORE_DIR": str(self.root)}):
+            self.assertFalse(comparison.compare(Mock(system=True), old, new).changed)
             (new / "activate").write_text('echo changed-services\n')
-            self.assertFalse(preview.configuration_equal(old, new))
+            self.assertTrue(comparison.compare(Mock(system=True), old, new).changed)
 
     def test_new_dependency_prevents_false_no_change(self):
         old, new = self.root / "old", self.root / "new"
         old.mkdir(); new.mkdir()
-        with patch.object(preview, "run", side_effect=[f"{old}\n/nix/store/a\n", f"{new}\n/nix/store/b\n"]):
-            self.assertFalse(preview.configuration_equal(old, new))
+        with patch.object(comparison, "run", side_effect=[f"{old}\n/nix/store/a\n", f"{new}\n/nix/store/b\n"]):
+            self.assertTrue(comparison.compare(Mock(system=True), old, new).changed)
 
     def test_rollback_uses_running_generation_not_newer_selected_one(self):
         available = [profiles.Generation(i, "date", self.root, i == 4, i == 3) for i in (4, 3, 2, 1)]
@@ -432,17 +446,17 @@ class NixmanTests(unittest.TestCase):
         file = self.root / "settings.json"
         file.write_text('{"theme":"dark"}')
         data = {"managedFiles": {"/Users/example/.config/editor/settings.json": str(file)}}
-        self.assertEqual(list(preview.declared_files(data)), ["/Users/example/.config/editor/settings.json"])
+        self.assertEqual(list(comparison.StoredFiles(self.root).declared(data)), ["/Users/example/.config/editor/settings.json"])
 
     def test_managed_file_preview_includes_symlink_directory_changes(self):
         root = self.root / "files"
         root.mkdir()
         (root / "file").write_text("private contents")
         (root / "linked-directory").symlink_to("/missing/store/config-directory")
-        result = preview.file_manifest(root)
+        result = comparison.StoredFiles(root).tree(root)
         self.assertEqual(set(result), {"file", "linked-directory"})
         self.assertNotIn("private contents", repr(result))
-        self.assertEqual(list(preview.changes({}, result)), [("+", "file"), ("+", "linked-directory")])
+        self.assertEqual(list(comparison.changes({}, result)), [("+", "file"), ("+", "linked-directory")])
 
     def test_native_preview_reports_unknown_baseline_and_retention(self):
         preview.native_preview(None, {"native": {"pacman": {"packages": ["foo"], "aur": ["bar"]}}})

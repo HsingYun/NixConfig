@@ -76,6 +76,28 @@ EOF cancels, and noninteractive execution requires explicit `--yes` unless it
 is a preview. `update --dry-run` may download and build store objects to produce
 an accurate preview, but does not activate the configuration.
 
+The update prompt also offers `[Y/n/v (View Diff)]`. Enter `v` to open a read-only
+Vim diff with the baseline on the left and the candidate on the right. It shows
+changed managed-file contents, differing closure paths and recorded native
+package declarations. Exit with `:qa` to return to the prompt; viewing the diff
+does not approve activation. The same candidate is used after confirmation.
+
+View Diff uses `vimdiff` or `vim -d` from `PATH`, whether installed by Nix,
+Homebrew or another package manager. Vim is optional and is not installed by
+nixman. Both input and output must be terminals. A missing or failed editor
+returns to confirmation. `--yes` and `--dry-run` do not open an editor.
+
+The view compares generated configuration contents, not the source repository
+or live host files. The summary and View Diff share one file inventory. External
+sources are excluded before traversal or hashing; large stored files are hashed
+in bounded chunks. Directory scanning errors abort the comparison with the failing
+path and reason instead of reporting an incomplete inventory as unchanged.
+External sources, binary files and files larger than 1 MiB are represented by
+descriptive entries in the content view. Older generations without provenance
+use the same upstream file-tree fallback as the summary. Reports are written
+incrementally to private temporary files, deleted when Vim exits; user Vim
+configuration, plugins, modelines, swap and viminfo are disabled for this view.
+
 Human-readable output uses color on interactive terminals when `TERM` is set
 and is neither `dumb` nor `unknown`. Headings use cyan, additions and success use
 green, removals and errors use red, and changes and warnings use yellow. Text

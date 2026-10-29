@@ -8,6 +8,8 @@ import tempfile
 
 from .backends import detect
 from .cleanup import generation_gc, store_gc
+from .comparison import compare
+from .diff import view_diff
 from .flake import build, prepare
 from .preview import preview
 from .profiles import fingerprint, generations, metadata, select
@@ -17,16 +19,20 @@ from .runtime import Error, executable, run
 from .terminal import emit, field, style
 
 
-def confirm(yes, destructive=False, no_changes=False):
+def confirm(yes, destructive=False, no_changes=False, view_diff=None):
     if yes:
         return True
     if not sys.stdin.isatty():
         raise Error("Confirmation requires a terminal. Use --yes to explicitly approve a noninteractive operation.")
+    question = "Proceed with deletion?" if destructive else "Proceed with activation?"
+    if no_changes and not destructive:
+        question = "Continue with activation and generation registration?"
+    choices = "y/N" if destructive else "Y/n"
+    if view_diff is not None:
+        choices += "/v (View Diff)"
+    prompt = f"\n{question} [{choices}] "
     while True:
         try:
-            prompt = "\nProceed with deletion? [y/N] " if destructive else "\nProceed with activation? [Y/n] "
-            if no_changes and not destructive:
-                prompt = "\nContinue with activation and generation registration? [Y/n] "
             answer = input(style(prompt, "warning" if destructive else "prompt")).strip().lower()
         except EOFError:
             return False
@@ -36,6 +42,11 @@ def confirm(yes, destructive=False, no_changes=False):
             return True
         if answer in ("n", "no"):
             return False
+        if answer in ("v", "view", "view diff") and view_diff is not None:
+            try:
+                view_diff()
+            except (Error, OSError, ValueError, subprocess.CalledProcessError) as error:
+                emit(f"Could not open diff: {error}", "warning", file=sys.stderr)
 
 
 def unchanged(backend, initial):
@@ -67,12 +78,14 @@ def update(args):
         field("Source", source["flake"])
         sys.stdout.flush()
         candidate = build(backend, wrapper, directory)
-        changed = preview(backend, current, candidate)
+        comparison = compare(backend, current, candidate)
+        changed = preview(comparison)
         if args.dry_run:
             print("\nPreview complete; no activation performed.")
             return
         unchanged(backend, initial)
-        if not confirm(args.yes, no_changes=changed is False):
+        if not confirm(args.yes, no_changes=changed is False,
+                       view_diff=lambda: view_diff(comparison)):
             print("Cancelled; no activation performed.")
             return
         unchanged(backend, initial)
@@ -90,7 +103,7 @@ def switch(backend, args):
     # concurrent garbage collector removes its normal profile root.
     with tempfile.TemporaryDirectory(prefix="nixman-") as temporary:
         run(["nix-store", "--realise", generation.path, "--add-root", Path(temporary) / "generation"], capture=True)
-        preview(backend, backend.active(), generation.path)
+        preview(compare(backend, backend.active(), generation.path))
         if args.dry_run:
             print("\nPreview complete; no activation performed.")
             return
@@ -175,6 +188,8 @@ Behavior:
   Activation prompts default to yes [Y/n]; deletion prompts default to no
   [y/N]. Noninteractive changes require --yes. --dry-run never activates or
   deletes, but update --dry-run may download/build store objects for preview.
+  At the update prompt, choose v (View Diff) to inspect stored file contents
+  in read-only vimdiff. Exit with :qa to return to confirmation.
   Generation cleanup removes generation links; store cleanup removes unreachable
   store objects. Active and selected generations are protected.
   The update backend is inferred from the selected flake output collection;
@@ -264,7 +279,7 @@ def main(argv=None):
             data = info_data(backend, args.generation)
             (emit_json if args.json else display_info)(data)
         elif args.generation_command == "diff":
-            preview(backend, select(backend, args.before).path, select(backend, args.after).path)
+            preview(compare(backend, select(backend, args.before).path, select(backend, args.after).path))
         elif args.generation_command == "gc":
             generation_gc(backend, args, confirm)
         else:
