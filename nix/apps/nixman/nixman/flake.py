@@ -50,16 +50,23 @@ def prepare(reference, directory):
     # the requested source branch; dependency versions remain in flake.lock.
     details = nix_json("flake", "metadata", "--json", "--refresh",
                        "--no-update-lock-file", base)
-    source_path = Path(details["path"])
-    if not source_path.is_absolute() or not source_path.is_dir():
-        raise Error("Nix did not return an available immutable source path.")
-    run(["nix-store", "--realise", source_path, "--add-root", directory / "source"], capture=True)
     # Keep Nix's original fetcher and its locked metadata, including dir,
     # dirtyRev and lastModified. Recasting a Git flake as a path flake would
     # change self.sourceInfo and can change the user's configuration semantics.
     locked = {key: value for key, value in details["locked"].items() if key != "__final"}
     if "narHash" not in locked:
         raise Error("Nix did not return a content hash for the source flake.")
+    # Flake inputs require literal attributes; escape interpolation as well.
+    input_attrs = " ".join(f"{literal(key)} = {literal(value)};" for key, value in sorted(locked.items()))
+    # Metadata may describe a lazy tree, not an existing store directory.
+    # Materialize the exact hashed input through Nix before rooting it. `dir`
+    # selects a subflake; fetchTree fetches the whole source tree instead.
+    source_path = Path(nix("eval", "--raw", "--expr",
+                          f'(builtins.fetchTree (builtins.removeAttrs {{ {input_attrs} }} [ "dir" ])).outPath',
+                          capture=True))
+    if not source_path.is_absolute() or not source_path.is_dir():
+        raise Error("Nix did not return an available immutable source path.")
+    run(["nix-store", "--realise", source_path, "--add-root", directory / "source"], capture=True)
     source = {
         "flake": details["originalUrl"] + ("#" + quote(host, safe="@.+-_") if host else ""),
         "configuration": host,
@@ -77,10 +84,6 @@ def prepare(reference, directory):
             shutil.copyfile(template, wrapper / template.name)
     (wrapper / "request.json").write_text(json.dumps(source) + "\n")
     (wrapper / "locked-input.json").write_text(json.dumps(locked) + "\n")
-    # Flake inputs must be a literal attribute set, not a fromJSON thunk.
-    # Encode its scalar metadata as Nix literals, escaping interpolation too.
-    # Configuration names and generation provenance are still read as JSON.
-    input_attrs = " ".join(f"{literal(key)} = {literal(value)};" for key, value in sorted(locked.items()))
     # Inspect only names in the pinned source, before evaluating a chosen host.
     collections = " ".join(
         f'"{name}" = builtins.attrNames (target.{backend.collection} or {{}});'

@@ -5,10 +5,13 @@ import io
 import json
 import os
 from pathlib import Path
+import shutil
 import subprocess
 import tempfile
 from types import SimpleNamespace
+from unittest.mock import patch
 
+from nixman import flake
 from nixman.backends import BACKENDS
 from nixman.cleanup import generation_gc, store_gc
 from nixman.flake import prepare
@@ -26,10 +29,12 @@ def write_source(directory, collection="nixosConfigurations"):
             rev = self.rev or null;
             dirtyRev = self.dirtyRev or null;
             lastModified = self.lastModified or null;
+            sourceInfo = builtins.removeAttrs self.sourceInfo [ "outPath" ];
           };
         };
       };
     }'''.replace("nixosConfigurations", collection))
+    (directory / "flake.lock").write_text(json.dumps({"nodes": {"root": {}}, "root": "root", "version": 7}) + "\n")
 
 
 def observe(wrapper, collection="nixosConfigurations"):
@@ -79,20 +84,64 @@ with tempfile.TemporaryDirectory(prefix="nixman-integration-") as temporary:
 
     git_source = root / "git-source"
     write_source(git_source)
+    write_source(git_source / "sub")
     run(["git", "init", "--quiet", git_source])
     run(["git", "-C", git_source, "add", "."])
     run(["git", "-C", git_source, "-c", "user.name=Nixman Test", "-c", "user.email=test@example.invalid",
          "-c", "core.hooksPath=/dev/null", "commit", "--quiet", "-m", "fixture"])
     revision = run(["git", "-C", git_source, "rev-parse", "HEAD"], capture=True).strip()
     for dirty in (False, True):
-        work = root / ("dirty-work" if dirty else "git-work")
-        work.mkdir()
-        if dirty:
-            (git_source / "value").write_text("dirty")
-        backend, wrapper, record = prepare(f"git+file://{git_source}#fixture", work)
-        observed = observe(wrapper)
-        assert observed["value"] == ("dirty" if dirty else "original")
-        assert observed["dirtyRev" if dirty else "rev"] == revision + ("-dirty" if dirty else "")
+        for subdir in ("", "sub"):
+            value = git_source / subdir / "value"
+            value.write_text("dirty" if dirty else "original")
+            work = root / f"git-{dirty}-{subdir or 'root'}-work"
+            work.mkdir()
+            reference = f"git+file://{git_source}" + ("?dir=sub" if subdir else "") + "#fixture"
+            expected = nix_json("eval", "--json", "--no-update-lock-file",
+                                reference.replace("#fixture", "#nixosConfigurations.fixture.extendModules"),
+                                "--apply", "f: (f {}).observed")
+            lock = (git_source / subdir / "flake.lock").read_bytes()
+            backend, wrapper, record = prepare(reference, work)
+            assert observe(wrapper) == expected
+            assert expected["value"] == ("dirty" if dirty else "original")
+            assert expected["dirtyRev" if dirty else "rev"] == revision + ("-dirty" if dirty else "")
+            locked = json.loads((wrapper / "locked-input.json").read_text())
+            assert locked["type"] == "git"
+            assert locked.get("dir", "") == subdir
+            assert record["sourceHash"] == expected["sourceInfo"]["narHash"]
+            assert (git_source / subdir / "flake.lock").read_bytes() == lock
+            # A rooted, materialized tree must survive GC independently of
+            # evaluator caches and later edits to the original Git checkout.
+            source_root = (work / "source").resolve(strict=True)
+            assert source_root.parent == store
+            run(["nix-store", "--gc"], capture=True)
+            assert source_root.is_dir()
+            value.write_text("changed-after-preview")
+            shutil.rmtree(root / "cache")
+            assert observe(wrapper) == expected
+            value.write_text("dirty" if dirty else "original")
+
+    # If a dirty checkout changes between metadata and materialization, Nix
+    # must either retain the captured content or reject its now-stale hash.
+    value = git_source / "value"
+    value.write_text("captured-before-materialization")
+    work = root / "racing-work"
+    work.mkdir()
+
+    def change_after_metadata(*args, **kwargs):
+        result = nix_json(*args, **kwargs)
+        if args[:2] == ("flake", "metadata"):
+            value.write_text("changed-before-materialization")
+        return result
+
+    with patch.object(flake, "nix_json", side_effect=change_after_metadata):
+        try:
+            backend, wrapper, record = prepare(f"git+file://{git_source}#fixture", work)
+        except subprocess.CalledProcessError:
+            assert not (work / "flake").exists()
+            assert not (work / "source").exists()
+        else:
+            assert observe(wrapper)["value"] == "captured-before-materialization"
 
     # Exercise actual upstream generation deletion and garbage collection.
     # The fake backend supplies only profile location/current identity; all

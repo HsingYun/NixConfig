@@ -472,19 +472,56 @@ class NixmanTests(unittest.TestCase):
         (source / "flake.lock").write_text("original lock")
         request_dir = self.root / "request"
         request_dir.mkdir()
-        with patch.object(flake, "nix_json", side_effect=[{"path": str(source), "originalUrl": "github:owner/repo/main", "url": "github:owner/repo/abc", "locked": {"type": "git", "rev": "abc", "narHash": "sha256-test", "dir": "sub", "lastModified": 123}}, {"nixos": ["host"]}]) as fetch, patch.object(flake, "nix") as nix, patch.object(flake, "run"):
+        details = {
+            "path": str(self.root / "lazy-source"),
+            "originalUrl": "github:owner/repo/main",
+            "url": "github:owner/repo/abc",
+            "locked": {"__final": True, "type": "git", "rev": "abc", "narHash": "sha256-test",
+                       "dir": "sub", "lastModified": 123},
+        }
+        with patch.object(flake, "nix_json", side_effect=[details, {"nixos": ["host"]}]) as fetch, \
+                patch.object(flake, "nix", return_value=str(source)) as nix, patch.object(flake, "run") as run:
             backend, wrapper, data = flake.prepare("github:owner/repo/main#host", request_dir)
         self.assertEqual(backend.name, "nixos")
         self.assertEqual((source / "flake.lock").read_text(), "original lock")
         self.assertIn("--refresh", fetch.call_args_list[0].args)
         self.assertIn("--no-update-lock-file", fetch.call_args_list[0].args)
-        nix.assert_called_once_with("flake", "lock", *flake.WRAPPER_OPTIONS, str(wrapper))
+        materialize, lock = nix.call_args_list
+        self.assertEqual(materialize.args[:3], ("eval", "--raw", "--expr"))
+        self.assertIn('builtins.fetchTree (builtins.removeAttrs', materialize.args[3])
+        self.assertIn('"narHash" = "sha256-test";', materialize.args[3])
+        self.assertIn('[ "dir" ]', materialize.args[3])
+        self.assertNotIn('"__final"', materialize.args[3])
+        self.assertEqual(materialize.kwargs, {"capture": True})
+        self.assertEqual(lock.args, ("flake", "lock", *flake.WRAPPER_OPTIONS, str(wrapper)))
+        run.assert_called_once_with(["nix-store", "--realise", source, "--add-root", request_dir / "source"], capture=True)
         self.assertEqual(data["flake"], "github:owner/repo/main#host")
         locked = json.loads((wrapper / "locked-input.json").read_text())
         self.assertEqual(locked["type"], "git")
         self.assertEqual(locked["dir"], "sub")
         self.assertEqual(locked["lastModified"], 123)
         self.assertIn("original.extendModules", (wrapper / "flake.nix").read_text())
+
+    def test_prepare_rejects_unhashed_source_before_materializing(self):
+        details = {"locked": {"type": "git", "url": "file:///mutable"}}
+        with patch.object(flake, "nix_json", return_value=details), \
+                patch.object(flake, "nix") as nix, patch.object(flake, "run") as run:
+            with self.assertRaisesRegex(runtime.Error, "content hash"):
+                flake.prepare("git+file:///mutable", self.root)
+        nix.assert_not_called()
+        run.assert_not_called()
+        self.assertFalse((self.root / "flake").exists())
+
+    def test_prepare_stops_when_materialization_fails(self):
+        details = {"locked": {"type": "git", "narHash": "sha256-test"}}
+        for result in ("relative/source", str(self.root / "missing-source"),
+                       subprocess.CalledProcessError(1, ["nix", "eval"])):
+            with self.subTest(result=result), patch.object(flake, "nix_json", return_value=details), \
+                    patch.object(flake, "nix", side_effect=[result]), patch.object(flake, "run") as run:
+                with self.assertRaises((runtime.Error, subprocess.CalledProcessError)):
+                    flake.prepare("git+file:///mutable", self.root)
+                run.assert_not_called()
+                self.assertFalse((self.root / "flake").exists())
 
     def test_cli_parses_all_public_commands(self):
         for command in (["generation", "list"], ["generation", "info", "3"],
